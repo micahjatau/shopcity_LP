@@ -58,9 +58,25 @@ export class CreateDeviceDto {
   @IsString()
   name!: string;
 
-  @ApiProperty()
+  @ApiPropertyOptional({ description: 'Ignored legacy compatibility field' })
+  @IsOptional()
   @IsString()
-  fingerprintHash!: string;
+  fingerprintHash?: string;
+}
+
+export class CompleteDeviceEnrollmentDto {
+  @ApiProperty()
+  authorizationToken!: string;
+
+  @ApiProperty({ type: 'object', additionalProperties: true })
+  response!: Record<string, unknown>;
+}
+
+export class RevokeDeviceCredentialDto {
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  reason?: string;
 }
 
 export class UpdateDeviceDto {

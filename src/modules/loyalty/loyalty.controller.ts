@@ -14,6 +14,7 @@ import {
   ApiBearerAuth,
   ApiHeader,
   ApiOperation,
+  ApiQuery,
   ApiTags,
 } from '@nestjs/swagger';
 import { UserRole } from '@prisma/client';
@@ -66,6 +67,16 @@ const transactionLedgerItemSchema = {
   properties: {
     id: { type: 'string', format: 'uuid' },
     receiptId: { type: 'string', format: 'uuid', nullable: true },
+    source: {
+      type: 'string',
+      nullable: true,
+      description: 'POS receipt number associated with the ledger entry.',
+    },
+    staffUsername: {
+      type: 'string',
+      nullable: true,
+      description: 'Username of the staff member who created the ledger entry.',
+    },
     redemptionId: { type: 'string', format: 'uuid', nullable: true },
     type: {
       type: 'string',
@@ -157,11 +168,13 @@ const transactionResponseSchema = {
     'ledgerEntryId',
     'creditKobo',
     'redeemedAmountKobo',
+    'netPaidAmountKobo',
     'redemptionId',
     'availableBalanceKobo',
     'expiresAt',
     'smsStatus',
     'ledger',
+    'settlementEffects',
   ],
   properties: {
     id: { type: 'string', format: 'uuid' },
@@ -188,11 +201,32 @@ const transactionResponseSchema = {
     ledgerEntryId: { type: 'string', format: 'uuid' },
     creditKobo: { type: 'integer' },
     redeemedAmountKobo: { type: 'integer', nullable: true },
+    netPaidAmountKobo: { type: 'integer', nullable: true },
     redemptionId: { type: 'string', format: 'uuid', nullable: true },
     availableBalanceKobo: { type: 'integer' },
     expiresAt: { type: 'string', format: 'date-time', nullable: true },
     smsStatus: { type: 'string', nullable: true },
     ledger: transactionLedgerItemSchema,
+    settlementEffects: {
+      type: 'array',
+      items: {
+        type: 'object',
+        required: [
+          'transactionId',
+          'type',
+          'direction',
+          'amountKobo',
+          'status',
+        ],
+        properties: {
+          transactionId: { type: 'string', format: 'uuid' },
+          type: { type: 'string', enum: ['EARN', 'REDEEM'] },
+          direction: { type: 'string', enum: ['CREDIT', 'DEBIT'] },
+          amountKobo: { type: 'integer' },
+          status: { type: 'string', enum: ['CONFIRMED'] },
+        },
+      },
+    },
     adjustment: {
       type: 'object',
       nullable: true,
@@ -254,6 +288,54 @@ const customerLedgerResponseSchema = {
     items: {
       type: 'array',
       items: transactionLedgerItemSchema,
+    },
+    nextCursor: { type: 'string', nullable: true },
+    hasMore: { type: 'boolean' },
+  },
+} as const;
+
+const supervisorTransactionSearchSchema = {
+  type: 'object',
+  required: ['items', 'staffOptions', 'nextCursor', 'hasMore'],
+  properties: {
+    items: {
+      type: 'array',
+      items: {
+        type: 'object',
+        required: [
+          'transactionId',
+          'receiptNumber',
+          'operation',
+          'amountKobo',
+          'creditKobo',
+          'customerName',
+          'purchaseAmountKobo',
+          'status',
+          'occurredAt',
+        ],
+        properties: {
+          transactionId: { type: 'string', format: 'uuid' },
+          receiptNumber: { type: 'string' },
+          operation: { type: 'string', enum: ['EARN', 'REDEEM'] },
+          amountKobo: { type: 'integer' },
+          creditKobo: { type: 'integer', nullable: true },
+          customerName: { type: 'string', nullable: true },
+          purchaseAmountKobo: { type: 'integer', nullable: true },
+          status: { type: 'string', enum: ['CONFIRMED', 'REVERSED'] },
+          occurredAt: { type: 'string', format: 'date-time' },
+        },
+      },
+    },
+    staffOptions: {
+      type: 'array',
+      items: {
+        type: 'object',
+        required: ['id', 'label'],
+        properties: {
+          id: { type: 'string', format: 'uuid' },
+          label: { type: 'string' },
+        },
+      },
     },
     nextCursor: { type: 'string', nullable: true },
     hasMore: { type: 'boolean' },
@@ -331,6 +413,7 @@ const earnPendingApprovalResponseSchema = {
     'occurredAt',
     'capturedAt',
     'reviewStatus',
+    'reasonCode',
   ],
   properties: {
     id: { type: 'string', format: 'uuid' },
@@ -354,6 +437,10 @@ const earnPendingApprovalResponseSchema = {
     occurredAt: { type: 'string', format: 'date-time' },
     capturedAt: { type: 'string', format: 'date-time' },
     reviewStatus: { type: 'string', example: 'PENDING' },
+    reasonCode: {
+      type: 'string',
+      enum: ['PURCHASE_ABOVE_APPROVAL_THRESHOLD', 'LATE_RECEIPT_CLAIM'],
+    },
   },
 } as const;
 
@@ -462,6 +549,57 @@ export class LoyaltyController {
       });
   }
 
+  @Get('transactions')
+  @Version('1')
+  @Roles(UserRole.SUPERVISOR)
+  @ApiQuery({
+    name: 'receiptNumber',
+    required: false,
+    type: String,
+    description:
+      'Optional exact receipt-number filter; omitted to list the branch',
+  })
+  @ApiQuery({ name: 'limit', required: false, type: Number })
+  @ApiQuery({ name: 'cursor', required: false, type: String })
+  @ApiQuery({
+    name: 'status',
+    required: false,
+    enum: ['CONFIRMED', 'REVERSED'],
+  })
+  @ApiQuery({ name: 'staffId', required: false, type: String })
+  @ApiQuery({
+    name: 'minReceiptAmountKobo',
+    required: false,
+    schema: { type: 'string', pattern: '^[0-9]{1,19}$' },
+    description: 'Minimum receipt purchase amount in integer kobo',
+  })
+  @apiSuccessEnvelopeResponse({
+    description:
+      'Branch-scoped Supervisor transactions, optionally filtered by receipt number',
+    dataSchema: supervisorTransactionSearchSchema,
+  })
+  @ApiOperation({
+    summary: 'List and filter branch transactions',
+  })
+  searchTransactionsByReceipt(
+    @Req() request: AuthenticatedRequest,
+    @Query('receiptNumber') receiptNumber?: string,
+    @Query('limit') limit?: string,
+    @Query('cursor') cursor?: string,
+    @Query('status') status?: string,
+    @Query('staffId') staffId?: string,
+    @Query('minReceiptAmountKobo') minReceiptAmountKobo?: string,
+  ) {
+    return this.loyaltyService.searchTransactionsByReceipt(
+      request.authContext!.user.tenantId,
+      request.authContext!,
+      receiptNumber,
+      limit,
+      cursor,
+      { status, staffId, minReceiptAmountKobo },
+    );
+  }
+
   @Get('transactions/:id')
   @Version('1')
   @Roles(UserRole.CASHIER, UserRole.SUPERVISOR, UserRole.ADMIN)
@@ -493,7 +631,7 @@ export class LoyaltyController {
 
   @Get('customers/:id/ledger')
   @Version('1')
-  @Roles(UserRole.SUPERVISOR, UserRole.ADMIN)
+  @Roles(UserRole.CASHIER, UserRole.SUPERVISOR, UserRole.ADMIN)
   @apiSuccessEnvelopeResponse({
     description: 'Customer ledger for transactions',
     dataSchema: customerLedgerResponseSchema,

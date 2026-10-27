@@ -1,0 +1,5 @@
+schema: spec-driven
+created: 2026-09-21
+goal: Make the approved HTML prototypes the visible presentation source of truth
+  while preserving production controllers, authorization, and financial
+  behavior.

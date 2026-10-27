@@ -132,16 +132,14 @@ test('Cashier Earn requiring approval is visible to Supervisor', async ({
     await loginRoleInUi(supervisor, 'supervisor', config);
     await supervisor.goto('/supervisor/approvals');
     await expect(
-      supervisor.getByRole('heading', { name: 'Approvals', exact: true }),
+      supervisor.getByRole('heading', { name: 'Approval Centre', exact: true }),
     ).toBeVisible();
-    await supervisor.getByLabel('Approval page size').fill('20');
+    await supervisor.getByLabel('Approval page size').selectOption('20');
     await supervisor.getByLabel('Approval search').fill(approvalId);
     const refreshApprovals = supervisor.getByRole('button', {
-      name: /refresh approvals/i,
+      name: /^refresh/i,
     });
-    const approvalRows = supervisor
-      .locator('button')
-      .filter({ hasText: approvalId });
+    const approvalRows = supervisor.locator('.approval-queue__review');
     await expect
       .poll(
         async () => {
@@ -154,15 +152,15 @@ test('Cashier Earn requiring approval is visible to Supervisor', async ({
     await expect(approvalRows).toHaveCount(1);
     await approvalRows.first().click();
     await supervisor
-      .getByLabel('Approval reason')
+      .getByRole('textbox', { name: 'Decision reason (required)' })
       .fill(`[${run.smokeRunId}] smoke approval decision`);
     const decisionResponse = supervisor.waitForResponse(
       (response) =>
         response.url().includes(`/api/v1/approvals/${approvalId}/decision`) &&
         response.request().method() === 'POST',
     );
-    await supervisor.getByRole('button', { name: /submit decision/i }).click();
-    await expect(supervisor.getByText(/decision sent/i)).toBeVisible();
+    await supervisor.getByRole('button', { name: 'Approve' }).click();
+    await expect(supervisor.getByText(/decision submitted/i)).toBeVisible();
     const decisionHttpResponse = await decisionResponse;
     expect(decisionHttpResponse.status()).toBe(200);
     const decisionPayload = await decisionHttpResponse.json();

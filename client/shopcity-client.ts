@@ -11,6 +11,17 @@ export interface LoginDto {
   password: string;
 }
 
+export type CashierLoginCompleteDtoAssertion = { [key: string]: unknown };
+
+export interface CashierLoginCompleteDto {
+  /**
+   * @minLength 43
+   * @maxLength 43
+   */
+  attemptToken: string;
+  assertion: CashierLoginCompleteDtoAssertion;
+}
+
 export type SmokeSessionBootstrapDtoRole =
   (typeof SmokeSessionBootstrapDtoRole)[keyof typeof SmokeSessionBootstrapDtoRole];
 
@@ -95,7 +106,15 @@ export interface UpdateBranchDto {
 export interface CreateDeviceDto {
   branchId: string;
   name: string;
-  fingerprintHash: string;
+  /** Ignored legacy compatibility field */
+  fingerprintHash?: string;
+}
+
+export type CompleteDeviceEnrollmentDtoResponse = { [key: string]: unknown };
+
+export interface CompleteDeviceEnrollmentDto {
+  authorizationToken: string;
+  response: CompleteDeviceEnrollmentDtoResponse;
 }
 
 export type UpdateDeviceDtoStatus =
@@ -116,9 +135,20 @@ export interface UpdateDeviceDto {
 export interface CreateCustomerDto {
   fullName: string;
   phone: string;
+  /** Unused barcode for the initial customer card */
+  cardSerialNumber: string;
+  /** Affirmative acceptance of required loyalty-service terms */
+  loyaltyConsent: boolean;
+  /** Optional consent to marketing messages */
+  marketingOptIn: boolean;
   isStaff?: boolean;
   email?: string;
   branchId?: string;
+}
+
+export interface WithdrawCustomerMarketingPreferenceDto {
+  /** Authenticated store staff confirms the customer requested this change in person */
+  confirmedInPersonRequest: boolean;
 }
 
 export interface UpdateCustomerDto {
@@ -255,6 +285,48 @@ export const FraudFlagDecisionDtoDecision = {
 export interface FraudFlagDecisionDto {
   decision: FraudFlagDecisionDtoDecision;
   reason: string;
+}
+
+export interface UpdatePolicyConfigurationDto {
+  branchId: string;
+  /**
+   * @minimum 0
+   * @maximum 10000
+   */
+  defaultEarnRateBps: number;
+  /**
+   * @minimum 1
+   * @maximum 9007199254740991
+   */
+  minRedemptionKobo: number;
+  /**
+   * @minimum 1
+   * @maximum 100
+   */
+  maxRedemptionBasketPercent: number;
+  /**
+   * @minimum 0
+   * @maximum 9007199254740991
+   */
+  purchaseFlagThresholdKobo: number;
+  /**
+   * @minimum 0
+   * @maximum 9007199254740991
+   */
+  purchaseApprovalThresholdKobo: number;
+  /**
+   * @minimum 0
+   * @maximum 9007199254740991
+   */
+  purchaseAmountCeilingKobo: number;
+  /**
+   * @minimum 1
+   * @maximum 9007199254740991
+   */
+  redemptionApprovalThresholdKobo: number;
+  offlineRedemptionDisabled: boolean;
+  /** @minimum 0 */
+  expectedVersion: number;
 }
 
 export type AppControllerGetHelloV1200Meta = {
@@ -986,6 +1058,37 @@ export type AuthControllerLoginV1200 = {
   meta: AuthControllerLoginV1200Meta;
 };
 
+export type AuthControllerLoginV1202DataCode =
+  (typeof AuthControllerLoginV1202DataCode)[keyof typeof AuthControllerLoginV1202DataCode];
+
+export const AuthControllerLoginV1202DataCode = {
+  DEVICE_ASSERTION_REQUIRED: 'DEVICE_ASSERTION_REQUIRED',
+} as const;
+
+export type AuthControllerLoginV1202DataOptions = { [key: string]: unknown };
+
+export type AuthControllerLoginV1202Data = {
+  code: AuthControllerLoginV1202DataCode;
+  /**
+   * @minLength 43
+   * @maxLength 43
+   */
+  attemptToken: string;
+  options: AuthControllerLoginV1202DataOptions;
+};
+
+export type AuthControllerLoginV1202Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type AuthControllerLoginV1202 = {
+  success: boolean;
+  data: AuthControllerLoginV1202Data;
+  meta: AuthControllerLoginV1202Meta;
+};
+
 /**
  * @nullable
  */
@@ -1200,6 +1303,263 @@ export type AuthControllerLoginV1503 = {
   success: boolean;
   error: AuthControllerLoginV1503Error;
   meta: AuthControllerLoginV1503Meta;
+};
+
+export type AuthControllerCompleteCashierLoginV1200DataUserRole =
+  (typeof AuthControllerCompleteCashierLoginV1200DataUserRole)[keyof typeof AuthControllerCompleteCashierLoginV1200DataUserRole];
+
+export const AuthControllerCompleteCashierLoginV1200DataUserRole = {
+  CASHIER: 'CASHIER',
+  SUPERVISOR: 'SUPERVISOR',
+  ADMIN: 'ADMIN',
+  SYSTEM: 'SYSTEM',
+} as const;
+
+export type AuthControllerCompleteCashierLoginV1200DataUser = {
+  id: string;
+  username: string;
+  role: AuthControllerCompleteCashierLoginV1200DataUserRole;
+  /** @nullable */
+  branchId: string | null;
+};
+
+export type AuthControllerCompleteCashierLoginV1200DataSession = {
+  expiresAt: string;
+  /** @nullable */
+  deviceId: string | null;
+};
+
+export type AuthControllerCompleteCashierLoginV1200Data = {
+  user: AuthControllerCompleteCashierLoginV1200DataUser;
+  session: AuthControllerCompleteCashierLoginV1200DataSession;
+};
+
+export type AuthControllerCompleteCashierLoginV1200Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type AuthControllerCompleteCashierLoginV1200 = {
+  success: boolean;
+  data: AuthControllerCompleteCashierLoginV1200Data;
+  meta: AuthControllerCompleteCashierLoginV1200Meta;
+};
+
+/**
+ * @nullable
+ */
+export type AuthControllerCompleteCashierLoginV1400ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type AuthControllerCompleteCashierLoginV1400Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: AuthControllerCompleteCashierLoginV1400ErrorDetails;
+};
+
+export type AuthControllerCompleteCashierLoginV1400Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type AuthControllerCompleteCashierLoginV1400 = {
+  success: boolean;
+  error: AuthControllerCompleteCashierLoginV1400Error;
+  meta: AuthControllerCompleteCashierLoginV1400Meta;
+};
+
+/**
+ * @nullable
+ */
+export type AuthControllerCompleteCashierLoginV1401ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type AuthControllerCompleteCashierLoginV1401Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: AuthControllerCompleteCashierLoginV1401ErrorDetails;
+};
+
+export type AuthControllerCompleteCashierLoginV1401Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type AuthControllerCompleteCashierLoginV1401 = {
+  success: boolean;
+  error: AuthControllerCompleteCashierLoginV1401Error;
+  meta: AuthControllerCompleteCashierLoginV1401Meta;
+};
+
+/**
+ * @nullable
+ */
+export type AuthControllerCompleteCashierLoginV1403ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type AuthControllerCompleteCashierLoginV1403Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: AuthControllerCompleteCashierLoginV1403ErrorDetails;
+};
+
+export type AuthControllerCompleteCashierLoginV1403Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type AuthControllerCompleteCashierLoginV1403 = {
+  success: boolean;
+  error: AuthControllerCompleteCashierLoginV1403Error;
+  meta: AuthControllerCompleteCashierLoginV1403Meta;
+};
+
+/**
+ * @nullable
+ */
+export type AuthControllerCompleteCashierLoginV1404ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type AuthControllerCompleteCashierLoginV1404Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: AuthControllerCompleteCashierLoginV1404ErrorDetails;
+};
+
+export type AuthControllerCompleteCashierLoginV1404Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type AuthControllerCompleteCashierLoginV1404 = {
+  success: boolean;
+  error: AuthControllerCompleteCashierLoginV1404Error;
+  meta: AuthControllerCompleteCashierLoginV1404Meta;
+};
+
+/**
+ * @nullable
+ */
+export type AuthControllerCompleteCashierLoginV1409ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type AuthControllerCompleteCashierLoginV1409Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: AuthControllerCompleteCashierLoginV1409ErrorDetails;
+};
+
+export type AuthControllerCompleteCashierLoginV1409Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type AuthControllerCompleteCashierLoginV1409 = {
+  success: boolean;
+  error: AuthControllerCompleteCashierLoginV1409Error;
+  meta: AuthControllerCompleteCashierLoginV1409Meta;
+};
+
+/**
+ * @nullable
+ */
+export type AuthControllerCompleteCashierLoginV1422ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type AuthControllerCompleteCashierLoginV1422Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: AuthControllerCompleteCashierLoginV1422ErrorDetails;
+};
+
+export type AuthControllerCompleteCashierLoginV1422Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type AuthControllerCompleteCashierLoginV1422 = {
+  success: boolean;
+  error: AuthControllerCompleteCashierLoginV1422Error;
+  meta: AuthControllerCompleteCashierLoginV1422Meta;
+};
+
+/**
+ * @nullable
+ */
+export type AuthControllerCompleteCashierLoginV1429ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type AuthControllerCompleteCashierLoginV1429Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: AuthControllerCompleteCashierLoginV1429ErrorDetails;
+};
+
+export type AuthControllerCompleteCashierLoginV1429Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type AuthControllerCompleteCashierLoginV1429 = {
+  success: boolean;
+  error: AuthControllerCompleteCashierLoginV1429Error;
+  meta: AuthControllerCompleteCashierLoginV1429Meta;
+};
+
+/**
+ * @nullable
+ */
+export type AuthControllerCompleteCashierLoginV1503ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type AuthControllerCompleteCashierLoginV1503Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: AuthControllerCompleteCashierLoginV1503ErrorDetails;
+};
+
+export type AuthControllerCompleteCashierLoginV1503Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type AuthControllerCompleteCashierLoginV1503 = {
+  success: boolean;
+  error: AuthControllerCompleteCashierLoginV1503Error;
+  meta: AuthControllerCompleteCashierLoginV1503Meta;
 };
 
 export type AuthControllerSmokeSessionV1200DataUserRole =
@@ -2897,6 +3257,242 @@ export type UsersControllerCreateUserV1503 = {
   meta: UsersControllerCreateUserV1503Meta;
 };
 
+export type UsersControllerListCashiersV1Params = {
+  q: string;
+};
+
+export type UsersControllerListCashiersV1200DataItem = {
+  [key: string]: unknown;
+};
+
+export type UsersControllerListCashiersV1200Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type UsersControllerListCashiersV1200 = {
+  success: boolean;
+  data: UsersControllerListCashiersV1200DataItem[];
+  meta: UsersControllerListCashiersV1200Meta;
+};
+
+/**
+ * @nullable
+ */
+export type UsersControllerListCashiersV1400ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type UsersControllerListCashiersV1400Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: UsersControllerListCashiersV1400ErrorDetails;
+};
+
+export type UsersControllerListCashiersV1400Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type UsersControllerListCashiersV1400 = {
+  success: boolean;
+  error: UsersControllerListCashiersV1400Error;
+  meta: UsersControllerListCashiersV1400Meta;
+};
+
+/**
+ * @nullable
+ */
+export type UsersControllerListCashiersV1401ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type UsersControllerListCashiersV1401Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: UsersControllerListCashiersV1401ErrorDetails;
+};
+
+export type UsersControllerListCashiersV1401Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type UsersControllerListCashiersV1401 = {
+  success: boolean;
+  error: UsersControllerListCashiersV1401Error;
+  meta: UsersControllerListCashiersV1401Meta;
+};
+
+/**
+ * @nullable
+ */
+export type UsersControllerListCashiersV1403ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type UsersControllerListCashiersV1403Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: UsersControllerListCashiersV1403ErrorDetails;
+};
+
+export type UsersControllerListCashiersV1403Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type UsersControllerListCashiersV1403 = {
+  success: boolean;
+  error: UsersControllerListCashiersV1403Error;
+  meta: UsersControllerListCashiersV1403Meta;
+};
+
+/**
+ * @nullable
+ */
+export type UsersControllerListCashiersV1404ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type UsersControllerListCashiersV1404Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: UsersControllerListCashiersV1404ErrorDetails;
+};
+
+export type UsersControllerListCashiersV1404Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type UsersControllerListCashiersV1404 = {
+  success: boolean;
+  error: UsersControllerListCashiersV1404Error;
+  meta: UsersControllerListCashiersV1404Meta;
+};
+
+/**
+ * @nullable
+ */
+export type UsersControllerListCashiersV1409ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type UsersControllerListCashiersV1409Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: UsersControllerListCashiersV1409ErrorDetails;
+};
+
+export type UsersControllerListCashiersV1409Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type UsersControllerListCashiersV1409 = {
+  success: boolean;
+  error: UsersControllerListCashiersV1409Error;
+  meta: UsersControllerListCashiersV1409Meta;
+};
+
+/**
+ * @nullable
+ */
+export type UsersControllerListCashiersV1422ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type UsersControllerListCashiersV1422Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: UsersControllerListCashiersV1422ErrorDetails;
+};
+
+export type UsersControllerListCashiersV1422Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type UsersControllerListCashiersV1422 = {
+  success: boolean;
+  error: UsersControllerListCashiersV1422Error;
+  meta: UsersControllerListCashiersV1422Meta;
+};
+
+/**
+ * @nullable
+ */
+export type UsersControllerListCashiersV1429ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type UsersControllerListCashiersV1429Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: UsersControllerListCashiersV1429ErrorDetails;
+};
+
+export type UsersControllerListCashiersV1429Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type UsersControllerListCashiersV1429 = {
+  success: boolean;
+  error: UsersControllerListCashiersV1429Error;
+  meta: UsersControllerListCashiersV1429Meta;
+};
+
+/**
+ * @nullable
+ */
+export type UsersControllerListCashiersV1503ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type UsersControllerListCashiersV1503Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: UsersControllerListCashiersV1503ErrorDetails;
+};
+
+export type UsersControllerListCashiersV1503Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type UsersControllerListCashiersV1503 = {
+  success: boolean;
+  error: UsersControllerListCashiersV1503Error;
+  meta: UsersControllerListCashiersV1503Meta;
+};
+
 export type UsersControllerUpdateRoleV1200Data = { [key: string]: unknown };
 
 export type UsersControllerUpdateRoleV1200Meta = {
@@ -4517,6 +5113,1398 @@ export type BranchesControllerCreateDeviceV1503 = {
   meta: BranchesControllerCreateDeviceV1503Meta;
 };
 
+export type BranchesControllerPairDeviceTokenV1200Data = {
+  [key: string]: unknown;
+};
+
+export type BranchesControllerPairDeviceTokenV1200Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type BranchesControllerPairDeviceTokenV1200 = {
+  success: boolean;
+  data: BranchesControllerPairDeviceTokenV1200Data;
+  meta: BranchesControllerPairDeviceTokenV1200Meta;
+};
+
+/**
+ * @nullable
+ */
+export type BranchesControllerPairDeviceTokenV1400ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type BranchesControllerPairDeviceTokenV1400Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: BranchesControllerPairDeviceTokenV1400ErrorDetails;
+};
+
+export type BranchesControllerPairDeviceTokenV1400Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type BranchesControllerPairDeviceTokenV1400 = {
+  success: boolean;
+  error: BranchesControllerPairDeviceTokenV1400Error;
+  meta: BranchesControllerPairDeviceTokenV1400Meta;
+};
+
+/**
+ * @nullable
+ */
+export type BranchesControllerPairDeviceTokenV1401ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type BranchesControllerPairDeviceTokenV1401Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: BranchesControllerPairDeviceTokenV1401ErrorDetails;
+};
+
+export type BranchesControllerPairDeviceTokenV1401Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type BranchesControllerPairDeviceTokenV1401 = {
+  success: boolean;
+  error: BranchesControllerPairDeviceTokenV1401Error;
+  meta: BranchesControllerPairDeviceTokenV1401Meta;
+};
+
+/**
+ * @nullable
+ */
+export type BranchesControllerPairDeviceTokenV1403ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type BranchesControllerPairDeviceTokenV1403Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: BranchesControllerPairDeviceTokenV1403ErrorDetails;
+};
+
+export type BranchesControllerPairDeviceTokenV1403Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type BranchesControllerPairDeviceTokenV1403 = {
+  success: boolean;
+  error: BranchesControllerPairDeviceTokenV1403Error;
+  meta: BranchesControllerPairDeviceTokenV1403Meta;
+};
+
+/**
+ * @nullable
+ */
+export type BranchesControllerPairDeviceTokenV1404ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type BranchesControllerPairDeviceTokenV1404Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: BranchesControllerPairDeviceTokenV1404ErrorDetails;
+};
+
+export type BranchesControllerPairDeviceTokenV1404Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type BranchesControllerPairDeviceTokenV1404 = {
+  success: boolean;
+  error: BranchesControllerPairDeviceTokenV1404Error;
+  meta: BranchesControllerPairDeviceTokenV1404Meta;
+};
+
+/**
+ * @nullable
+ */
+export type BranchesControllerPairDeviceTokenV1409ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type BranchesControllerPairDeviceTokenV1409Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: BranchesControllerPairDeviceTokenV1409ErrorDetails;
+};
+
+export type BranchesControllerPairDeviceTokenV1409Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type BranchesControllerPairDeviceTokenV1409 = {
+  success: boolean;
+  error: BranchesControllerPairDeviceTokenV1409Error;
+  meta: BranchesControllerPairDeviceTokenV1409Meta;
+};
+
+/**
+ * @nullable
+ */
+export type BranchesControllerPairDeviceTokenV1422ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type BranchesControllerPairDeviceTokenV1422Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: BranchesControllerPairDeviceTokenV1422ErrorDetails;
+};
+
+export type BranchesControllerPairDeviceTokenV1422Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type BranchesControllerPairDeviceTokenV1422 = {
+  success: boolean;
+  error: BranchesControllerPairDeviceTokenV1422Error;
+  meta: BranchesControllerPairDeviceTokenV1422Meta;
+};
+
+/**
+ * @nullable
+ */
+export type BranchesControllerPairDeviceTokenV1429ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type BranchesControllerPairDeviceTokenV1429Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: BranchesControllerPairDeviceTokenV1429ErrorDetails;
+};
+
+export type BranchesControllerPairDeviceTokenV1429Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type BranchesControllerPairDeviceTokenV1429 = {
+  success: boolean;
+  error: BranchesControllerPairDeviceTokenV1429Error;
+  meta: BranchesControllerPairDeviceTokenV1429Meta;
+};
+
+/**
+ * @nullable
+ */
+export type BranchesControllerPairDeviceTokenV1503ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type BranchesControllerPairDeviceTokenV1503Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: BranchesControllerPairDeviceTokenV1503ErrorDetails;
+};
+
+export type BranchesControllerPairDeviceTokenV1503Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type BranchesControllerPairDeviceTokenV1503 = {
+  success: boolean;
+  error: BranchesControllerPairDeviceTokenV1503Error;
+  meta: BranchesControllerPairDeviceTokenV1503Meta;
+};
+
+export type BranchesControllerResetDeviceTokenV1200Data = {
+  [key: string]: unknown;
+};
+
+export type BranchesControllerResetDeviceTokenV1200Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type BranchesControllerResetDeviceTokenV1200 = {
+  success: boolean;
+  data: BranchesControllerResetDeviceTokenV1200Data;
+  meta: BranchesControllerResetDeviceTokenV1200Meta;
+};
+
+/**
+ * @nullable
+ */
+export type BranchesControllerResetDeviceTokenV1400ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type BranchesControllerResetDeviceTokenV1400Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: BranchesControllerResetDeviceTokenV1400ErrorDetails;
+};
+
+export type BranchesControllerResetDeviceTokenV1400Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type BranchesControllerResetDeviceTokenV1400 = {
+  success: boolean;
+  error: BranchesControllerResetDeviceTokenV1400Error;
+  meta: BranchesControllerResetDeviceTokenV1400Meta;
+};
+
+/**
+ * @nullable
+ */
+export type BranchesControllerResetDeviceTokenV1401ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type BranchesControllerResetDeviceTokenV1401Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: BranchesControllerResetDeviceTokenV1401ErrorDetails;
+};
+
+export type BranchesControllerResetDeviceTokenV1401Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type BranchesControllerResetDeviceTokenV1401 = {
+  success: boolean;
+  error: BranchesControllerResetDeviceTokenV1401Error;
+  meta: BranchesControllerResetDeviceTokenV1401Meta;
+};
+
+/**
+ * @nullable
+ */
+export type BranchesControllerResetDeviceTokenV1403ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type BranchesControllerResetDeviceTokenV1403Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: BranchesControllerResetDeviceTokenV1403ErrorDetails;
+};
+
+export type BranchesControllerResetDeviceTokenV1403Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type BranchesControllerResetDeviceTokenV1403 = {
+  success: boolean;
+  error: BranchesControllerResetDeviceTokenV1403Error;
+  meta: BranchesControllerResetDeviceTokenV1403Meta;
+};
+
+/**
+ * @nullable
+ */
+export type BranchesControllerResetDeviceTokenV1404ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type BranchesControllerResetDeviceTokenV1404Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: BranchesControllerResetDeviceTokenV1404ErrorDetails;
+};
+
+export type BranchesControllerResetDeviceTokenV1404Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type BranchesControllerResetDeviceTokenV1404 = {
+  success: boolean;
+  error: BranchesControllerResetDeviceTokenV1404Error;
+  meta: BranchesControllerResetDeviceTokenV1404Meta;
+};
+
+/**
+ * @nullable
+ */
+export type BranchesControllerResetDeviceTokenV1409ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type BranchesControllerResetDeviceTokenV1409Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: BranchesControllerResetDeviceTokenV1409ErrorDetails;
+};
+
+export type BranchesControllerResetDeviceTokenV1409Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type BranchesControllerResetDeviceTokenV1409 = {
+  success: boolean;
+  error: BranchesControllerResetDeviceTokenV1409Error;
+  meta: BranchesControllerResetDeviceTokenV1409Meta;
+};
+
+/**
+ * @nullable
+ */
+export type BranchesControllerResetDeviceTokenV1422ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type BranchesControllerResetDeviceTokenV1422Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: BranchesControllerResetDeviceTokenV1422ErrorDetails;
+};
+
+export type BranchesControllerResetDeviceTokenV1422Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type BranchesControllerResetDeviceTokenV1422 = {
+  success: boolean;
+  error: BranchesControllerResetDeviceTokenV1422Error;
+  meta: BranchesControllerResetDeviceTokenV1422Meta;
+};
+
+/**
+ * @nullable
+ */
+export type BranchesControllerResetDeviceTokenV1429ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type BranchesControllerResetDeviceTokenV1429Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: BranchesControllerResetDeviceTokenV1429ErrorDetails;
+};
+
+export type BranchesControllerResetDeviceTokenV1429Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type BranchesControllerResetDeviceTokenV1429 = {
+  success: boolean;
+  error: BranchesControllerResetDeviceTokenV1429Error;
+  meta: BranchesControllerResetDeviceTokenV1429Meta;
+};
+
+/**
+ * @nullable
+ */
+export type BranchesControllerResetDeviceTokenV1503ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type BranchesControllerResetDeviceTokenV1503Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: BranchesControllerResetDeviceTokenV1503ErrorDetails;
+};
+
+export type BranchesControllerResetDeviceTokenV1503Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type BranchesControllerResetDeviceTokenV1503 = {
+  success: boolean;
+  error: BranchesControllerResetDeviceTokenV1503Error;
+  meta: BranchesControllerResetDeviceTokenV1503Meta;
+};
+
+export type BranchesControllerCreateDeviceEnrollmentV1201Data = {
+  [key: string]: unknown;
+};
+
+export type BranchesControllerCreateDeviceEnrollmentV1201Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type BranchesControllerCreateDeviceEnrollmentV1201 = {
+  success: boolean;
+  data: BranchesControllerCreateDeviceEnrollmentV1201Data;
+  meta: BranchesControllerCreateDeviceEnrollmentV1201Meta;
+};
+
+/**
+ * @nullable
+ */
+export type BranchesControllerCreateDeviceEnrollmentV1400ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type BranchesControllerCreateDeviceEnrollmentV1400Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: BranchesControllerCreateDeviceEnrollmentV1400ErrorDetails;
+};
+
+export type BranchesControllerCreateDeviceEnrollmentV1400Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type BranchesControllerCreateDeviceEnrollmentV1400 = {
+  success: boolean;
+  error: BranchesControllerCreateDeviceEnrollmentV1400Error;
+  meta: BranchesControllerCreateDeviceEnrollmentV1400Meta;
+};
+
+/**
+ * @nullable
+ */
+export type BranchesControllerCreateDeviceEnrollmentV1401ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type BranchesControllerCreateDeviceEnrollmentV1401Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: BranchesControllerCreateDeviceEnrollmentV1401ErrorDetails;
+};
+
+export type BranchesControllerCreateDeviceEnrollmentV1401Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type BranchesControllerCreateDeviceEnrollmentV1401 = {
+  success: boolean;
+  error: BranchesControllerCreateDeviceEnrollmentV1401Error;
+  meta: BranchesControllerCreateDeviceEnrollmentV1401Meta;
+};
+
+/**
+ * @nullable
+ */
+export type BranchesControllerCreateDeviceEnrollmentV1403ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type BranchesControllerCreateDeviceEnrollmentV1403Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: BranchesControllerCreateDeviceEnrollmentV1403ErrorDetails;
+};
+
+export type BranchesControllerCreateDeviceEnrollmentV1403Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type BranchesControllerCreateDeviceEnrollmentV1403 = {
+  success: boolean;
+  error: BranchesControllerCreateDeviceEnrollmentV1403Error;
+  meta: BranchesControllerCreateDeviceEnrollmentV1403Meta;
+};
+
+/**
+ * @nullable
+ */
+export type BranchesControllerCreateDeviceEnrollmentV1404ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type BranchesControllerCreateDeviceEnrollmentV1404Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: BranchesControllerCreateDeviceEnrollmentV1404ErrorDetails;
+};
+
+export type BranchesControllerCreateDeviceEnrollmentV1404Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type BranchesControllerCreateDeviceEnrollmentV1404 = {
+  success: boolean;
+  error: BranchesControllerCreateDeviceEnrollmentV1404Error;
+  meta: BranchesControllerCreateDeviceEnrollmentV1404Meta;
+};
+
+/**
+ * @nullable
+ */
+export type BranchesControllerCreateDeviceEnrollmentV1409ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type BranchesControllerCreateDeviceEnrollmentV1409Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: BranchesControllerCreateDeviceEnrollmentV1409ErrorDetails;
+};
+
+export type BranchesControllerCreateDeviceEnrollmentV1409Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type BranchesControllerCreateDeviceEnrollmentV1409 = {
+  success: boolean;
+  error: BranchesControllerCreateDeviceEnrollmentV1409Error;
+  meta: BranchesControllerCreateDeviceEnrollmentV1409Meta;
+};
+
+/**
+ * @nullable
+ */
+export type BranchesControllerCreateDeviceEnrollmentV1422ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type BranchesControllerCreateDeviceEnrollmentV1422Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: BranchesControllerCreateDeviceEnrollmentV1422ErrorDetails;
+};
+
+export type BranchesControllerCreateDeviceEnrollmentV1422Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type BranchesControllerCreateDeviceEnrollmentV1422 = {
+  success: boolean;
+  error: BranchesControllerCreateDeviceEnrollmentV1422Error;
+  meta: BranchesControllerCreateDeviceEnrollmentV1422Meta;
+};
+
+/**
+ * @nullable
+ */
+export type BranchesControllerCreateDeviceEnrollmentV1429ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type BranchesControllerCreateDeviceEnrollmentV1429Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: BranchesControllerCreateDeviceEnrollmentV1429ErrorDetails;
+};
+
+export type BranchesControllerCreateDeviceEnrollmentV1429Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type BranchesControllerCreateDeviceEnrollmentV1429 = {
+  success: boolean;
+  error: BranchesControllerCreateDeviceEnrollmentV1429Error;
+  meta: BranchesControllerCreateDeviceEnrollmentV1429Meta;
+};
+
+/**
+ * @nullable
+ */
+export type BranchesControllerCreateDeviceEnrollmentV1503ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type BranchesControllerCreateDeviceEnrollmentV1503Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: BranchesControllerCreateDeviceEnrollmentV1503ErrorDetails;
+};
+
+export type BranchesControllerCreateDeviceEnrollmentV1503Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type BranchesControllerCreateDeviceEnrollmentV1503 = {
+  success: boolean;
+  error: BranchesControllerCreateDeviceEnrollmentV1503Error;
+  meta: BranchesControllerCreateDeviceEnrollmentV1503Meta;
+};
+
+export type BranchesControllerCompleteDeviceEnrollmentV1200Data = {
+  [key: string]: unknown;
+};
+
+export type BranchesControllerCompleteDeviceEnrollmentV1200Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type BranchesControllerCompleteDeviceEnrollmentV1200 = {
+  success: boolean;
+  data: BranchesControllerCompleteDeviceEnrollmentV1200Data;
+  meta: BranchesControllerCompleteDeviceEnrollmentV1200Meta;
+};
+
+/**
+ * @nullable
+ */
+export type BranchesControllerCompleteDeviceEnrollmentV1400ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type BranchesControllerCompleteDeviceEnrollmentV1400Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: BranchesControllerCompleteDeviceEnrollmentV1400ErrorDetails;
+};
+
+export type BranchesControllerCompleteDeviceEnrollmentV1400Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type BranchesControllerCompleteDeviceEnrollmentV1400 = {
+  success: boolean;
+  error: BranchesControllerCompleteDeviceEnrollmentV1400Error;
+  meta: BranchesControllerCompleteDeviceEnrollmentV1400Meta;
+};
+
+/**
+ * @nullable
+ */
+export type BranchesControllerCompleteDeviceEnrollmentV1401ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type BranchesControllerCompleteDeviceEnrollmentV1401Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: BranchesControllerCompleteDeviceEnrollmentV1401ErrorDetails;
+};
+
+export type BranchesControllerCompleteDeviceEnrollmentV1401Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type BranchesControllerCompleteDeviceEnrollmentV1401 = {
+  success: boolean;
+  error: BranchesControllerCompleteDeviceEnrollmentV1401Error;
+  meta: BranchesControllerCompleteDeviceEnrollmentV1401Meta;
+};
+
+/**
+ * @nullable
+ */
+export type BranchesControllerCompleteDeviceEnrollmentV1403ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type BranchesControllerCompleteDeviceEnrollmentV1403Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: BranchesControllerCompleteDeviceEnrollmentV1403ErrorDetails;
+};
+
+export type BranchesControllerCompleteDeviceEnrollmentV1403Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type BranchesControllerCompleteDeviceEnrollmentV1403 = {
+  success: boolean;
+  error: BranchesControllerCompleteDeviceEnrollmentV1403Error;
+  meta: BranchesControllerCompleteDeviceEnrollmentV1403Meta;
+};
+
+/**
+ * @nullable
+ */
+export type BranchesControllerCompleteDeviceEnrollmentV1404ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type BranchesControllerCompleteDeviceEnrollmentV1404Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: BranchesControllerCompleteDeviceEnrollmentV1404ErrorDetails;
+};
+
+export type BranchesControllerCompleteDeviceEnrollmentV1404Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type BranchesControllerCompleteDeviceEnrollmentV1404 = {
+  success: boolean;
+  error: BranchesControllerCompleteDeviceEnrollmentV1404Error;
+  meta: BranchesControllerCompleteDeviceEnrollmentV1404Meta;
+};
+
+/**
+ * @nullable
+ */
+export type BranchesControllerCompleteDeviceEnrollmentV1409ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type BranchesControllerCompleteDeviceEnrollmentV1409Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: BranchesControllerCompleteDeviceEnrollmentV1409ErrorDetails;
+};
+
+export type BranchesControllerCompleteDeviceEnrollmentV1409Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type BranchesControllerCompleteDeviceEnrollmentV1409 = {
+  success: boolean;
+  error: BranchesControllerCompleteDeviceEnrollmentV1409Error;
+  meta: BranchesControllerCompleteDeviceEnrollmentV1409Meta;
+};
+
+/**
+ * @nullable
+ */
+export type BranchesControllerCompleteDeviceEnrollmentV1422ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type BranchesControllerCompleteDeviceEnrollmentV1422Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: BranchesControllerCompleteDeviceEnrollmentV1422ErrorDetails;
+};
+
+export type BranchesControllerCompleteDeviceEnrollmentV1422Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type BranchesControllerCompleteDeviceEnrollmentV1422 = {
+  success: boolean;
+  error: BranchesControllerCompleteDeviceEnrollmentV1422Error;
+  meta: BranchesControllerCompleteDeviceEnrollmentV1422Meta;
+};
+
+/**
+ * @nullable
+ */
+export type BranchesControllerCompleteDeviceEnrollmentV1429ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type BranchesControllerCompleteDeviceEnrollmentV1429Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: BranchesControllerCompleteDeviceEnrollmentV1429ErrorDetails;
+};
+
+export type BranchesControllerCompleteDeviceEnrollmentV1429Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type BranchesControllerCompleteDeviceEnrollmentV1429 = {
+  success: boolean;
+  error: BranchesControllerCompleteDeviceEnrollmentV1429Error;
+  meta: BranchesControllerCompleteDeviceEnrollmentV1429Meta;
+};
+
+/**
+ * @nullable
+ */
+export type BranchesControllerCompleteDeviceEnrollmentV1503ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type BranchesControllerCompleteDeviceEnrollmentV1503Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: BranchesControllerCompleteDeviceEnrollmentV1503ErrorDetails;
+};
+
+export type BranchesControllerCompleteDeviceEnrollmentV1503Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type BranchesControllerCompleteDeviceEnrollmentV1503 = {
+  success: boolean;
+  error: BranchesControllerCompleteDeviceEnrollmentV1503Error;
+  meta: BranchesControllerCompleteDeviceEnrollmentV1503Meta;
+};
+
+export type BranchesControllerListDeviceCredentialsV1200DataItem = {
+  [key: string]: unknown;
+};
+
+export type BranchesControllerListDeviceCredentialsV1200Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type BranchesControllerListDeviceCredentialsV1200 = {
+  success: boolean;
+  data: BranchesControllerListDeviceCredentialsV1200DataItem[];
+  meta: BranchesControllerListDeviceCredentialsV1200Meta;
+};
+
+/**
+ * @nullable
+ */
+export type BranchesControllerListDeviceCredentialsV1400ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type BranchesControllerListDeviceCredentialsV1400Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: BranchesControllerListDeviceCredentialsV1400ErrorDetails;
+};
+
+export type BranchesControllerListDeviceCredentialsV1400Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type BranchesControllerListDeviceCredentialsV1400 = {
+  success: boolean;
+  error: BranchesControllerListDeviceCredentialsV1400Error;
+  meta: BranchesControllerListDeviceCredentialsV1400Meta;
+};
+
+/**
+ * @nullable
+ */
+export type BranchesControllerListDeviceCredentialsV1401ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type BranchesControllerListDeviceCredentialsV1401Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: BranchesControllerListDeviceCredentialsV1401ErrorDetails;
+};
+
+export type BranchesControllerListDeviceCredentialsV1401Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type BranchesControllerListDeviceCredentialsV1401 = {
+  success: boolean;
+  error: BranchesControllerListDeviceCredentialsV1401Error;
+  meta: BranchesControllerListDeviceCredentialsV1401Meta;
+};
+
+/**
+ * @nullable
+ */
+export type BranchesControllerListDeviceCredentialsV1403ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type BranchesControllerListDeviceCredentialsV1403Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: BranchesControllerListDeviceCredentialsV1403ErrorDetails;
+};
+
+export type BranchesControllerListDeviceCredentialsV1403Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type BranchesControllerListDeviceCredentialsV1403 = {
+  success: boolean;
+  error: BranchesControllerListDeviceCredentialsV1403Error;
+  meta: BranchesControllerListDeviceCredentialsV1403Meta;
+};
+
+/**
+ * @nullable
+ */
+export type BranchesControllerListDeviceCredentialsV1404ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type BranchesControllerListDeviceCredentialsV1404Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: BranchesControllerListDeviceCredentialsV1404ErrorDetails;
+};
+
+export type BranchesControllerListDeviceCredentialsV1404Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type BranchesControllerListDeviceCredentialsV1404 = {
+  success: boolean;
+  error: BranchesControllerListDeviceCredentialsV1404Error;
+  meta: BranchesControllerListDeviceCredentialsV1404Meta;
+};
+
+/**
+ * @nullable
+ */
+export type BranchesControllerListDeviceCredentialsV1409ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type BranchesControllerListDeviceCredentialsV1409Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: BranchesControllerListDeviceCredentialsV1409ErrorDetails;
+};
+
+export type BranchesControllerListDeviceCredentialsV1409Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type BranchesControllerListDeviceCredentialsV1409 = {
+  success: boolean;
+  error: BranchesControllerListDeviceCredentialsV1409Error;
+  meta: BranchesControllerListDeviceCredentialsV1409Meta;
+};
+
+/**
+ * @nullable
+ */
+export type BranchesControllerListDeviceCredentialsV1422ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type BranchesControllerListDeviceCredentialsV1422Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: BranchesControllerListDeviceCredentialsV1422ErrorDetails;
+};
+
+export type BranchesControllerListDeviceCredentialsV1422Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type BranchesControllerListDeviceCredentialsV1422 = {
+  success: boolean;
+  error: BranchesControllerListDeviceCredentialsV1422Error;
+  meta: BranchesControllerListDeviceCredentialsV1422Meta;
+};
+
+/**
+ * @nullable
+ */
+export type BranchesControllerListDeviceCredentialsV1429ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type BranchesControllerListDeviceCredentialsV1429Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: BranchesControllerListDeviceCredentialsV1429ErrorDetails;
+};
+
+export type BranchesControllerListDeviceCredentialsV1429Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type BranchesControllerListDeviceCredentialsV1429 = {
+  success: boolean;
+  error: BranchesControllerListDeviceCredentialsV1429Error;
+  meta: BranchesControllerListDeviceCredentialsV1429Meta;
+};
+
+/**
+ * @nullable
+ */
+export type BranchesControllerListDeviceCredentialsV1503ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type BranchesControllerListDeviceCredentialsV1503Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: BranchesControllerListDeviceCredentialsV1503ErrorDetails;
+};
+
+export type BranchesControllerListDeviceCredentialsV1503Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type BranchesControllerListDeviceCredentialsV1503 = {
+  success: boolean;
+  error: BranchesControllerListDeviceCredentialsV1503Error;
+  meta: BranchesControllerListDeviceCredentialsV1503Meta;
+};
+
+export type BranchesControllerRevokeDeviceCredentialV1200Data = {
+  [key: string]: unknown;
+};
+
+export type BranchesControllerRevokeDeviceCredentialV1200Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type BranchesControllerRevokeDeviceCredentialV1200 = {
+  success: boolean;
+  data: BranchesControllerRevokeDeviceCredentialV1200Data;
+  meta: BranchesControllerRevokeDeviceCredentialV1200Meta;
+};
+
+/**
+ * @nullable
+ */
+export type BranchesControllerRevokeDeviceCredentialV1400ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type BranchesControllerRevokeDeviceCredentialV1400Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: BranchesControllerRevokeDeviceCredentialV1400ErrorDetails;
+};
+
+export type BranchesControllerRevokeDeviceCredentialV1400Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type BranchesControllerRevokeDeviceCredentialV1400 = {
+  success: boolean;
+  error: BranchesControllerRevokeDeviceCredentialV1400Error;
+  meta: BranchesControllerRevokeDeviceCredentialV1400Meta;
+};
+
+/**
+ * @nullable
+ */
+export type BranchesControllerRevokeDeviceCredentialV1401ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type BranchesControllerRevokeDeviceCredentialV1401Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: BranchesControllerRevokeDeviceCredentialV1401ErrorDetails;
+};
+
+export type BranchesControllerRevokeDeviceCredentialV1401Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type BranchesControllerRevokeDeviceCredentialV1401 = {
+  success: boolean;
+  error: BranchesControllerRevokeDeviceCredentialV1401Error;
+  meta: BranchesControllerRevokeDeviceCredentialV1401Meta;
+};
+
+/**
+ * @nullable
+ */
+export type BranchesControllerRevokeDeviceCredentialV1403ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type BranchesControllerRevokeDeviceCredentialV1403Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: BranchesControllerRevokeDeviceCredentialV1403ErrorDetails;
+};
+
+export type BranchesControllerRevokeDeviceCredentialV1403Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type BranchesControllerRevokeDeviceCredentialV1403 = {
+  success: boolean;
+  error: BranchesControllerRevokeDeviceCredentialV1403Error;
+  meta: BranchesControllerRevokeDeviceCredentialV1403Meta;
+};
+
+/**
+ * @nullable
+ */
+export type BranchesControllerRevokeDeviceCredentialV1404ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type BranchesControllerRevokeDeviceCredentialV1404Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: BranchesControllerRevokeDeviceCredentialV1404ErrorDetails;
+};
+
+export type BranchesControllerRevokeDeviceCredentialV1404Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type BranchesControllerRevokeDeviceCredentialV1404 = {
+  success: boolean;
+  error: BranchesControllerRevokeDeviceCredentialV1404Error;
+  meta: BranchesControllerRevokeDeviceCredentialV1404Meta;
+};
+
+/**
+ * @nullable
+ */
+export type BranchesControllerRevokeDeviceCredentialV1409ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type BranchesControllerRevokeDeviceCredentialV1409Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: BranchesControllerRevokeDeviceCredentialV1409ErrorDetails;
+};
+
+export type BranchesControllerRevokeDeviceCredentialV1409Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type BranchesControllerRevokeDeviceCredentialV1409 = {
+  success: boolean;
+  error: BranchesControllerRevokeDeviceCredentialV1409Error;
+  meta: BranchesControllerRevokeDeviceCredentialV1409Meta;
+};
+
+/**
+ * @nullable
+ */
+export type BranchesControllerRevokeDeviceCredentialV1422ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type BranchesControllerRevokeDeviceCredentialV1422Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: BranchesControllerRevokeDeviceCredentialV1422ErrorDetails;
+};
+
+export type BranchesControllerRevokeDeviceCredentialV1422Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type BranchesControllerRevokeDeviceCredentialV1422 = {
+  success: boolean;
+  error: BranchesControllerRevokeDeviceCredentialV1422Error;
+  meta: BranchesControllerRevokeDeviceCredentialV1422Meta;
+};
+
+/**
+ * @nullable
+ */
+export type BranchesControllerRevokeDeviceCredentialV1429ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type BranchesControllerRevokeDeviceCredentialV1429Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: BranchesControllerRevokeDeviceCredentialV1429ErrorDetails;
+};
+
+export type BranchesControllerRevokeDeviceCredentialV1429Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type BranchesControllerRevokeDeviceCredentialV1429 = {
+  success: boolean;
+  error: BranchesControllerRevokeDeviceCredentialV1429Error;
+  meta: BranchesControllerRevokeDeviceCredentialV1429Meta;
+};
+
+/**
+ * @nullable
+ */
+export type BranchesControllerRevokeDeviceCredentialV1503ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type BranchesControllerRevokeDeviceCredentialV1503Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: BranchesControllerRevokeDeviceCredentialV1503ErrorDetails;
+};
+
+export type BranchesControllerRevokeDeviceCredentialV1503Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type BranchesControllerRevokeDeviceCredentialV1503 = {
+  success: boolean;
+  error: BranchesControllerRevokeDeviceCredentialV1503Error;
+  meta: BranchesControllerRevokeDeviceCredentialV1503Meta;
+};
+
 export type BranchesControllerUpdateDeviceV1200Data = {
   [key: string]: unknown;
 };
@@ -4756,6 +6744,31 @@ export type CustomersControllerListCustomersV1Params = {
 };
 
 export type CustomersControllerListCustomersV1200DataItemsItem = {
+  /**
+   * Assigned card number, serial, or barcode; these refer to the same value.
+   * @nullable
+   */
+  cardNumber?: string | null;
+  /**
+   * Compatibility alias for cardNumber.
+   * @nullable
+   */
+  activeCardSerialNumber?: string | null;
+  /**
+   * Masked email for cashier-safe customer display.
+   * @nullable
+   */
+  email?: string | null;
+  /** @nullable */
+  birthdayMonth?: string | null;
+  availableBalanceKobo?: number;
+  /**
+   * Full basket total in integer kobo from the latest captured and approved receipt.
+   * @nullable
+   */
+  lastPurchaseAmountKobo?: number | null;
+  /** @nullable */
+  lifetimeEarnedKobo?: number | null;
   [key: string]: unknown;
 };
 
@@ -5226,8 +7239,966 @@ export type CustomersControllerCreateCustomerV1503 = {
   meta: CustomersControllerCreateCustomerV1503Meta;
 };
 
-export type CustomersControllerGetCustomerV1200Data = {
+export type CustomersControllerGetCustomerProfileProjectionV1200DataSourceErrorsItem =
+  (typeof CustomersControllerGetCustomerProfileProjectionV1200DataSourceErrorsItem)[keyof typeof CustomersControllerGetCustomerProfileProjectionV1200DataSourceErrorsItem];
+
+export const CustomersControllerGetCustomerProfileProjectionV1200DataSourceErrorsItem =
+  {
+    card: 'card',
+    consent: 'consent',
+    lifetimeEarned: 'lifetimeEarned',
+    pendingApprovals: 'pendingApprovals',
+    expirySchedule: 'expirySchedule',
+    walletLedger: 'walletLedger',
+    transactions: 'transactions',
+    redemptions: 'redemptions',
+    transactionCount: 'transactionCount',
+    redemptionCount: 'redemptionCount',
+    approvals: 'approvals',
+    statusEvents: 'statusEvents',
+    marketingPreference: 'marketingPreference',
+  } as const;
+
+export type CustomersControllerGetCustomerProfileProjectionV1200DataExpiryScheduleItem =
+  {
+    expiresAt: string;
+    remainingAmountKobo: number;
+  };
+
+export type CustomersControllerGetCustomerProfileProjectionV1200DataRecentActivityItemType =
+  (typeof CustomersControllerGetCustomerProfileProjectionV1200DataRecentActivityItemType)[keyof typeof CustomersControllerGetCustomerProfileProjectionV1200DataRecentActivityItemType];
+
+export const CustomersControllerGetCustomerProfileProjectionV1200DataRecentActivityItemType =
+  {
+    EARNING: 'EARNING',
+    REDEMPTION: 'REDEMPTION',
+    WALLET_ADJUSTMENT: 'WALLET_ADJUSTMENT',
+    APPROVAL_REQUEST: 'APPROVAL_REQUEST',
+    APPROVAL_OUTCOME: 'APPROVAL_OUTCOME',
+    APPROVAL_EXPIRED: 'APPROVAL_EXPIRED',
+    CUSTOMER_STATUS: 'CUSTOMER_STATUS',
+    CARD_STATUS: 'CARD_STATUS',
+    CARD_ISSUED: 'CARD_ISSUED',
+  } as const;
+
+export type CustomersControllerGetCustomerProfileProjectionV1200DataRecentActivityItemTargetType =
+  (typeof CustomersControllerGetCustomerProfileProjectionV1200DataRecentActivityItemTargetType)[keyof typeof CustomersControllerGetCustomerProfileProjectionV1200DataRecentActivityItemTargetType];
+
+export const CustomersControllerGetCustomerProfileProjectionV1200DataRecentActivityItemTargetType =
+  {
+    EARN: 'EARN',
+    REDEEM: 'REDEEM',
+  } as const;
+
+export type CustomersControllerGetCustomerProfileProjectionV1200DataRecentActivityItem =
+  {
+    id: string;
+    type: CustomersControllerGetCustomerProfileProjectionV1200DataRecentActivityItemType;
+    targetType?: CustomersControllerGetCustomerProfileProjectionV1200DataRecentActivityItemTargetType;
+    status: string;
+    occurredAt: string;
+    /** @nullable */
+    amountKobo: number | null;
+  };
+
+export type CustomersControllerGetCustomerProfileProjectionV1200DataTransactionsItemOperation =
+  (typeof CustomersControllerGetCustomerProfileProjectionV1200DataTransactionsItemOperation)[keyof typeof CustomersControllerGetCustomerProfileProjectionV1200DataTransactionsItemOperation];
+
+export const CustomersControllerGetCustomerProfileProjectionV1200DataTransactionsItemOperation =
+  {
+    EARN: 'EARN',
+    REDEEM: 'REDEEM',
+  } as const;
+
+export type CustomersControllerGetCustomerProfileProjectionV1200DataTransactionsItem =
+  {
+    id: string;
+    occurredAt: string;
+    /** @nullable */
+    purchaseAmountKobo: number | null;
+    captureStatus: string;
+    reviewStatus: string;
+    operation: CustomersControllerGetCustomerProfileProjectionV1200DataTransactionsItemOperation;
+    status: string;
+    /** @nullable */
+    loyaltyAmountKobo: number | null;
+    /** @nullable */
+    redeemedAmountKobo: number | null;
+    /** @nullable */
+    earnedAmountKobo: number | null;
+  };
+
+export type CustomersControllerGetCustomerProfileProjectionV1200DataRedemptionsItem =
+  {
+    id: string;
+    occurredAt: string;
+    /** @nullable */
+    requestedAmountKobo: number | null;
+    /** @nullable */
+    confirmedAmountKobo: number | null;
+    status: string;
+  };
+
+export type CustomersControllerGetCustomerProfileProjectionV1200DataWalletLedgerItem =
+  {
+    id: string;
+    type: string;
+    direction: string;
+    /** @nullable */
+    amountKobo: number | null;
+    status: string;
+    effectiveAt: string;
+  };
+
+export type CustomersControllerGetCustomerProfileProjectionV1200DataApprovalsItem =
+  {
+    id: string;
+    targetType: string;
+    status: string;
+    requestedAt: string;
+    /** @nullable */
+    decidedAt: string | null;
+  };
+
+/**
+ * @nullable
+ */
+export type CustomersControllerGetCustomerProfileProjectionV1200DataConsent = {
+  loyaltyConsent: boolean;
+  marketingOptIn: boolean;
+  consentVersion: string;
+  privacyNoticeVersion: string;
+  capturedAt: string;
+} | null;
+
+export type CustomersControllerGetCustomerProfileProjectionV1200DataMarketingPreferenceStatus =
+  (typeof CustomersControllerGetCustomerProfileProjectionV1200DataMarketingPreferenceStatus)[keyof typeof CustomersControllerGetCustomerProfileProjectionV1200DataMarketingPreferenceStatus];
+
+export const CustomersControllerGetCustomerProfileProjectionV1200DataMarketingPreferenceStatus =
+  {
+    OPTED_IN: 'OPTED_IN',
+    OPTED_OUT: 'OPTED_OUT',
+    NOT_OPTED_IN: 'NOT_OPTED_IN',
+    UNAVAILABLE: 'UNAVAILABLE',
+  } as const;
+
+/**
+ * @nullable
+ */
+export type CustomersControllerGetCustomerProfileProjectionV1200DataMarketingPreferenceSource =
+  | (typeof CustomersControllerGetCustomerProfileProjectionV1200DataMarketingPreferenceSource)[keyof typeof CustomersControllerGetCustomerProfileProjectionV1200DataMarketingPreferenceSource]
+  | null;
+
+export const CustomersControllerGetCustomerProfileProjectionV1200DataMarketingPreferenceSource =
+  {
+    IN_STORE: 'IN_STORE',
+    REGISTRATION: 'REGISTRATION',
+    NOT_RECORDED: 'NOT_RECORDED',
+  } as const;
+
+export type CustomersControllerGetCustomerProfileProjectionV1200DataMarketingPreference =
+  {
+    status: CustomersControllerGetCustomerProfileProjectionV1200DataMarketingPreferenceStatus;
+    /** @nullable */
+    source: CustomersControllerGetCustomerProfileProjectionV1200DataMarketingPreferenceSource;
+    /** @nullable */
+    updatedAt: string | null;
+  };
+
+/**
+ * @nullable
+ */
+export type CustomersControllerGetCustomerProfileProjectionV1200DataCard = {
+  identifier: string;
+  status: string;
+  issuedAt: string;
+  /** @nullable */
+  blockedAt: string | null;
+} | null;
+
+export type CustomersControllerGetCustomerProfileProjectionV1200Data = {
+  customerId: string;
+  sourceErrors: CustomersControllerGetCustomerProfileProjectionV1200DataSourceErrorsItem[];
+  memberSince: string;
+  /**
+   * Count of all persisted tenant/customer receipt records, regardless of status; null if its count query fails.
+   * @nullable
+   */
+  transactionCount: number | null;
+  /**
+   * Count of all persisted tenant/customer redemption records, regardless of status; null if its count query fails.
+   * @nullable
+   */
+  redemptionCount: number | null;
+  /** @nullable */
+  pendingApprovalsCount: number | null;
+  /** @nullable */
+  lifetimeEarnedKobo: number | null;
+  /** At most the next 12 future credit lots with positive remaining integer-kobo balances. */
+  expirySchedule: CustomersControllerGetCustomerProfileProjectionV1200DataExpiryScheduleItem[];
+  /** True when expirySchedule is a bounded upcoming window, not a complete all-time list. */
+  expiryScheduleIsUpcomingWindow?: boolean;
+  expiryScheduleLimit?: number;
+  recentActivity: CustomersControllerGetCustomerProfileProjectionV1200DataRecentActivityItem[];
+  transactions: CustomersControllerGetCustomerProfileProjectionV1200DataTransactionsItem[];
+  redemptions: CustomersControllerGetCustomerProfileProjectionV1200DataRedemptionsItem[];
+  walletLedger: CustomersControllerGetCustomerProfileProjectionV1200DataWalletLedgerItem[];
+  approvals: CustomersControllerGetCustomerProfileProjectionV1200DataApprovalsItem[];
+  /** @nullable */
+  consent: CustomersControllerGetCustomerProfileProjectionV1200DataConsent;
+  marketingPreference: CustomersControllerGetCustomerProfileProjectionV1200DataMarketingPreference;
+  /** @nullable */
+  card: CustomersControllerGetCustomerProfileProjectionV1200DataCard;
+};
+
+export type CustomersControllerGetCustomerProfileProjectionV1200Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type CustomersControllerGetCustomerProfileProjectionV1200 = {
+  success: boolean;
+  data: CustomersControllerGetCustomerProfileProjectionV1200Data;
+  meta: CustomersControllerGetCustomerProfileProjectionV1200Meta;
+};
+
+/**
+ * @nullable
+ */
+export type CustomersControllerGetCustomerProfileProjectionV1400ErrorDetails = {
   [key: string]: unknown;
+} | null;
+
+export type CustomersControllerGetCustomerProfileProjectionV1400Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: CustomersControllerGetCustomerProfileProjectionV1400ErrorDetails;
+};
+
+export type CustomersControllerGetCustomerProfileProjectionV1400Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type CustomersControllerGetCustomerProfileProjectionV1400 = {
+  success: boolean;
+  error: CustomersControllerGetCustomerProfileProjectionV1400Error;
+  meta: CustomersControllerGetCustomerProfileProjectionV1400Meta;
+};
+
+/**
+ * @nullable
+ */
+export type CustomersControllerGetCustomerProfileProjectionV1401ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type CustomersControllerGetCustomerProfileProjectionV1401Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: CustomersControllerGetCustomerProfileProjectionV1401ErrorDetails;
+};
+
+export type CustomersControllerGetCustomerProfileProjectionV1401Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type CustomersControllerGetCustomerProfileProjectionV1401 = {
+  success: boolean;
+  error: CustomersControllerGetCustomerProfileProjectionV1401Error;
+  meta: CustomersControllerGetCustomerProfileProjectionV1401Meta;
+};
+
+/**
+ * @nullable
+ */
+export type CustomersControllerGetCustomerProfileProjectionV1403ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type CustomersControllerGetCustomerProfileProjectionV1403Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: CustomersControllerGetCustomerProfileProjectionV1403ErrorDetails;
+};
+
+export type CustomersControllerGetCustomerProfileProjectionV1403Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type CustomersControllerGetCustomerProfileProjectionV1403 = {
+  success: boolean;
+  error: CustomersControllerGetCustomerProfileProjectionV1403Error;
+  meta: CustomersControllerGetCustomerProfileProjectionV1403Meta;
+};
+
+/**
+ * @nullable
+ */
+export type CustomersControllerGetCustomerProfileProjectionV1404ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type CustomersControllerGetCustomerProfileProjectionV1404Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: CustomersControllerGetCustomerProfileProjectionV1404ErrorDetails;
+};
+
+export type CustomersControllerGetCustomerProfileProjectionV1404Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type CustomersControllerGetCustomerProfileProjectionV1404 = {
+  success: boolean;
+  error: CustomersControllerGetCustomerProfileProjectionV1404Error;
+  meta: CustomersControllerGetCustomerProfileProjectionV1404Meta;
+};
+
+/**
+ * @nullable
+ */
+export type CustomersControllerGetCustomerProfileProjectionV1409ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type CustomersControllerGetCustomerProfileProjectionV1409Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: CustomersControllerGetCustomerProfileProjectionV1409ErrorDetails;
+};
+
+export type CustomersControllerGetCustomerProfileProjectionV1409Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type CustomersControllerGetCustomerProfileProjectionV1409 = {
+  success: boolean;
+  error: CustomersControllerGetCustomerProfileProjectionV1409Error;
+  meta: CustomersControllerGetCustomerProfileProjectionV1409Meta;
+};
+
+/**
+ * @nullable
+ */
+export type CustomersControllerGetCustomerProfileProjectionV1422ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type CustomersControllerGetCustomerProfileProjectionV1422Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: CustomersControllerGetCustomerProfileProjectionV1422ErrorDetails;
+};
+
+export type CustomersControllerGetCustomerProfileProjectionV1422Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type CustomersControllerGetCustomerProfileProjectionV1422 = {
+  success: boolean;
+  error: CustomersControllerGetCustomerProfileProjectionV1422Error;
+  meta: CustomersControllerGetCustomerProfileProjectionV1422Meta;
+};
+
+/**
+ * @nullable
+ */
+export type CustomersControllerGetCustomerProfileProjectionV1429ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type CustomersControllerGetCustomerProfileProjectionV1429Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: CustomersControllerGetCustomerProfileProjectionV1429ErrorDetails;
+};
+
+export type CustomersControllerGetCustomerProfileProjectionV1429Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type CustomersControllerGetCustomerProfileProjectionV1429 = {
+  success: boolean;
+  error: CustomersControllerGetCustomerProfileProjectionV1429Error;
+  meta: CustomersControllerGetCustomerProfileProjectionV1429Meta;
+};
+
+/**
+ * @nullable
+ */
+export type CustomersControllerGetCustomerProfileProjectionV1503ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type CustomersControllerGetCustomerProfileProjectionV1503Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: CustomersControllerGetCustomerProfileProjectionV1503ErrorDetails;
+};
+
+export type CustomersControllerGetCustomerProfileProjectionV1503Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type CustomersControllerGetCustomerProfileProjectionV1503 = {
+  success: boolean;
+  error: CustomersControllerGetCustomerProfileProjectionV1503Error;
+  meta: CustomersControllerGetCustomerProfileProjectionV1503Meta;
+};
+
+export type CustomersControllerGetMarketingPreferenceV1200DataStatus =
+  (typeof CustomersControllerGetMarketingPreferenceV1200DataStatus)[keyof typeof CustomersControllerGetMarketingPreferenceV1200DataStatus];
+
+export const CustomersControllerGetMarketingPreferenceV1200DataStatus = {
+  OPTED_IN: 'OPTED_IN',
+  OPTED_OUT: 'OPTED_OUT',
+  NOT_OPTED_IN: 'NOT_OPTED_IN',
+  UNAVAILABLE: 'UNAVAILABLE',
+} as const;
+
+/**
+ * @nullable
+ */
+export type CustomersControllerGetMarketingPreferenceV1200DataSource =
+  | (typeof CustomersControllerGetMarketingPreferenceV1200DataSource)[keyof typeof CustomersControllerGetMarketingPreferenceV1200DataSource]
+  | null;
+
+export const CustomersControllerGetMarketingPreferenceV1200DataSource = {
+  IN_STORE: 'IN_STORE',
+  REGISTRATION: 'REGISTRATION',
+  NOT_RECORDED: 'NOT_RECORDED',
+} as const;
+
+export type CustomersControllerGetMarketingPreferenceV1200Data = {
+  status: CustomersControllerGetMarketingPreferenceV1200DataStatus;
+  /** @nullable */
+  source: CustomersControllerGetMarketingPreferenceV1200DataSource;
+  /** @nullable */
+  updatedAt: string | null;
+};
+
+export type CustomersControllerGetMarketingPreferenceV1200Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type CustomersControllerGetMarketingPreferenceV1200 = {
+  success: boolean;
+  data: CustomersControllerGetMarketingPreferenceV1200Data;
+  meta: CustomersControllerGetMarketingPreferenceV1200Meta;
+};
+
+/**
+ * @nullable
+ */
+export type CustomersControllerGetMarketingPreferenceV1400ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type CustomersControllerGetMarketingPreferenceV1400Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: CustomersControllerGetMarketingPreferenceV1400ErrorDetails;
+};
+
+export type CustomersControllerGetMarketingPreferenceV1400Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type CustomersControllerGetMarketingPreferenceV1400 = {
+  success: boolean;
+  error: CustomersControllerGetMarketingPreferenceV1400Error;
+  meta: CustomersControllerGetMarketingPreferenceV1400Meta;
+};
+
+/**
+ * @nullable
+ */
+export type CustomersControllerGetMarketingPreferenceV1401ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type CustomersControllerGetMarketingPreferenceV1401Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: CustomersControllerGetMarketingPreferenceV1401ErrorDetails;
+};
+
+export type CustomersControllerGetMarketingPreferenceV1401Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type CustomersControllerGetMarketingPreferenceV1401 = {
+  success: boolean;
+  error: CustomersControllerGetMarketingPreferenceV1401Error;
+  meta: CustomersControllerGetMarketingPreferenceV1401Meta;
+};
+
+/**
+ * @nullable
+ */
+export type CustomersControllerGetMarketingPreferenceV1403ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type CustomersControllerGetMarketingPreferenceV1403Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: CustomersControllerGetMarketingPreferenceV1403ErrorDetails;
+};
+
+export type CustomersControllerGetMarketingPreferenceV1403Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type CustomersControllerGetMarketingPreferenceV1403 = {
+  success: boolean;
+  error: CustomersControllerGetMarketingPreferenceV1403Error;
+  meta: CustomersControllerGetMarketingPreferenceV1403Meta;
+};
+
+/**
+ * @nullable
+ */
+export type CustomersControllerGetMarketingPreferenceV1404ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type CustomersControllerGetMarketingPreferenceV1404Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: CustomersControllerGetMarketingPreferenceV1404ErrorDetails;
+};
+
+export type CustomersControllerGetMarketingPreferenceV1404Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type CustomersControllerGetMarketingPreferenceV1404 = {
+  success: boolean;
+  error: CustomersControllerGetMarketingPreferenceV1404Error;
+  meta: CustomersControllerGetMarketingPreferenceV1404Meta;
+};
+
+/**
+ * @nullable
+ */
+export type CustomersControllerGetMarketingPreferenceV1409ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type CustomersControllerGetMarketingPreferenceV1409Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: CustomersControllerGetMarketingPreferenceV1409ErrorDetails;
+};
+
+export type CustomersControllerGetMarketingPreferenceV1409Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type CustomersControllerGetMarketingPreferenceV1409 = {
+  success: boolean;
+  error: CustomersControllerGetMarketingPreferenceV1409Error;
+  meta: CustomersControllerGetMarketingPreferenceV1409Meta;
+};
+
+/**
+ * @nullable
+ */
+export type CustomersControllerGetMarketingPreferenceV1422ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type CustomersControllerGetMarketingPreferenceV1422Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: CustomersControllerGetMarketingPreferenceV1422ErrorDetails;
+};
+
+export type CustomersControllerGetMarketingPreferenceV1422Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type CustomersControllerGetMarketingPreferenceV1422 = {
+  success: boolean;
+  error: CustomersControllerGetMarketingPreferenceV1422Error;
+  meta: CustomersControllerGetMarketingPreferenceV1422Meta;
+};
+
+/**
+ * @nullable
+ */
+export type CustomersControllerGetMarketingPreferenceV1429ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type CustomersControllerGetMarketingPreferenceV1429Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: CustomersControllerGetMarketingPreferenceV1429ErrorDetails;
+};
+
+export type CustomersControllerGetMarketingPreferenceV1429Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type CustomersControllerGetMarketingPreferenceV1429 = {
+  success: boolean;
+  error: CustomersControllerGetMarketingPreferenceV1429Error;
+  meta: CustomersControllerGetMarketingPreferenceV1429Meta;
+};
+
+/**
+ * @nullable
+ */
+export type CustomersControllerGetMarketingPreferenceV1503ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type CustomersControllerGetMarketingPreferenceV1503Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: CustomersControllerGetMarketingPreferenceV1503ErrorDetails;
+};
+
+export type CustomersControllerGetMarketingPreferenceV1503Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type CustomersControllerGetMarketingPreferenceV1503 = {
+  success: boolean;
+  error: CustomersControllerGetMarketingPreferenceV1503Error;
+  meta: CustomersControllerGetMarketingPreferenceV1503Meta;
+};
+
+export type CustomersControllerWithdrawMarketingPreferenceV1201DataStatus =
+  (typeof CustomersControllerWithdrawMarketingPreferenceV1201DataStatus)[keyof typeof CustomersControllerWithdrawMarketingPreferenceV1201DataStatus];
+
+export const CustomersControllerWithdrawMarketingPreferenceV1201DataStatus = {
+  OPTED_OUT: 'OPTED_OUT',
+} as const;
+
+export type CustomersControllerWithdrawMarketingPreferenceV1201DataSource =
+  (typeof CustomersControllerWithdrawMarketingPreferenceV1201DataSource)[keyof typeof CustomersControllerWithdrawMarketingPreferenceV1201DataSource];
+
+export const CustomersControllerWithdrawMarketingPreferenceV1201DataSource = {
+  IN_STORE: 'IN_STORE',
+} as const;
+
+export type CustomersControllerWithdrawMarketingPreferenceV1201Data = {
+  status: CustomersControllerWithdrawMarketingPreferenceV1201DataStatus;
+  source: CustomersControllerWithdrawMarketingPreferenceV1201DataSource;
+  updatedAt: string;
+  alreadyOptedOut: boolean;
+};
+
+export type CustomersControllerWithdrawMarketingPreferenceV1201Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type CustomersControllerWithdrawMarketingPreferenceV1201 = {
+  success: boolean;
+  data: CustomersControllerWithdrawMarketingPreferenceV1201Data;
+  meta: CustomersControllerWithdrawMarketingPreferenceV1201Meta;
+};
+
+/**
+ * @nullable
+ */
+export type CustomersControllerWithdrawMarketingPreferenceV1400ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type CustomersControllerWithdrawMarketingPreferenceV1400Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: CustomersControllerWithdrawMarketingPreferenceV1400ErrorDetails;
+};
+
+export type CustomersControllerWithdrawMarketingPreferenceV1400Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type CustomersControllerWithdrawMarketingPreferenceV1400 = {
+  success: boolean;
+  error: CustomersControllerWithdrawMarketingPreferenceV1400Error;
+  meta: CustomersControllerWithdrawMarketingPreferenceV1400Meta;
+};
+
+/**
+ * @nullable
+ */
+export type CustomersControllerWithdrawMarketingPreferenceV1401ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type CustomersControllerWithdrawMarketingPreferenceV1401Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: CustomersControllerWithdrawMarketingPreferenceV1401ErrorDetails;
+};
+
+export type CustomersControllerWithdrawMarketingPreferenceV1401Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type CustomersControllerWithdrawMarketingPreferenceV1401 = {
+  success: boolean;
+  error: CustomersControllerWithdrawMarketingPreferenceV1401Error;
+  meta: CustomersControllerWithdrawMarketingPreferenceV1401Meta;
+};
+
+/**
+ * @nullable
+ */
+export type CustomersControllerWithdrawMarketingPreferenceV1403ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type CustomersControllerWithdrawMarketingPreferenceV1403Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: CustomersControllerWithdrawMarketingPreferenceV1403ErrorDetails;
+};
+
+export type CustomersControllerWithdrawMarketingPreferenceV1403Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type CustomersControllerWithdrawMarketingPreferenceV1403 = {
+  success: boolean;
+  error: CustomersControllerWithdrawMarketingPreferenceV1403Error;
+  meta: CustomersControllerWithdrawMarketingPreferenceV1403Meta;
+};
+
+/**
+ * @nullable
+ */
+export type CustomersControllerWithdrawMarketingPreferenceV1404ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type CustomersControllerWithdrawMarketingPreferenceV1404Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: CustomersControllerWithdrawMarketingPreferenceV1404ErrorDetails;
+};
+
+export type CustomersControllerWithdrawMarketingPreferenceV1404Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type CustomersControllerWithdrawMarketingPreferenceV1404 = {
+  success: boolean;
+  error: CustomersControllerWithdrawMarketingPreferenceV1404Error;
+  meta: CustomersControllerWithdrawMarketingPreferenceV1404Meta;
+};
+
+/**
+ * @nullable
+ */
+export type CustomersControllerWithdrawMarketingPreferenceV1409ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type CustomersControllerWithdrawMarketingPreferenceV1409Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: CustomersControllerWithdrawMarketingPreferenceV1409ErrorDetails;
+};
+
+export type CustomersControllerWithdrawMarketingPreferenceV1409Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type CustomersControllerWithdrawMarketingPreferenceV1409 = {
+  success: boolean;
+  error: CustomersControllerWithdrawMarketingPreferenceV1409Error;
+  meta: CustomersControllerWithdrawMarketingPreferenceV1409Meta;
+};
+
+/**
+ * @nullable
+ */
+export type CustomersControllerWithdrawMarketingPreferenceV1422ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type CustomersControllerWithdrawMarketingPreferenceV1422Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: CustomersControllerWithdrawMarketingPreferenceV1422ErrorDetails;
+};
+
+export type CustomersControllerWithdrawMarketingPreferenceV1422Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type CustomersControllerWithdrawMarketingPreferenceV1422 = {
+  success: boolean;
+  error: CustomersControllerWithdrawMarketingPreferenceV1422Error;
+  meta: CustomersControllerWithdrawMarketingPreferenceV1422Meta;
+};
+
+/**
+ * @nullable
+ */
+export type CustomersControllerWithdrawMarketingPreferenceV1429ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type CustomersControllerWithdrawMarketingPreferenceV1429Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: CustomersControllerWithdrawMarketingPreferenceV1429ErrorDetails;
+};
+
+export type CustomersControllerWithdrawMarketingPreferenceV1429Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type CustomersControllerWithdrawMarketingPreferenceV1429 = {
+  success: boolean;
+  error: CustomersControllerWithdrawMarketingPreferenceV1429Error;
+  meta: CustomersControllerWithdrawMarketingPreferenceV1429Meta;
+};
+
+/**
+ * @nullable
+ */
+export type CustomersControllerWithdrawMarketingPreferenceV1503ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type CustomersControllerWithdrawMarketingPreferenceV1503Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: CustomersControllerWithdrawMarketingPreferenceV1503ErrorDetails;
+};
+
+export type CustomersControllerWithdrawMarketingPreferenceV1503Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type CustomersControllerWithdrawMarketingPreferenceV1503 = {
+  success: boolean;
+  error: CustomersControllerWithdrawMarketingPreferenceV1503Error;
+  meta: CustomersControllerWithdrawMarketingPreferenceV1503Meta;
+};
+
+export type CustomersControllerGetCustomerV1200Data = {
+  customerId?: string;
+  fullName?: string;
+  maskedPhone?: string;
+  /** @nullable */
+  email?: string | null;
+  /** @nullable */
+  birthdayMonth?: string | null;
+  /** @nullable */
+  cardNumber?: string | null;
+  cardStatus?: string;
+  availableBalanceKobo?: number;
 };
 
 export type CustomersControllerGetCustomerV1200Meta = {
@@ -5920,6 +8891,547 @@ export type CustomersControllerUpdateStatusV1503 = {
   success: boolean;
   error: CustomersControllerUpdateStatusV1503Error;
   meta: CustomersControllerUpdateStatusV1503Meta;
+};
+
+export type CardsControllerListIssuedManagementCardsV1Params = {
+  /**
+   * @minimum 1
+   * @maximum 100
+   */
+  limit?: string;
+  cursor?: string;
+  /**
+   * Card number or owner name search
+   * @maxLength 120
+   */
+  q?: string;
+  status?: CardsControllerListIssuedManagementCardsV1Status;
+  issuedFrom?: string;
+  issuedTo?: string;
+};
+
+export type CardsControllerListIssuedManagementCardsV1Status =
+  (typeof CardsControllerListIssuedManagementCardsV1Status)[keyof typeof CardsControllerListIssuedManagementCardsV1Status];
+
+export const CardsControllerListIssuedManagementCardsV1Status = {
+  ACTIVE: 'ACTIVE',
+  BLOCKED: 'BLOCKED',
+  REPLACED: 'REPLACED',
+} as const;
+
+export type CardsControllerListIssuedManagementCardsV1200DataItemsItemStatus =
+  (typeof CardsControllerListIssuedManagementCardsV1200DataItemsItemStatus)[keyof typeof CardsControllerListIssuedManagementCardsV1200DataItemsItemStatus];
+
+export const CardsControllerListIssuedManagementCardsV1200DataItemsItemStatus =
+  {
+    ACTIVE: 'ACTIVE',
+    BLOCKED: 'BLOCKED',
+    REPLACED: 'REPLACED',
+  } as const;
+
+export type CardsControllerListIssuedManagementCardsV1200DataItemsItemCustomer =
+  {
+    id: string;
+    fullName: string;
+  };
+
+export type CardsControllerListIssuedManagementCardsV1200DataItemsItem = {
+  cardNumber: string;
+  status: CardsControllerListIssuedManagementCardsV1200DataItemsItemStatus;
+  issuedAt: string;
+  customer: CardsControllerListIssuedManagementCardsV1200DataItemsItemCustomer;
+};
+
+export type CardsControllerListIssuedManagementCardsV1200Data = {
+  items: CardsControllerListIssuedManagementCardsV1200DataItemsItem[];
+  /** @nullable */
+  nextCursor: string | null;
+  hasMore: boolean;
+};
+
+export type CardsControllerListIssuedManagementCardsV1200Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type CardsControllerListIssuedManagementCardsV1200 = {
+  success: boolean;
+  data: CardsControllerListIssuedManagementCardsV1200Data;
+  meta: CardsControllerListIssuedManagementCardsV1200Meta;
+};
+
+/**
+ * @nullable
+ */
+export type CardsControllerListIssuedManagementCardsV1400ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type CardsControllerListIssuedManagementCardsV1400Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: CardsControllerListIssuedManagementCardsV1400ErrorDetails;
+};
+
+export type CardsControllerListIssuedManagementCardsV1400Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type CardsControllerListIssuedManagementCardsV1400 = {
+  success: boolean;
+  error: CardsControllerListIssuedManagementCardsV1400Error;
+  meta: CardsControllerListIssuedManagementCardsV1400Meta;
+};
+
+/**
+ * @nullable
+ */
+export type CardsControllerListIssuedManagementCardsV1401ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type CardsControllerListIssuedManagementCardsV1401Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: CardsControllerListIssuedManagementCardsV1401ErrorDetails;
+};
+
+export type CardsControllerListIssuedManagementCardsV1401Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type CardsControllerListIssuedManagementCardsV1401 = {
+  success: boolean;
+  error: CardsControllerListIssuedManagementCardsV1401Error;
+  meta: CardsControllerListIssuedManagementCardsV1401Meta;
+};
+
+/**
+ * @nullable
+ */
+export type CardsControllerListIssuedManagementCardsV1403ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type CardsControllerListIssuedManagementCardsV1403Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: CardsControllerListIssuedManagementCardsV1403ErrorDetails;
+};
+
+export type CardsControllerListIssuedManagementCardsV1403Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type CardsControllerListIssuedManagementCardsV1403 = {
+  success: boolean;
+  error: CardsControllerListIssuedManagementCardsV1403Error;
+  meta: CardsControllerListIssuedManagementCardsV1403Meta;
+};
+
+/**
+ * @nullable
+ */
+export type CardsControllerListIssuedManagementCardsV1404ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type CardsControllerListIssuedManagementCardsV1404Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: CardsControllerListIssuedManagementCardsV1404ErrorDetails;
+};
+
+export type CardsControllerListIssuedManagementCardsV1404Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type CardsControllerListIssuedManagementCardsV1404 = {
+  success: boolean;
+  error: CardsControllerListIssuedManagementCardsV1404Error;
+  meta: CardsControllerListIssuedManagementCardsV1404Meta;
+};
+
+/**
+ * @nullable
+ */
+export type CardsControllerListIssuedManagementCardsV1409ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type CardsControllerListIssuedManagementCardsV1409Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: CardsControllerListIssuedManagementCardsV1409ErrorDetails;
+};
+
+export type CardsControllerListIssuedManagementCardsV1409Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type CardsControllerListIssuedManagementCardsV1409 = {
+  success: boolean;
+  error: CardsControllerListIssuedManagementCardsV1409Error;
+  meta: CardsControllerListIssuedManagementCardsV1409Meta;
+};
+
+/**
+ * @nullable
+ */
+export type CardsControllerListIssuedManagementCardsV1422ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type CardsControllerListIssuedManagementCardsV1422Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: CardsControllerListIssuedManagementCardsV1422ErrorDetails;
+};
+
+export type CardsControllerListIssuedManagementCardsV1422Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type CardsControllerListIssuedManagementCardsV1422 = {
+  success: boolean;
+  error: CardsControllerListIssuedManagementCardsV1422Error;
+  meta: CardsControllerListIssuedManagementCardsV1422Meta;
+};
+
+/**
+ * @nullable
+ */
+export type CardsControllerListIssuedManagementCardsV1429ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type CardsControllerListIssuedManagementCardsV1429Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: CardsControllerListIssuedManagementCardsV1429ErrorDetails;
+};
+
+export type CardsControllerListIssuedManagementCardsV1429Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type CardsControllerListIssuedManagementCardsV1429 = {
+  success: boolean;
+  error: CardsControllerListIssuedManagementCardsV1429Error;
+  meta: CardsControllerListIssuedManagementCardsV1429Meta;
+};
+
+/**
+ * @nullable
+ */
+export type CardsControllerListIssuedManagementCardsV1503ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type CardsControllerListIssuedManagementCardsV1503Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: CardsControllerListIssuedManagementCardsV1503ErrorDetails;
+};
+
+export type CardsControllerListIssuedManagementCardsV1503Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type CardsControllerListIssuedManagementCardsV1503 = {
+  success: boolean;
+  error: CardsControllerListIssuedManagementCardsV1503Error;
+  meta: CardsControllerListIssuedManagementCardsV1503Meta;
+};
+
+export type CardsControllerLookupManagementCardV1200DataStatus =
+  (typeof CardsControllerLookupManagementCardV1200DataStatus)[keyof typeof CardsControllerLookupManagementCardV1200DataStatus];
+
+export const CardsControllerLookupManagementCardV1200DataStatus = {
+  ACTIVE: 'ACTIVE',
+  BLOCKED: 'BLOCKED',
+  REPLACED: 'REPLACED',
+} as const;
+
+export type CardsControllerLookupManagementCardV1200DataCustomer = {
+  id?: string;
+  fullName?: string;
+  status?: string;
+};
+
+export type CardsControllerLookupManagementCardV1200Data = {
+  id?: string;
+  serialNumber?: string;
+  status?: CardsControllerLookupManagementCardV1200DataStatus;
+  issuedAt?: string;
+  /** @nullable */
+  blockedAt?: string | null;
+  /** @nullable */
+  replacedAt?: string | null;
+  /** @nullable */
+  replacedByCardId?: string | null;
+  customer?: CardsControllerLookupManagementCardV1200DataCustomer;
+};
+
+export type CardsControllerLookupManagementCardV1200Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type CardsControllerLookupManagementCardV1200 = {
+  success: boolean;
+  data: CardsControllerLookupManagementCardV1200Data;
+  meta: CardsControllerLookupManagementCardV1200Meta;
+};
+
+/**
+ * @nullable
+ */
+export type CardsControllerLookupManagementCardV1400ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type CardsControllerLookupManagementCardV1400Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: CardsControllerLookupManagementCardV1400ErrorDetails;
+};
+
+export type CardsControllerLookupManagementCardV1400Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type CardsControllerLookupManagementCardV1400 = {
+  success: boolean;
+  error: CardsControllerLookupManagementCardV1400Error;
+  meta: CardsControllerLookupManagementCardV1400Meta;
+};
+
+/**
+ * @nullable
+ */
+export type CardsControllerLookupManagementCardV1401ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type CardsControllerLookupManagementCardV1401Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: CardsControllerLookupManagementCardV1401ErrorDetails;
+};
+
+export type CardsControllerLookupManagementCardV1401Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type CardsControllerLookupManagementCardV1401 = {
+  success: boolean;
+  error: CardsControllerLookupManagementCardV1401Error;
+  meta: CardsControllerLookupManagementCardV1401Meta;
+};
+
+/**
+ * @nullable
+ */
+export type CardsControllerLookupManagementCardV1403ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type CardsControllerLookupManagementCardV1403Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: CardsControllerLookupManagementCardV1403ErrorDetails;
+};
+
+export type CardsControllerLookupManagementCardV1403Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type CardsControllerLookupManagementCardV1403 = {
+  success: boolean;
+  error: CardsControllerLookupManagementCardV1403Error;
+  meta: CardsControllerLookupManagementCardV1403Meta;
+};
+
+/**
+ * @nullable
+ */
+export type CardsControllerLookupManagementCardV1404ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type CardsControllerLookupManagementCardV1404Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: CardsControllerLookupManagementCardV1404ErrorDetails;
+};
+
+export type CardsControllerLookupManagementCardV1404Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type CardsControllerLookupManagementCardV1404 = {
+  success: boolean;
+  error: CardsControllerLookupManagementCardV1404Error;
+  meta: CardsControllerLookupManagementCardV1404Meta;
+};
+
+/**
+ * @nullable
+ */
+export type CardsControllerLookupManagementCardV1409ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type CardsControllerLookupManagementCardV1409Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: CardsControllerLookupManagementCardV1409ErrorDetails;
+};
+
+export type CardsControllerLookupManagementCardV1409Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type CardsControllerLookupManagementCardV1409 = {
+  success: boolean;
+  error: CardsControllerLookupManagementCardV1409Error;
+  meta: CardsControllerLookupManagementCardV1409Meta;
+};
+
+/**
+ * @nullable
+ */
+export type CardsControllerLookupManagementCardV1422ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type CardsControllerLookupManagementCardV1422Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: CardsControllerLookupManagementCardV1422ErrorDetails;
+};
+
+export type CardsControllerLookupManagementCardV1422Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type CardsControllerLookupManagementCardV1422 = {
+  success: boolean;
+  error: CardsControllerLookupManagementCardV1422Error;
+  meta: CardsControllerLookupManagementCardV1422Meta;
+};
+
+/**
+ * @nullable
+ */
+export type CardsControllerLookupManagementCardV1429ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type CardsControllerLookupManagementCardV1429Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: CardsControllerLookupManagementCardV1429ErrorDetails;
+};
+
+export type CardsControllerLookupManagementCardV1429Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type CardsControllerLookupManagementCardV1429 = {
+  success: boolean;
+  error: CardsControllerLookupManagementCardV1429Error;
+  meta: CardsControllerLookupManagementCardV1429Meta;
+};
+
+/**
+ * @nullable
+ */
+export type CardsControllerLookupManagementCardV1503ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type CardsControllerLookupManagementCardV1503Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: CardsControllerLookupManagementCardV1503ErrorDetails;
+};
+
+export type CardsControllerLookupManagementCardV1503Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type CardsControllerLookupManagementCardV1503 = {
+  success: boolean;
+  error: CardsControllerLookupManagementCardV1503Error;
+  meta: CardsControllerLookupManagementCardV1503Meta;
 };
 
 export type CardsControllerLookupCardV1200Data = { [key: string]: unknown };
@@ -7583,7 +11095,43 @@ export type ReceiptsControllerRejectReceiptV1503 = {
 export type ApprovalsControllerListApprovalsV1Params = {
   limit: string;
   cursor: string;
+  /**
+   * Filter before cursor pagination; APPROVED includes executed approvals.
+   */
+  status?: ApprovalsControllerListApprovalsV1Status;
+  /**
+   * When true, include exact selected-category and pre-search scope totals plus per-category counts; all counts are independent of cursor pagination.
+   */
+  includeTotalCount?: boolean;
+  /**
+   * Search approval fields within the caller’s authorized scope before cursor pagination; any status filter is applied as well.
+   * @maxLength 100
+   */
+  search?: string;
+  /**
+   * Filter by category before cursor pagination. Category counts, when requested, remain independent of this filter.
+   */
+  category?: ApprovalsControllerListApprovalsV1Category;
 };
+
+export type ApprovalsControllerListApprovalsV1Status =
+  (typeof ApprovalsControllerListApprovalsV1Status)[keyof typeof ApprovalsControllerListApprovalsV1Status];
+
+export const ApprovalsControllerListApprovalsV1Status = {
+  ALL: 'ALL',
+  PENDING: 'PENDING',
+  APPROVED: 'APPROVED',
+  REJECTED: 'REJECTED',
+  EXPIRED: 'EXPIRED',
+} as const;
+
+export type ApprovalsControllerListApprovalsV1Category =
+  (typeof ApprovalsControllerListApprovalsV1Category)[keyof typeof ApprovalsControllerListApprovalsV1Category];
+
+export const ApprovalsControllerListApprovalsV1Category = {
+  HIGH_VALUE_TRANSACTION: 'HIGH_VALUE_TRANSACTION',
+  LATE_RECEIPT_CLAIM: 'LATE_RECEIPT_CLAIM',
+} as const;
 
 export type ApprovalsControllerListApprovalsV1200DataItemsItemTargetType =
   (typeof ApprovalsControllerListApprovalsV1200DataItemsItemTargetType)[keyof typeof ApprovalsControllerListApprovalsV1200DataItemsItemTargetType];
@@ -7593,11 +11141,33 @@ export const ApprovalsControllerListApprovalsV1200DataItemsItemTargetType = {
   REDEEM: 'REDEEM',
 } as const;
 
+/**
+ * @nullable
+ */
+export type ApprovalsControllerListApprovalsV1200DataItemsItemCategory =
+  | (typeof ApprovalsControllerListApprovalsV1200DataItemsItemCategory)[keyof typeof ApprovalsControllerListApprovalsV1200DataItemsItemCategory]
+  | null;
+
+export const ApprovalsControllerListApprovalsV1200DataItemsItemCategory = {
+  HIGH_VALUE_TRANSACTION: 'HIGH_VALUE_TRANSACTION',
+  LATE_RECEIPT_CLAIM: 'LATE_RECEIPT_CLAIM',
+} as const;
+
 export type ApprovalsControllerListApprovalsV1200DataItemsItemCustomer = {
   id: string;
   /** @nullable */
   branchId: string | null;
+  /** @nullable */
+  fullName?: string | null;
 };
+
+/**
+ * @nullable
+ */
+export type ApprovalsControllerListApprovalsV1200DataItemsItemRequester = {
+  username?: string;
+  role?: string;
+} | null;
 
 /**
  * @nullable
@@ -7608,6 +11178,7 @@ export type ApprovalsControllerListApprovalsV1200DataItemsItemReceipt = {
   customerId: string | null;
   posReceiptNumber: string;
   purchaseAmountKobo: number;
+  occurredAt: string;
   captureStatus: string;
   reviewStatus: string;
   /** @nullable */
@@ -7621,6 +11192,8 @@ export type ApprovalsControllerListApprovalsV1200DataItemsItem = {
   /** @nullable */
   redemptionId: string | null;
   targetType: ApprovalsControllerListApprovalsV1200DataItemsItemTargetType;
+  /** @nullable */
+  category: ApprovalsControllerListApprovalsV1200DataItemsItemCategory;
   status: string;
   /** @nullable */
   reasonCode?: string | null;
@@ -7634,7 +11207,19 @@ export type ApprovalsControllerListApprovalsV1200DataItemsItem = {
   executedAt: string | null;
   customer: ApprovalsControllerListApprovalsV1200DataItemsItemCustomer;
   /** @nullable */
+  requester?: ApprovalsControllerListApprovalsV1200DataItemsItemRequester;
+  /** @nullable */
   receipt: ApprovalsControllerListApprovalsV1200DataItemsItemReceipt;
+};
+
+/**
+ * Exact per-category counts under caller scope, status, and search, independent of cursor and selected category.
+ */
+export type ApprovalsControllerListApprovalsV1200DataCategoryCounts = {
+  /** @minimum 0 */
+  HIGH_VALUE_TRANSACTION: number;
+  /** @minimum 0 */
+  LATE_RECEIPT_CLAIM: number;
 };
 
 export type ApprovalsControllerListApprovalsV1200Data = {
@@ -7642,6 +11227,18 @@ export type ApprovalsControllerListApprovalsV1200Data = {
   /** @nullable */
   nextCursor: string | null;
   hasMore: boolean;
+  /**
+   * Exact count after applying the search and status filters.
+   * @minimum 0
+   */
+  totalCount?: number;
+  /**
+   * Exact selected-category count within caller scope and status filter, before text search.
+   * @minimum 0
+   */
+  scopeTotalCount?: number;
+  /** Exact per-category counts under caller scope, status, and search, independent of cursor and selected category. */
+  categoryCounts?: ApprovalsControllerListApprovalsV1200DataCategoryCounts;
 };
 
 export type ApprovalsControllerListApprovalsV1200Meta = {
@@ -7884,6 +11481,14 @@ export type ApprovalsControllerDecideApprovalV1200Data = {
   creditKobo?: number | null;
   /** @nullable */
   redeemedAmountKobo?: number | null;
+  /** @nullable */
+  netPaidAmountKobo?: number | null;
+  /** @nullable */
+  earnedKobo?: number | null;
+  /** @nullable */
+  earnTransactionId?: string | null;
+  /** @nullable */
+  remainingBalanceKobo?: number | null;
   /** @nullable */
   reason?: string | null;
   decidedAt: string;
@@ -8156,6 +11761,14 @@ export type LoyaltyControllerEarnV1201 = {
   meta: LoyaltyControllerEarnV1201Meta;
 };
 
+export type LoyaltyControllerEarnV1202DataReasonCode =
+  (typeof LoyaltyControllerEarnV1202DataReasonCode)[keyof typeof LoyaltyControllerEarnV1202DataReasonCode];
+
+export const LoyaltyControllerEarnV1202DataReasonCode = {
+  PURCHASE_ABOVE_APPROVAL_THRESHOLD: 'PURCHASE_ABOVE_APPROVAL_THRESHOLD',
+  LATE_RECEIPT_CLAIM: 'LATE_RECEIPT_CLAIM',
+} as const;
+
 export type LoyaltyControllerEarnV1202Data = {
   id: string;
   /** @nullable */
@@ -8184,6 +11797,7 @@ export type LoyaltyControllerEarnV1202Data = {
   occurredAt: string;
   capturedAt: string;
   reviewStatus: string;
+  reasonCode: LoyaltyControllerEarnV1202DataReasonCode;
 };
 
 export type LoyaltyControllerEarnV1202Meta = {
@@ -8414,6 +12028,305 @@ export type LoyaltyControllerEarnV1503 = {
   meta: LoyaltyControllerEarnV1503Meta;
 };
 
+export type LoyaltyControllerSearchTransactionsByReceiptV1Params = {
+  /**
+   * Optional exact receipt-number filter; omitted to list the branch
+   */
+  receiptNumber?: string;
+  limit?: number;
+  cursor?: string;
+  status?: LoyaltyControllerSearchTransactionsByReceiptV1Status;
+  staffId?: string;
+  /**
+   * Minimum receipt purchase amount in integer kobo
+   * @pattern ^[0-9]{1,19}$
+   */
+  minReceiptAmountKobo?: string;
+};
+
+export type LoyaltyControllerSearchTransactionsByReceiptV1Status =
+  (typeof LoyaltyControllerSearchTransactionsByReceiptV1Status)[keyof typeof LoyaltyControllerSearchTransactionsByReceiptV1Status];
+
+export const LoyaltyControllerSearchTransactionsByReceiptV1Status = {
+  CONFIRMED: 'CONFIRMED',
+  REVERSED: 'REVERSED',
+} as const;
+
+export type LoyaltyControllerSearchTransactionsByReceiptV1200DataItemsItemOperation =
+  (typeof LoyaltyControllerSearchTransactionsByReceiptV1200DataItemsItemOperation)[keyof typeof LoyaltyControllerSearchTransactionsByReceiptV1200DataItemsItemOperation];
+
+export const LoyaltyControllerSearchTransactionsByReceiptV1200DataItemsItemOperation =
+  {
+    EARN: 'EARN',
+    REDEEM: 'REDEEM',
+  } as const;
+
+export type LoyaltyControllerSearchTransactionsByReceiptV1200DataItemsItemStatus =
+  (typeof LoyaltyControllerSearchTransactionsByReceiptV1200DataItemsItemStatus)[keyof typeof LoyaltyControllerSearchTransactionsByReceiptV1200DataItemsItemStatus];
+
+export const LoyaltyControllerSearchTransactionsByReceiptV1200DataItemsItemStatus =
+  {
+    CONFIRMED: 'CONFIRMED',
+    REVERSED: 'REVERSED',
+  } as const;
+
+export type LoyaltyControllerSearchTransactionsByReceiptV1200DataItemsItem = {
+  transactionId: string;
+  receiptNumber: string;
+  operation: LoyaltyControllerSearchTransactionsByReceiptV1200DataItemsItemOperation;
+  amountKobo: number;
+  /** @nullable */
+  creditKobo: number | null;
+  /** @nullable */
+  customerName: string | null;
+  /** @nullable */
+  purchaseAmountKobo: number | null;
+  status: LoyaltyControllerSearchTransactionsByReceiptV1200DataItemsItemStatus;
+  occurredAt: string;
+};
+
+export type LoyaltyControllerSearchTransactionsByReceiptV1200DataStaffOptionsItem =
+  {
+    id: string;
+    label: string;
+  };
+
+export type LoyaltyControllerSearchTransactionsByReceiptV1200Data = {
+  items: LoyaltyControllerSearchTransactionsByReceiptV1200DataItemsItem[];
+  staffOptions: LoyaltyControllerSearchTransactionsByReceiptV1200DataStaffOptionsItem[];
+  /** @nullable */
+  nextCursor: string | null;
+  hasMore: boolean;
+};
+
+export type LoyaltyControllerSearchTransactionsByReceiptV1200Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type LoyaltyControllerSearchTransactionsByReceiptV1200 = {
+  success: boolean;
+  data: LoyaltyControllerSearchTransactionsByReceiptV1200Data;
+  meta: LoyaltyControllerSearchTransactionsByReceiptV1200Meta;
+};
+
+/**
+ * @nullable
+ */
+export type LoyaltyControllerSearchTransactionsByReceiptV1400ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type LoyaltyControllerSearchTransactionsByReceiptV1400Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: LoyaltyControllerSearchTransactionsByReceiptV1400ErrorDetails;
+};
+
+export type LoyaltyControllerSearchTransactionsByReceiptV1400Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type LoyaltyControllerSearchTransactionsByReceiptV1400 = {
+  success: boolean;
+  error: LoyaltyControllerSearchTransactionsByReceiptV1400Error;
+  meta: LoyaltyControllerSearchTransactionsByReceiptV1400Meta;
+};
+
+/**
+ * @nullable
+ */
+export type LoyaltyControllerSearchTransactionsByReceiptV1401ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type LoyaltyControllerSearchTransactionsByReceiptV1401Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: LoyaltyControllerSearchTransactionsByReceiptV1401ErrorDetails;
+};
+
+export type LoyaltyControllerSearchTransactionsByReceiptV1401Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type LoyaltyControllerSearchTransactionsByReceiptV1401 = {
+  success: boolean;
+  error: LoyaltyControllerSearchTransactionsByReceiptV1401Error;
+  meta: LoyaltyControllerSearchTransactionsByReceiptV1401Meta;
+};
+
+/**
+ * @nullable
+ */
+export type LoyaltyControllerSearchTransactionsByReceiptV1403ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type LoyaltyControllerSearchTransactionsByReceiptV1403Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: LoyaltyControllerSearchTransactionsByReceiptV1403ErrorDetails;
+};
+
+export type LoyaltyControllerSearchTransactionsByReceiptV1403Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type LoyaltyControllerSearchTransactionsByReceiptV1403 = {
+  success: boolean;
+  error: LoyaltyControllerSearchTransactionsByReceiptV1403Error;
+  meta: LoyaltyControllerSearchTransactionsByReceiptV1403Meta;
+};
+
+/**
+ * @nullable
+ */
+export type LoyaltyControllerSearchTransactionsByReceiptV1404ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type LoyaltyControllerSearchTransactionsByReceiptV1404Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: LoyaltyControllerSearchTransactionsByReceiptV1404ErrorDetails;
+};
+
+export type LoyaltyControllerSearchTransactionsByReceiptV1404Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type LoyaltyControllerSearchTransactionsByReceiptV1404 = {
+  success: boolean;
+  error: LoyaltyControllerSearchTransactionsByReceiptV1404Error;
+  meta: LoyaltyControllerSearchTransactionsByReceiptV1404Meta;
+};
+
+/**
+ * @nullable
+ */
+export type LoyaltyControllerSearchTransactionsByReceiptV1409ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type LoyaltyControllerSearchTransactionsByReceiptV1409Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: LoyaltyControllerSearchTransactionsByReceiptV1409ErrorDetails;
+};
+
+export type LoyaltyControllerSearchTransactionsByReceiptV1409Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type LoyaltyControllerSearchTransactionsByReceiptV1409 = {
+  success: boolean;
+  error: LoyaltyControllerSearchTransactionsByReceiptV1409Error;
+  meta: LoyaltyControllerSearchTransactionsByReceiptV1409Meta;
+};
+
+/**
+ * @nullable
+ */
+export type LoyaltyControllerSearchTransactionsByReceiptV1422ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type LoyaltyControllerSearchTransactionsByReceiptV1422Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: LoyaltyControllerSearchTransactionsByReceiptV1422ErrorDetails;
+};
+
+export type LoyaltyControllerSearchTransactionsByReceiptV1422Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type LoyaltyControllerSearchTransactionsByReceiptV1422 = {
+  success: boolean;
+  error: LoyaltyControllerSearchTransactionsByReceiptV1422Error;
+  meta: LoyaltyControllerSearchTransactionsByReceiptV1422Meta;
+};
+
+/**
+ * @nullable
+ */
+export type LoyaltyControllerSearchTransactionsByReceiptV1429ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type LoyaltyControllerSearchTransactionsByReceiptV1429Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: LoyaltyControllerSearchTransactionsByReceiptV1429ErrorDetails;
+};
+
+export type LoyaltyControllerSearchTransactionsByReceiptV1429Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type LoyaltyControllerSearchTransactionsByReceiptV1429 = {
+  success: boolean;
+  error: LoyaltyControllerSearchTransactionsByReceiptV1429Error;
+  meta: LoyaltyControllerSearchTransactionsByReceiptV1429Meta;
+};
+
+/**
+ * @nullable
+ */
+export type LoyaltyControllerSearchTransactionsByReceiptV1503ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type LoyaltyControllerSearchTransactionsByReceiptV1503Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: LoyaltyControllerSearchTransactionsByReceiptV1503ErrorDetails;
+};
+
+export type LoyaltyControllerSearchTransactionsByReceiptV1503Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type LoyaltyControllerSearchTransactionsByReceiptV1503 = {
+  success: boolean;
+  error: LoyaltyControllerSearchTransactionsByReceiptV1503Error;
+  meta: LoyaltyControllerSearchTransactionsByReceiptV1503Meta;
+};
+
 export type LoyaltyControllerGetTransactionV1200DataType =
   (typeof LoyaltyControllerGetTransactionV1200DataType)[keyof typeof LoyaltyControllerGetTransactionV1200DataType];
 
@@ -8491,6 +12404,16 @@ export type LoyaltyControllerGetTransactionV1200DataLedger = {
   id: string;
   /** @nullable */
   receiptId: string | null;
+  /**
+   * POS receipt number associated with the ledger entry.
+   * @nullable
+   */
+  source?: string | null;
+  /**
+   * Username of the staff member who created the ledger entry.
+   * @nullable
+   */
+  staffUsername?: string | null;
   /** @nullable */
   redemptionId?: string | null;
   type: LoyaltyControllerGetTransactionV1200DataLedgerType;
@@ -8504,6 +12427,40 @@ export type LoyaltyControllerGetTransactionV1200DataLedger = {
   /** @nullable */
   creditLot: LoyaltyControllerGetTransactionV1200DataLedgerCreditLot;
   restorations: LoyaltyControllerGetTransactionV1200DataLedgerRestorationsItem[];
+};
+
+export type LoyaltyControllerGetTransactionV1200DataSettlementEffectsItemType =
+  (typeof LoyaltyControllerGetTransactionV1200DataSettlementEffectsItemType)[keyof typeof LoyaltyControllerGetTransactionV1200DataSettlementEffectsItemType];
+
+export const LoyaltyControllerGetTransactionV1200DataSettlementEffectsItemType =
+  {
+    EARN: 'EARN',
+    REDEEM: 'REDEEM',
+  } as const;
+
+export type LoyaltyControllerGetTransactionV1200DataSettlementEffectsItemDirection =
+  (typeof LoyaltyControllerGetTransactionV1200DataSettlementEffectsItemDirection)[keyof typeof LoyaltyControllerGetTransactionV1200DataSettlementEffectsItemDirection];
+
+export const LoyaltyControllerGetTransactionV1200DataSettlementEffectsItemDirection =
+  {
+    CREDIT: 'CREDIT',
+    DEBIT: 'DEBIT',
+  } as const;
+
+export type LoyaltyControllerGetTransactionV1200DataSettlementEffectsItemStatus =
+  (typeof LoyaltyControllerGetTransactionV1200DataSettlementEffectsItemStatus)[keyof typeof LoyaltyControllerGetTransactionV1200DataSettlementEffectsItemStatus];
+
+export const LoyaltyControllerGetTransactionV1200DataSettlementEffectsItemStatus =
+  {
+    CONFIRMED: 'CONFIRMED',
+  } as const;
+
+export type LoyaltyControllerGetTransactionV1200DataSettlementEffectsItem = {
+  transactionId: string;
+  type: LoyaltyControllerGetTransactionV1200DataSettlementEffectsItemType;
+  direction: LoyaltyControllerGetTransactionV1200DataSettlementEffectsItemDirection;
+  amountKobo: number;
+  status: LoyaltyControllerGetTransactionV1200DataSettlementEffectsItemStatus;
 };
 
 export type LoyaltyControllerGetTransactionV1200DataAdjustmentKind =
@@ -8577,6 +12534,8 @@ export type LoyaltyControllerGetTransactionV1200Data = {
   /** @nullable */
   redeemedAmountKobo: number | null;
   /** @nullable */
+  netPaidAmountKobo: number | null;
+  /** @nullable */
   redemptionId: string | null;
   availableBalanceKobo: number;
   /** @nullable */
@@ -8584,6 +12543,7 @@ export type LoyaltyControllerGetTransactionV1200Data = {
   /** @nullable */
   smsStatus: string | null;
   ledger: LoyaltyControllerGetTransactionV1200DataLedger;
+  settlementEffects: LoyaltyControllerGetTransactionV1200DataSettlementEffectsItem[];
   /** @nullable */
   adjustment?: LoyaltyControllerGetTransactionV1200DataAdjustment;
   /** @nullable */
@@ -8883,6 +12843,16 @@ export type LoyaltyControllerGetCustomerLedgerV1200DataItemsItem = {
   id: string;
   /** @nullable */
   receiptId: string | null;
+  /**
+   * POS receipt number associated with the ledger entry.
+   * @nullable
+   */
+  source?: string | null;
+  /**
+   * Username of the staff member who created the ledger entry.
+   * @nullable
+   */
+  staffUsername?: string | null;
   /** @nullable */
   redemptionId?: string | null;
   type: LoyaltyControllerGetCustomerLedgerV1200DataItemsItemType;
@@ -9168,6 +13138,12 @@ export type RedemptionsControllerRedeemV1201Data = {
   requestedRedemptionKobo: number;
   /** @nullable */
   redeemedAmountKobo: number | null;
+  /** @nullable */
+  netPaidAmountKobo: number | null;
+  /** @nullable */
+  earnedKobo: number | null;
+  /** @nullable */
+  earnTransactionId: string | null;
   maximumAllowedKobo: number;
   /** @nullable */
   remainingBalanceKobo: number | null;
@@ -9225,6 +13201,12 @@ export type RedemptionsControllerRedeemV1202Data = {
   requestedRedemptionKobo: number;
   /** @nullable */
   redeemedAmountKobo: number | null;
+  /** @nullable */
+  netPaidAmountKobo: number | null;
+  /** @nullable */
+  earnedKobo: number | null;
+  /** @nullable */
+  earnTransactionId: string | null;
   maximumAllowedKobo: number;
   /** @nullable */
   remainingBalanceKobo: number | null;
@@ -9473,6 +13455,13 @@ export type ReversalsControllerReverseV1201DataRestorationsItem = {
 };
 
 export type ReversalsControllerReverseV1201Data = {
+  receiptId?: string;
+  originalRedemptionTransactionId?: string;
+  originalEarnTransactionId?: string;
+  redemptionReversalTransactionId?: string;
+  earnReversalTransactionId?: string;
+  earnRemovedAmountKobo?: number;
+  redeemedRestoredAmountKobo?: number;
   id: string;
   transactionId: string;
   originalTransactionId: string;
@@ -10257,7 +14246,22 @@ export const FraudControllerListFraudFlagsV1200DataScope = {
 } as const;
 
 export type FraudControllerListFraudFlagsV1200DataItemsItem = {
-  [key: string]: unknown;
+  /** @nullable */
+  branchName?: string | null;
+  /** @nullable */
+  cashierName?: string | null;
+  /** @nullable */
+  customerName?: string | null;
+  /** @nullable */
+  receiptNumber?: string | null;
+  /** @nullable */
+  amountKobo?: number | null;
+};
+
+export type FraudControllerListFraudFlagsV1200DataSummary = {
+  needReviewCount: number;
+  highPriorityCount: number;
+  underReviewCount: number;
 };
 
 export type FraudControllerListFraudFlagsV1200Data = {
@@ -10266,6 +14270,7 @@ export type FraudControllerListFraudFlagsV1200Data = {
   /** @nullable */
   branchId: string | null;
   items: FraudControllerListFraudFlagsV1200DataItemsItem[];
+  summary: FraudControllerListFraudFlagsV1200DataSummary;
   /** @nullable */
   nextCursor: string | null;
   hasMore: boolean;
@@ -12004,6 +16009,21 @@ export type ReportsControllerListCustomerPerformanceV1503 = {
   meta: ReportsControllerListCustomerPerformanceV1503Meta;
 };
 
+export type ReportsControllerListCashierTodayV1Params = {
+  /**
+   * Optional stable customer ID filter within the cashier scope
+   */
+  customerId?: string;
+  /**
+   * One-based page number within today’s cashier activity
+   */
+  page?: number;
+  /**
+   * Maximum number of rows per page, capped at 10
+   */
+  limit?: number;
+};
+
 export type ReportsControllerListCashierTodayV1200DataItemsItemOperation =
   (typeof ReportsControllerListCashierTodayV1200DataItemsItemOperation)[keyof typeof ReportsControllerListCashierTodayV1200DataItemsItemOperation];
 
@@ -12014,10 +16034,21 @@ export const ReportsControllerListCashierTodayV1200DataItemsItemOperation = {
 
 export type ReportsControllerListCashierTodayV1200DataItemsItem = {
   id: string;
+  /** @nullable */
+  transactionId: string | null;
   occurredAt: string;
   operation: ReportsControllerListCashierTodayV1200DataItemsItemOperation;
+  customerName: string;
+  /** @nullable */
+  purchaseAmountKobo: number | null;
   /** @nullable */
   loyaltyAmountKobo: number | null;
+  /** @nullable */
+  redeemedAmountKobo: number | null;
+  /** @nullable */
+  netPaidAmountKobo: number | null;
+  /** @nullable */
+  earnedAmountKobo: number | null;
   receiptNumber: string;
   status: string;
 };
@@ -12025,6 +16056,17 @@ export type ReportsControllerListCashierTodayV1200DataItemsItem = {
 export type ReportsControllerListCashierTodayV1200Data = {
   branchId: string;
   timezone: string;
+  /** @nullable */
+  monthlyEarnKobo: number | null;
+  /** @minimum 1 */
+  page: number;
+  /**
+   * @minimum 1
+   * @maximum 10
+   */
+  limit: number;
+  /** @minimum 0 */
+  totalCount: number;
   /** @maxItems 10 */
   items: ReportsControllerListCashierTodayV1200DataItemsItem[];
 };
@@ -14490,6 +18532,222 @@ export type ReportsControllerRefreshReportV1503 = {
   meta: ReportsControllerRefreshReportV1503Meta;
 };
 
+/**
+ * @nullable
+ */
+export type ReportsControllerRefreshSupervisorDashboardV1400ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type ReportsControllerRefreshSupervisorDashboardV1400Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: ReportsControllerRefreshSupervisorDashboardV1400ErrorDetails;
+};
+
+export type ReportsControllerRefreshSupervisorDashboardV1400Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type ReportsControllerRefreshSupervisorDashboardV1400 = {
+  success: boolean;
+  error: ReportsControllerRefreshSupervisorDashboardV1400Error;
+  meta: ReportsControllerRefreshSupervisorDashboardV1400Meta;
+};
+
+/**
+ * @nullable
+ */
+export type ReportsControllerRefreshSupervisorDashboardV1401ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type ReportsControllerRefreshSupervisorDashboardV1401Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: ReportsControllerRefreshSupervisorDashboardV1401ErrorDetails;
+};
+
+export type ReportsControllerRefreshSupervisorDashboardV1401Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type ReportsControllerRefreshSupervisorDashboardV1401 = {
+  success: boolean;
+  error: ReportsControllerRefreshSupervisorDashboardV1401Error;
+  meta: ReportsControllerRefreshSupervisorDashboardV1401Meta;
+};
+
+/**
+ * @nullable
+ */
+export type ReportsControllerRefreshSupervisorDashboardV1403ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type ReportsControllerRefreshSupervisorDashboardV1403Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: ReportsControllerRefreshSupervisorDashboardV1403ErrorDetails;
+};
+
+export type ReportsControllerRefreshSupervisorDashboardV1403Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type ReportsControllerRefreshSupervisorDashboardV1403 = {
+  success: boolean;
+  error: ReportsControllerRefreshSupervisorDashboardV1403Error;
+  meta: ReportsControllerRefreshSupervisorDashboardV1403Meta;
+};
+
+/**
+ * @nullable
+ */
+export type ReportsControllerRefreshSupervisorDashboardV1404ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type ReportsControllerRefreshSupervisorDashboardV1404Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: ReportsControllerRefreshSupervisorDashboardV1404ErrorDetails;
+};
+
+export type ReportsControllerRefreshSupervisorDashboardV1404Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type ReportsControllerRefreshSupervisorDashboardV1404 = {
+  success: boolean;
+  error: ReportsControllerRefreshSupervisorDashboardV1404Error;
+  meta: ReportsControllerRefreshSupervisorDashboardV1404Meta;
+};
+
+/**
+ * @nullable
+ */
+export type ReportsControllerRefreshSupervisorDashboardV1409ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type ReportsControllerRefreshSupervisorDashboardV1409Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: ReportsControllerRefreshSupervisorDashboardV1409ErrorDetails;
+};
+
+export type ReportsControllerRefreshSupervisorDashboardV1409Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type ReportsControllerRefreshSupervisorDashboardV1409 = {
+  success: boolean;
+  error: ReportsControllerRefreshSupervisorDashboardV1409Error;
+  meta: ReportsControllerRefreshSupervisorDashboardV1409Meta;
+};
+
+/**
+ * @nullable
+ */
+export type ReportsControllerRefreshSupervisorDashboardV1422ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type ReportsControllerRefreshSupervisorDashboardV1422Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: ReportsControllerRefreshSupervisorDashboardV1422ErrorDetails;
+};
+
+export type ReportsControllerRefreshSupervisorDashboardV1422Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type ReportsControllerRefreshSupervisorDashboardV1422 = {
+  success: boolean;
+  error: ReportsControllerRefreshSupervisorDashboardV1422Error;
+  meta: ReportsControllerRefreshSupervisorDashboardV1422Meta;
+};
+
+/**
+ * @nullable
+ */
+export type ReportsControllerRefreshSupervisorDashboardV1429ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type ReportsControllerRefreshSupervisorDashboardV1429Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: ReportsControllerRefreshSupervisorDashboardV1429ErrorDetails;
+};
+
+export type ReportsControllerRefreshSupervisorDashboardV1429Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type ReportsControllerRefreshSupervisorDashboardV1429 = {
+  success: boolean;
+  error: ReportsControllerRefreshSupervisorDashboardV1429Error;
+  meta: ReportsControllerRefreshSupervisorDashboardV1429Meta;
+};
+
+/**
+ * @nullable
+ */
+export type ReportsControllerRefreshSupervisorDashboardV1503ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type ReportsControllerRefreshSupervisorDashboardV1503Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: ReportsControllerRefreshSupervisorDashboardV1503ErrorDetails;
+};
+
+export type ReportsControllerRefreshSupervisorDashboardV1503Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type ReportsControllerRefreshSupervisorDashboardV1503 = {
+  success: boolean;
+  error: ReportsControllerRefreshSupervisorDashboardV1503Error;
+  meta: ReportsControllerRefreshSupervisorDashboardV1503Meta;
+};
+
 export type NotificationsControllerListTransactionSmsV1Params = {
   /**
    * @minimum 1
@@ -14756,6 +19014,466 @@ export type ConfigurationControllerGetPublicConfigV1503 = {
   success: boolean;
   error: ConfigurationControllerGetPublicConfigV1503Error;
   meta: ConfigurationControllerGetPublicConfigV1503Meta;
+};
+
+export type ConfigurationControllerGetPolicyConfigurationV1Params = {
+  branchId: string;
+};
+
+export type ConfigurationControllerGetPolicyConfigurationV1200Data = {
+  [key: string]: unknown;
+};
+
+export type ConfigurationControllerGetPolicyConfigurationV1200Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type ConfigurationControllerGetPolicyConfigurationV1200 = {
+  success: boolean;
+  data: ConfigurationControllerGetPolicyConfigurationV1200Data;
+  meta: ConfigurationControllerGetPolicyConfigurationV1200Meta;
+};
+
+/**
+ * @nullable
+ */
+export type ConfigurationControllerGetPolicyConfigurationV1400ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type ConfigurationControllerGetPolicyConfigurationV1400Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: ConfigurationControllerGetPolicyConfigurationV1400ErrorDetails;
+};
+
+export type ConfigurationControllerGetPolicyConfigurationV1400Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type ConfigurationControllerGetPolicyConfigurationV1400 = {
+  success: boolean;
+  error: ConfigurationControllerGetPolicyConfigurationV1400Error;
+  meta: ConfigurationControllerGetPolicyConfigurationV1400Meta;
+};
+
+/**
+ * @nullable
+ */
+export type ConfigurationControllerGetPolicyConfigurationV1401ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type ConfigurationControllerGetPolicyConfigurationV1401Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: ConfigurationControllerGetPolicyConfigurationV1401ErrorDetails;
+};
+
+export type ConfigurationControllerGetPolicyConfigurationV1401Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type ConfigurationControllerGetPolicyConfigurationV1401 = {
+  success: boolean;
+  error: ConfigurationControllerGetPolicyConfigurationV1401Error;
+  meta: ConfigurationControllerGetPolicyConfigurationV1401Meta;
+};
+
+/**
+ * @nullable
+ */
+export type ConfigurationControllerGetPolicyConfigurationV1403ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type ConfigurationControllerGetPolicyConfigurationV1403Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: ConfigurationControllerGetPolicyConfigurationV1403ErrorDetails;
+};
+
+export type ConfigurationControllerGetPolicyConfigurationV1403Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type ConfigurationControllerGetPolicyConfigurationV1403 = {
+  success: boolean;
+  error: ConfigurationControllerGetPolicyConfigurationV1403Error;
+  meta: ConfigurationControllerGetPolicyConfigurationV1403Meta;
+};
+
+/**
+ * @nullable
+ */
+export type ConfigurationControllerGetPolicyConfigurationV1404ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type ConfigurationControllerGetPolicyConfigurationV1404Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: ConfigurationControllerGetPolicyConfigurationV1404ErrorDetails;
+};
+
+export type ConfigurationControllerGetPolicyConfigurationV1404Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type ConfigurationControllerGetPolicyConfigurationV1404 = {
+  success: boolean;
+  error: ConfigurationControllerGetPolicyConfigurationV1404Error;
+  meta: ConfigurationControllerGetPolicyConfigurationV1404Meta;
+};
+
+/**
+ * @nullable
+ */
+export type ConfigurationControllerGetPolicyConfigurationV1409ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type ConfigurationControllerGetPolicyConfigurationV1409Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: ConfigurationControllerGetPolicyConfigurationV1409ErrorDetails;
+};
+
+export type ConfigurationControllerGetPolicyConfigurationV1409Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type ConfigurationControllerGetPolicyConfigurationV1409 = {
+  success: boolean;
+  error: ConfigurationControllerGetPolicyConfigurationV1409Error;
+  meta: ConfigurationControllerGetPolicyConfigurationV1409Meta;
+};
+
+/**
+ * @nullable
+ */
+export type ConfigurationControllerGetPolicyConfigurationV1422ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type ConfigurationControllerGetPolicyConfigurationV1422Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: ConfigurationControllerGetPolicyConfigurationV1422ErrorDetails;
+};
+
+export type ConfigurationControllerGetPolicyConfigurationV1422Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type ConfigurationControllerGetPolicyConfigurationV1422 = {
+  success: boolean;
+  error: ConfigurationControllerGetPolicyConfigurationV1422Error;
+  meta: ConfigurationControllerGetPolicyConfigurationV1422Meta;
+};
+
+/**
+ * @nullable
+ */
+export type ConfigurationControllerGetPolicyConfigurationV1429ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type ConfigurationControllerGetPolicyConfigurationV1429Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: ConfigurationControllerGetPolicyConfigurationV1429ErrorDetails;
+};
+
+export type ConfigurationControllerGetPolicyConfigurationV1429Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type ConfigurationControllerGetPolicyConfigurationV1429 = {
+  success: boolean;
+  error: ConfigurationControllerGetPolicyConfigurationV1429Error;
+  meta: ConfigurationControllerGetPolicyConfigurationV1429Meta;
+};
+
+/**
+ * @nullable
+ */
+export type ConfigurationControllerGetPolicyConfigurationV1503ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type ConfigurationControllerGetPolicyConfigurationV1503Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: ConfigurationControllerGetPolicyConfigurationV1503ErrorDetails;
+};
+
+export type ConfigurationControllerGetPolicyConfigurationV1503Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type ConfigurationControllerGetPolicyConfigurationV1503 = {
+  success: boolean;
+  error: ConfigurationControllerGetPolicyConfigurationV1503Error;
+  meta: ConfigurationControllerGetPolicyConfigurationV1503Meta;
+};
+
+export type ConfigurationControllerUpdatePolicyConfigurationV1200Data = {
+  [key: string]: unknown;
+};
+
+export type ConfigurationControllerUpdatePolicyConfigurationV1200Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type ConfigurationControllerUpdatePolicyConfigurationV1200 = {
+  success: boolean;
+  data: ConfigurationControllerUpdatePolicyConfigurationV1200Data;
+  meta: ConfigurationControllerUpdatePolicyConfigurationV1200Meta;
+};
+
+/**
+ * @nullable
+ */
+export type ConfigurationControllerUpdatePolicyConfigurationV1400ErrorDetails =
+  { [key: string]: unknown } | null;
+
+export type ConfigurationControllerUpdatePolicyConfigurationV1400Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: ConfigurationControllerUpdatePolicyConfigurationV1400ErrorDetails;
+};
+
+export type ConfigurationControllerUpdatePolicyConfigurationV1400Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type ConfigurationControllerUpdatePolicyConfigurationV1400 = {
+  success: boolean;
+  error: ConfigurationControllerUpdatePolicyConfigurationV1400Error;
+  meta: ConfigurationControllerUpdatePolicyConfigurationV1400Meta;
+};
+
+/**
+ * @nullable
+ */
+export type ConfigurationControllerUpdatePolicyConfigurationV1401ErrorDetails =
+  { [key: string]: unknown } | null;
+
+export type ConfigurationControllerUpdatePolicyConfigurationV1401Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: ConfigurationControllerUpdatePolicyConfigurationV1401ErrorDetails;
+};
+
+export type ConfigurationControllerUpdatePolicyConfigurationV1401Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type ConfigurationControllerUpdatePolicyConfigurationV1401 = {
+  success: boolean;
+  error: ConfigurationControllerUpdatePolicyConfigurationV1401Error;
+  meta: ConfigurationControllerUpdatePolicyConfigurationV1401Meta;
+};
+
+/**
+ * @nullable
+ */
+export type ConfigurationControllerUpdatePolicyConfigurationV1403ErrorDetails =
+  { [key: string]: unknown } | null;
+
+export type ConfigurationControllerUpdatePolicyConfigurationV1403Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: ConfigurationControllerUpdatePolicyConfigurationV1403ErrorDetails;
+};
+
+export type ConfigurationControllerUpdatePolicyConfigurationV1403Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type ConfigurationControllerUpdatePolicyConfigurationV1403 = {
+  success: boolean;
+  error: ConfigurationControllerUpdatePolicyConfigurationV1403Error;
+  meta: ConfigurationControllerUpdatePolicyConfigurationV1403Meta;
+};
+
+/**
+ * @nullable
+ */
+export type ConfigurationControllerUpdatePolicyConfigurationV1404ErrorDetails =
+  { [key: string]: unknown } | null;
+
+export type ConfigurationControllerUpdatePolicyConfigurationV1404Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: ConfigurationControllerUpdatePolicyConfigurationV1404ErrorDetails;
+};
+
+export type ConfigurationControllerUpdatePolicyConfigurationV1404Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type ConfigurationControllerUpdatePolicyConfigurationV1404 = {
+  success: boolean;
+  error: ConfigurationControllerUpdatePolicyConfigurationV1404Error;
+  meta: ConfigurationControllerUpdatePolicyConfigurationV1404Meta;
+};
+
+/**
+ * @nullable
+ */
+export type ConfigurationControllerUpdatePolicyConfigurationV1409ErrorDetails =
+  { [key: string]: unknown } | null;
+
+export type ConfigurationControllerUpdatePolicyConfigurationV1409Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: ConfigurationControllerUpdatePolicyConfigurationV1409ErrorDetails;
+};
+
+export type ConfigurationControllerUpdatePolicyConfigurationV1409Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type ConfigurationControllerUpdatePolicyConfigurationV1409 = {
+  success: boolean;
+  error: ConfigurationControllerUpdatePolicyConfigurationV1409Error;
+  meta: ConfigurationControllerUpdatePolicyConfigurationV1409Meta;
+};
+
+/**
+ * @nullable
+ */
+export type ConfigurationControllerUpdatePolicyConfigurationV1422ErrorDetails =
+  { [key: string]: unknown } | null;
+
+export type ConfigurationControllerUpdatePolicyConfigurationV1422Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: ConfigurationControllerUpdatePolicyConfigurationV1422ErrorDetails;
+};
+
+export type ConfigurationControllerUpdatePolicyConfigurationV1422Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type ConfigurationControllerUpdatePolicyConfigurationV1422 = {
+  success: boolean;
+  error: ConfigurationControllerUpdatePolicyConfigurationV1422Error;
+  meta: ConfigurationControllerUpdatePolicyConfigurationV1422Meta;
+};
+
+/**
+ * @nullable
+ */
+export type ConfigurationControllerUpdatePolicyConfigurationV1429ErrorDetails =
+  { [key: string]: unknown } | null;
+
+export type ConfigurationControllerUpdatePolicyConfigurationV1429Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: ConfigurationControllerUpdatePolicyConfigurationV1429ErrorDetails;
+};
+
+export type ConfigurationControllerUpdatePolicyConfigurationV1429Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type ConfigurationControllerUpdatePolicyConfigurationV1429 = {
+  success: boolean;
+  error: ConfigurationControllerUpdatePolicyConfigurationV1429Error;
+  meta: ConfigurationControllerUpdatePolicyConfigurationV1429Meta;
+};
+
+/**
+ * @nullable
+ */
+export type ConfigurationControllerUpdatePolicyConfigurationV1503ErrorDetails =
+  { [key: string]: unknown } | null;
+
+export type ConfigurationControllerUpdatePolicyConfigurationV1503Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: ConfigurationControllerUpdatePolicyConfigurationV1503ErrorDetails;
+};
+
+export type ConfigurationControllerUpdatePolicyConfigurationV1503Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type ConfigurationControllerUpdatePolicyConfigurationV1503 = {
+  success: boolean;
+  error: ConfigurationControllerUpdatePolicyConfigurationV1503Error;
+  meta: ConfigurationControllerUpdatePolicyConfigurationV1503Meta;
 };
 
 export type ConfigurationControllerGetOperationalConfigV1200Data = {
@@ -15246,7 +19964,7 @@ export const getHealthControllerReadyUrl = () => {
 };
 
 /**
- * Returns ok when the application can reach Postgres and Redis.
+ * Returns ok when the application can reach Postgres and Redis and required POS device-token configuration is valid.
  * @summary Check readiness
  */
 export const healthControllerReady = async (
@@ -15272,6 +19990,11 @@ export const healthControllerReady = async (
 export type authControllerLoginV1Response200 = {
   data: AuthControllerLoginV1200;
   status: 200;
+};
+
+export type authControllerLoginV1Response202 = {
+  data: AuthControllerLoginV1202;
+  status: 202;
 };
 
 export type authControllerLoginV1Response400 = {
@@ -15314,10 +20037,11 @@ export type authControllerLoginV1Response503 = {
   status: 503;
 };
 
-export type authControllerLoginV1ResponseSuccess =
-  authControllerLoginV1Response200 & {
-    headers: Headers;
-  };
+export type authControllerLoginV1ResponseSuccess = (
+  authControllerLoginV1Response200 | authControllerLoginV1Response202
+) & {
+  headers: Headers;
+};
 export type authControllerLoginV1ResponseError = (
   | authControllerLoginV1Response400
   | authControllerLoginV1Response401
@@ -15374,6 +20098,114 @@ export const authControllerLoginV1 = async (
     status: res.status,
     headers: res.headers,
   } as authControllerLoginV1Response;
+};
+
+export type authControllerCompleteCashierLoginV1Response200 = {
+  data: AuthControllerCompleteCashierLoginV1200;
+  status: 200;
+};
+
+export type authControllerCompleteCashierLoginV1Response400 = {
+  data: AuthControllerCompleteCashierLoginV1400;
+  status: 400;
+};
+
+export type authControllerCompleteCashierLoginV1Response401 = {
+  data: AuthControllerCompleteCashierLoginV1401;
+  status: 401;
+};
+
+export type authControllerCompleteCashierLoginV1Response403 = {
+  data: AuthControllerCompleteCashierLoginV1403;
+  status: 403;
+};
+
+export type authControllerCompleteCashierLoginV1Response404 = {
+  data: AuthControllerCompleteCashierLoginV1404;
+  status: 404;
+};
+
+export type authControllerCompleteCashierLoginV1Response409 = {
+  data: AuthControllerCompleteCashierLoginV1409;
+  status: 409;
+};
+
+export type authControllerCompleteCashierLoginV1Response422 = {
+  data: AuthControllerCompleteCashierLoginV1422;
+  status: 422;
+};
+
+export type authControllerCompleteCashierLoginV1Response429 = {
+  data: AuthControllerCompleteCashierLoginV1429;
+  status: 429;
+};
+
+export type authControllerCompleteCashierLoginV1Response503 = {
+  data: AuthControllerCompleteCashierLoginV1503;
+  status: 503;
+};
+
+export type authControllerCompleteCashierLoginV1ResponseSuccess =
+  authControllerCompleteCashierLoginV1Response200 & {
+    headers: Headers;
+  };
+export type authControllerCompleteCashierLoginV1ResponseError = (
+  | authControllerCompleteCashierLoginV1Response400
+  | authControllerCompleteCashierLoginV1Response401
+  | authControllerCompleteCashierLoginV1Response403
+  | authControllerCompleteCashierLoginV1Response404
+  | authControllerCompleteCashierLoginV1Response409
+  | authControllerCompleteCashierLoginV1Response422
+  | authControllerCompleteCashierLoginV1Response429
+  | authControllerCompleteCashierLoginV1Response503
+) & {
+  headers: Headers;
+};
+
+export type authControllerCompleteCashierLoginV1Response =
+  | authControllerCompleteCashierLoginV1ResponseSuccess
+  | authControllerCompleteCashierLoginV1ResponseError;
+
+export const getAuthControllerCompleteCashierLoginV1Url = () => {
+  return `/api/v1/auth/cashier-login/complete`;
+};
+
+/**
+ * Complete cashier WebAuthn login
+ * @summary Complete cashier WebAuthn login
+ */
+export const authControllerCompleteCashierLoginV1 = async (
+  cashierLoginCompleteDto: CashierLoginCompleteDto,
+  options?: RequestInit,
+): Promise<authControllerCompleteCashierLoginV1Response> => {
+  const getHeaders = (
+    h?: NonNullable<RequestInit['headers']>,
+  ): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Array.isArray(h)) return Object.fromEntries(h);
+    return h;
+  };
+  const res = await fetch(getAuthControllerCompleteCashierLoginV1Url(), {
+    ...options,
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      ...getHeaders(options?.headers),
+    },
+    body: JSON.stringify(cashierLoginCompleteDto),
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: authControllerCompleteCashierLoginV1Response['data'] = body
+    ? JSON.parse(body)
+    : {};
+  return {
+    data,
+    status: res.status,
+    headers: res.headers,
+  } as authControllerCompleteCashierLoginV1Response;
 };
 
 export type authControllerSmokeSessionV1Response200 = {
@@ -16068,6 +20900,114 @@ export const usersControllerCreateUserV1 = async (
     status: res.status,
     headers: res.headers,
   } as usersControllerCreateUserV1Response;
+};
+
+export type usersControllerListCashiersV1Response200 = {
+  data: UsersControllerListCashiersV1200;
+  status: 200;
+};
+
+export type usersControllerListCashiersV1Response400 = {
+  data: UsersControllerListCashiersV1400;
+  status: 400;
+};
+
+export type usersControllerListCashiersV1Response401 = {
+  data: UsersControllerListCashiersV1401;
+  status: 401;
+};
+
+export type usersControllerListCashiersV1Response403 = {
+  data: UsersControllerListCashiersV1403;
+  status: 403;
+};
+
+export type usersControllerListCashiersV1Response404 = {
+  data: UsersControllerListCashiersV1404;
+  status: 404;
+};
+
+export type usersControllerListCashiersV1Response409 = {
+  data: UsersControllerListCashiersV1409;
+  status: 409;
+};
+
+export type usersControllerListCashiersV1Response422 = {
+  data: UsersControllerListCashiersV1422;
+  status: 422;
+};
+
+export type usersControllerListCashiersV1Response429 = {
+  data: UsersControllerListCashiersV1429;
+  status: 429;
+};
+
+export type usersControllerListCashiersV1Response503 = {
+  data: UsersControllerListCashiersV1503;
+  status: 503;
+};
+
+export type usersControllerListCashiersV1ResponseSuccess =
+  usersControllerListCashiersV1Response200 & {
+    headers: Headers;
+  };
+export type usersControllerListCashiersV1ResponseError = (
+  | usersControllerListCashiersV1Response400
+  | usersControllerListCashiersV1Response401
+  | usersControllerListCashiersV1Response403
+  | usersControllerListCashiersV1Response404
+  | usersControllerListCashiersV1Response409
+  | usersControllerListCashiersV1Response422
+  | usersControllerListCashiersV1Response429
+  | usersControllerListCashiersV1Response503
+) & {
+  headers: Headers;
+};
+
+export type usersControllerListCashiersV1Response =
+  | usersControllerListCashiersV1ResponseSuccess
+  | usersControllerListCashiersV1ResponseError;
+
+export const getUsersControllerListCashiersV1Url = (
+  params: UsersControllerListCashiersV1Params,
+) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value));
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/v1/users/cashiers?${stringifiedParams}`
+    : `/api/v1/users/cashiers`;
+};
+
+/**
+ * ShopCity API operation
+ */
+export const usersControllerListCashiersV1 = async (
+  params: UsersControllerListCashiersV1Params,
+  options?: RequestInit,
+): Promise<usersControllerListCashiersV1Response> => {
+  const res = await fetch(getUsersControllerListCashiersV1Url(params), {
+    ...options,
+    method: 'GET',
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: usersControllerListCashiersV1Response['data'] = body
+    ? JSON.parse(body)
+    : {};
+  return {
+    data,
+    status: res.status,
+    headers: res.headers,
+  } as usersControllerListCashiersV1Response;
 };
 
 export type usersControllerUpdateRoleV1Response200 = {
@@ -16795,6 +21735,604 @@ export const branchesControllerCreateDeviceV1 = async (
   } as branchesControllerCreateDeviceV1Response;
 };
 
+export type branchesControllerPairDeviceTokenV1Response200 = {
+  data: BranchesControllerPairDeviceTokenV1200;
+  status: 200;
+};
+
+export type branchesControllerPairDeviceTokenV1Response400 = {
+  data: BranchesControllerPairDeviceTokenV1400;
+  status: 400;
+};
+
+export type branchesControllerPairDeviceTokenV1Response401 = {
+  data: BranchesControllerPairDeviceTokenV1401;
+  status: 401;
+};
+
+export type branchesControllerPairDeviceTokenV1Response403 = {
+  data: BranchesControllerPairDeviceTokenV1403;
+  status: 403;
+};
+
+export type branchesControllerPairDeviceTokenV1Response404 = {
+  data: BranchesControllerPairDeviceTokenV1404;
+  status: 404;
+};
+
+export type branchesControllerPairDeviceTokenV1Response409 = {
+  data: BranchesControllerPairDeviceTokenV1409;
+  status: 409;
+};
+
+export type branchesControllerPairDeviceTokenV1Response422 = {
+  data: BranchesControllerPairDeviceTokenV1422;
+  status: 422;
+};
+
+export type branchesControllerPairDeviceTokenV1Response429 = {
+  data: BranchesControllerPairDeviceTokenV1429;
+  status: 429;
+};
+
+export type branchesControllerPairDeviceTokenV1Response503 = {
+  data: BranchesControllerPairDeviceTokenV1503;
+  status: 503;
+};
+
+export type branchesControllerPairDeviceTokenV1ResponseSuccess =
+  branchesControllerPairDeviceTokenV1Response200 & {
+    headers: Headers;
+  };
+export type branchesControllerPairDeviceTokenV1ResponseError = (
+  | branchesControllerPairDeviceTokenV1Response400
+  | branchesControllerPairDeviceTokenV1Response401
+  | branchesControllerPairDeviceTokenV1Response403
+  | branchesControllerPairDeviceTokenV1Response404
+  | branchesControllerPairDeviceTokenV1Response409
+  | branchesControllerPairDeviceTokenV1Response422
+  | branchesControllerPairDeviceTokenV1Response429
+  | branchesControllerPairDeviceTokenV1Response503
+) & {
+  headers: Headers;
+};
+
+export type branchesControllerPairDeviceTokenV1Response =
+  | branchesControllerPairDeviceTokenV1ResponseSuccess
+  | branchesControllerPairDeviceTokenV1ResponseError;
+
+export const getBranchesControllerPairDeviceTokenV1Url = (id: string) => {
+  return `/api/v1/devices/${id}/token/pair`;
+};
+
+/**
+ * Pair this authorized browser to a POS device
+ * @summary Pair this authorized browser to a POS device
+ */
+export const branchesControllerPairDeviceTokenV1 = async (
+  id: string,
+  options?: RequestInit,
+): Promise<branchesControllerPairDeviceTokenV1Response> => {
+  const res = await fetch(getBranchesControllerPairDeviceTokenV1Url(id), {
+    ...options,
+    method: 'POST',
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: branchesControllerPairDeviceTokenV1Response['data'] = body
+    ? JSON.parse(body)
+    : {};
+  return {
+    data,
+    status: res.status,
+    headers: res.headers,
+  } as branchesControllerPairDeviceTokenV1Response;
+};
+
+export type branchesControllerResetDeviceTokenV1Response200 = {
+  data: BranchesControllerResetDeviceTokenV1200;
+  status: 200;
+};
+
+export type branchesControllerResetDeviceTokenV1Response400 = {
+  data: BranchesControllerResetDeviceTokenV1400;
+  status: 400;
+};
+
+export type branchesControllerResetDeviceTokenV1Response401 = {
+  data: BranchesControllerResetDeviceTokenV1401;
+  status: 401;
+};
+
+export type branchesControllerResetDeviceTokenV1Response403 = {
+  data: BranchesControllerResetDeviceTokenV1403;
+  status: 403;
+};
+
+export type branchesControllerResetDeviceTokenV1Response404 = {
+  data: BranchesControllerResetDeviceTokenV1404;
+  status: 404;
+};
+
+export type branchesControllerResetDeviceTokenV1Response409 = {
+  data: BranchesControllerResetDeviceTokenV1409;
+  status: 409;
+};
+
+export type branchesControllerResetDeviceTokenV1Response422 = {
+  data: BranchesControllerResetDeviceTokenV1422;
+  status: 422;
+};
+
+export type branchesControllerResetDeviceTokenV1Response429 = {
+  data: BranchesControllerResetDeviceTokenV1429;
+  status: 429;
+};
+
+export type branchesControllerResetDeviceTokenV1Response503 = {
+  data: BranchesControllerResetDeviceTokenV1503;
+  status: 503;
+};
+
+export type branchesControllerResetDeviceTokenV1ResponseSuccess =
+  branchesControllerResetDeviceTokenV1Response200 & {
+    headers: Headers;
+  };
+export type branchesControllerResetDeviceTokenV1ResponseError = (
+  | branchesControllerResetDeviceTokenV1Response400
+  | branchesControllerResetDeviceTokenV1Response401
+  | branchesControllerResetDeviceTokenV1Response403
+  | branchesControllerResetDeviceTokenV1Response404
+  | branchesControllerResetDeviceTokenV1Response409
+  | branchesControllerResetDeviceTokenV1Response422
+  | branchesControllerResetDeviceTokenV1Response429
+  | branchesControllerResetDeviceTokenV1Response503
+) & {
+  headers: Headers;
+};
+
+export type branchesControllerResetDeviceTokenV1Response =
+  | branchesControllerResetDeviceTokenV1ResponseSuccess
+  | branchesControllerResetDeviceTokenV1ResponseError;
+
+export const getBranchesControllerResetDeviceTokenV1Url = (id: string) => {
+  return `/api/v1/devices/${id}/token/reset`;
+};
+
+/**
+ * Reset and unpair a POS browser credential
+ * @summary Reset and unpair a POS browser credential
+ */
+export const branchesControllerResetDeviceTokenV1 = async (
+  id: string,
+  options?: RequestInit,
+): Promise<branchesControllerResetDeviceTokenV1Response> => {
+  const res = await fetch(getBranchesControllerResetDeviceTokenV1Url(id), {
+    ...options,
+    method: 'POST',
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: branchesControllerResetDeviceTokenV1Response['data'] = body
+    ? JSON.parse(body)
+    : {};
+  return {
+    data,
+    status: res.status,
+    headers: res.headers,
+  } as branchesControllerResetDeviceTokenV1Response;
+};
+
+export type branchesControllerCreateDeviceEnrollmentV1Response201 = {
+  data: BranchesControllerCreateDeviceEnrollmentV1201;
+  status: 201;
+};
+
+export type branchesControllerCreateDeviceEnrollmentV1Response400 = {
+  data: BranchesControllerCreateDeviceEnrollmentV1400;
+  status: 400;
+};
+
+export type branchesControllerCreateDeviceEnrollmentV1Response401 = {
+  data: BranchesControllerCreateDeviceEnrollmentV1401;
+  status: 401;
+};
+
+export type branchesControllerCreateDeviceEnrollmentV1Response403 = {
+  data: BranchesControllerCreateDeviceEnrollmentV1403;
+  status: 403;
+};
+
+export type branchesControllerCreateDeviceEnrollmentV1Response404 = {
+  data: BranchesControllerCreateDeviceEnrollmentV1404;
+  status: 404;
+};
+
+export type branchesControllerCreateDeviceEnrollmentV1Response409 = {
+  data: BranchesControllerCreateDeviceEnrollmentV1409;
+  status: 409;
+};
+
+export type branchesControllerCreateDeviceEnrollmentV1Response422 = {
+  data: BranchesControllerCreateDeviceEnrollmentV1422;
+  status: 422;
+};
+
+export type branchesControllerCreateDeviceEnrollmentV1Response429 = {
+  data: BranchesControllerCreateDeviceEnrollmentV1429;
+  status: 429;
+};
+
+export type branchesControllerCreateDeviceEnrollmentV1Response503 = {
+  data: BranchesControllerCreateDeviceEnrollmentV1503;
+  status: 503;
+};
+
+export type branchesControllerCreateDeviceEnrollmentV1ResponseSuccess =
+  branchesControllerCreateDeviceEnrollmentV1Response201 & {
+    headers: Headers;
+  };
+export type branchesControllerCreateDeviceEnrollmentV1ResponseError = (
+  | branchesControllerCreateDeviceEnrollmentV1Response400
+  | branchesControllerCreateDeviceEnrollmentV1Response401
+  | branchesControllerCreateDeviceEnrollmentV1Response403
+  | branchesControllerCreateDeviceEnrollmentV1Response404
+  | branchesControllerCreateDeviceEnrollmentV1Response409
+  | branchesControllerCreateDeviceEnrollmentV1Response422
+  | branchesControllerCreateDeviceEnrollmentV1Response429
+  | branchesControllerCreateDeviceEnrollmentV1Response503
+) & {
+  headers: Headers;
+};
+
+export type branchesControllerCreateDeviceEnrollmentV1Response =
+  | branchesControllerCreateDeviceEnrollmentV1ResponseSuccess
+  | branchesControllerCreateDeviceEnrollmentV1ResponseError;
+
+export const getBranchesControllerCreateDeviceEnrollmentV1Url = (
+  id: string,
+) => {
+  return `/api/v1/devices/${id}/enrollment`;
+};
+
+/**
+ * Create one-time device pairing authorization and registration options
+ * @summary Create one-time device pairing authorization and registration options
+ */
+export const branchesControllerCreateDeviceEnrollmentV1 = async (
+  id: string,
+  options?: RequestInit,
+): Promise<branchesControllerCreateDeviceEnrollmentV1Response> => {
+  const res = await fetch(
+    getBranchesControllerCreateDeviceEnrollmentV1Url(id),
+    {
+      ...options,
+      method: 'POST',
+    },
+  );
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: branchesControllerCreateDeviceEnrollmentV1Response['data'] = body
+    ? JSON.parse(body)
+    : {};
+  return {
+    data,
+    status: res.status,
+    headers: res.headers,
+  } as branchesControllerCreateDeviceEnrollmentV1Response;
+};
+
+export type branchesControllerCompleteDeviceEnrollmentV1Response200 = {
+  data: BranchesControllerCompleteDeviceEnrollmentV1200;
+  status: 200;
+};
+
+export type branchesControllerCompleteDeviceEnrollmentV1Response400 = {
+  data: BranchesControllerCompleteDeviceEnrollmentV1400;
+  status: 400;
+};
+
+export type branchesControllerCompleteDeviceEnrollmentV1Response401 = {
+  data: BranchesControllerCompleteDeviceEnrollmentV1401;
+  status: 401;
+};
+
+export type branchesControllerCompleteDeviceEnrollmentV1Response403 = {
+  data: BranchesControllerCompleteDeviceEnrollmentV1403;
+  status: 403;
+};
+
+export type branchesControllerCompleteDeviceEnrollmentV1Response404 = {
+  data: BranchesControllerCompleteDeviceEnrollmentV1404;
+  status: 404;
+};
+
+export type branchesControllerCompleteDeviceEnrollmentV1Response409 = {
+  data: BranchesControllerCompleteDeviceEnrollmentV1409;
+  status: 409;
+};
+
+export type branchesControllerCompleteDeviceEnrollmentV1Response422 = {
+  data: BranchesControllerCompleteDeviceEnrollmentV1422;
+  status: 422;
+};
+
+export type branchesControllerCompleteDeviceEnrollmentV1Response429 = {
+  data: BranchesControllerCompleteDeviceEnrollmentV1429;
+  status: 429;
+};
+
+export type branchesControllerCompleteDeviceEnrollmentV1Response503 = {
+  data: BranchesControllerCompleteDeviceEnrollmentV1503;
+  status: 503;
+};
+
+export type branchesControllerCompleteDeviceEnrollmentV1ResponseSuccess =
+  branchesControllerCompleteDeviceEnrollmentV1Response200 & {
+    headers: Headers;
+  };
+export type branchesControllerCompleteDeviceEnrollmentV1ResponseError = (
+  | branchesControllerCompleteDeviceEnrollmentV1Response400
+  | branchesControllerCompleteDeviceEnrollmentV1Response401
+  | branchesControllerCompleteDeviceEnrollmentV1Response403
+  | branchesControllerCompleteDeviceEnrollmentV1Response404
+  | branchesControllerCompleteDeviceEnrollmentV1Response409
+  | branchesControllerCompleteDeviceEnrollmentV1Response422
+  | branchesControllerCompleteDeviceEnrollmentV1Response429
+  | branchesControllerCompleteDeviceEnrollmentV1Response503
+) & {
+  headers: Headers;
+};
+
+export type branchesControllerCompleteDeviceEnrollmentV1Response =
+  | branchesControllerCompleteDeviceEnrollmentV1ResponseSuccess
+  | branchesControllerCompleteDeviceEnrollmentV1ResponseError;
+
+export const getBranchesControllerCompleteDeviceEnrollmentV1Url = (
+  id: string,
+) => {
+  return `/api/v1/devices/${id}/enrollment/complete`;
+};
+
+/**
+ * Complete target-device WebAuthn enrollment
+ * @summary Complete target-device WebAuthn enrollment
+ */
+export const branchesControllerCompleteDeviceEnrollmentV1 = async (
+  id: string,
+  completeDeviceEnrollmentDto: CompleteDeviceEnrollmentDto,
+  options?: RequestInit,
+): Promise<branchesControllerCompleteDeviceEnrollmentV1Response> => {
+  const getHeaders = (
+    h?: NonNullable<RequestInit['headers']>,
+  ): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Array.isArray(h)) return Object.fromEntries(h);
+    return h;
+  };
+  const res = await fetch(
+    getBranchesControllerCompleteDeviceEnrollmentV1Url(id),
+    {
+      ...options,
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...getHeaders(options?.headers),
+      },
+      body: JSON.stringify(completeDeviceEnrollmentDto),
+    },
+  );
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: branchesControllerCompleteDeviceEnrollmentV1Response['data'] =
+    body ? JSON.parse(body) : {};
+  return {
+    data,
+    status: res.status,
+    headers: res.headers,
+  } as branchesControllerCompleteDeviceEnrollmentV1Response;
+};
+
+export type branchesControllerListDeviceCredentialsV1Response200 = {
+  data: BranchesControllerListDeviceCredentialsV1200;
+  status: 200;
+};
+
+export type branchesControllerListDeviceCredentialsV1Response400 = {
+  data: BranchesControllerListDeviceCredentialsV1400;
+  status: 400;
+};
+
+export type branchesControllerListDeviceCredentialsV1Response401 = {
+  data: BranchesControllerListDeviceCredentialsV1401;
+  status: 401;
+};
+
+export type branchesControllerListDeviceCredentialsV1Response403 = {
+  data: BranchesControllerListDeviceCredentialsV1403;
+  status: 403;
+};
+
+export type branchesControllerListDeviceCredentialsV1Response404 = {
+  data: BranchesControllerListDeviceCredentialsV1404;
+  status: 404;
+};
+
+export type branchesControllerListDeviceCredentialsV1Response409 = {
+  data: BranchesControllerListDeviceCredentialsV1409;
+  status: 409;
+};
+
+export type branchesControllerListDeviceCredentialsV1Response422 = {
+  data: BranchesControllerListDeviceCredentialsV1422;
+  status: 422;
+};
+
+export type branchesControllerListDeviceCredentialsV1Response429 = {
+  data: BranchesControllerListDeviceCredentialsV1429;
+  status: 429;
+};
+
+export type branchesControllerListDeviceCredentialsV1Response503 = {
+  data: BranchesControllerListDeviceCredentialsV1503;
+  status: 503;
+};
+
+export type branchesControllerListDeviceCredentialsV1ResponseSuccess =
+  branchesControllerListDeviceCredentialsV1Response200 & {
+    headers: Headers;
+  };
+export type branchesControllerListDeviceCredentialsV1ResponseError = (
+  | branchesControllerListDeviceCredentialsV1Response400
+  | branchesControllerListDeviceCredentialsV1Response401
+  | branchesControllerListDeviceCredentialsV1Response403
+  | branchesControllerListDeviceCredentialsV1Response404
+  | branchesControllerListDeviceCredentialsV1Response409
+  | branchesControllerListDeviceCredentialsV1Response422
+  | branchesControllerListDeviceCredentialsV1Response429
+  | branchesControllerListDeviceCredentialsV1Response503
+) & {
+  headers: Headers;
+};
+
+export type branchesControllerListDeviceCredentialsV1Response =
+  | branchesControllerListDeviceCredentialsV1ResponseSuccess
+  | branchesControllerListDeviceCredentialsV1ResponseError;
+
+export const getBranchesControllerListDeviceCredentialsV1Url = (id: string) => {
+  return `/api/v1/devices/${id}/credentials`;
+};
+
+/**
+ * ShopCity API operation
+ */
+export const branchesControllerListDeviceCredentialsV1 = async (
+  id: string,
+  options?: RequestInit,
+): Promise<branchesControllerListDeviceCredentialsV1Response> => {
+  const res = await fetch(getBranchesControllerListDeviceCredentialsV1Url(id), {
+    ...options,
+    method: 'GET',
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: branchesControllerListDeviceCredentialsV1Response['data'] = body
+    ? JSON.parse(body)
+    : {};
+  return {
+    data,
+    status: res.status,
+    headers: res.headers,
+  } as branchesControllerListDeviceCredentialsV1Response;
+};
+
+export type branchesControllerRevokeDeviceCredentialV1Response200 = {
+  data: BranchesControllerRevokeDeviceCredentialV1200;
+  status: 200;
+};
+
+export type branchesControllerRevokeDeviceCredentialV1Response400 = {
+  data: BranchesControllerRevokeDeviceCredentialV1400;
+  status: 400;
+};
+
+export type branchesControllerRevokeDeviceCredentialV1Response401 = {
+  data: BranchesControllerRevokeDeviceCredentialV1401;
+  status: 401;
+};
+
+export type branchesControllerRevokeDeviceCredentialV1Response403 = {
+  data: BranchesControllerRevokeDeviceCredentialV1403;
+  status: 403;
+};
+
+export type branchesControllerRevokeDeviceCredentialV1Response404 = {
+  data: BranchesControllerRevokeDeviceCredentialV1404;
+  status: 404;
+};
+
+export type branchesControllerRevokeDeviceCredentialV1Response409 = {
+  data: BranchesControllerRevokeDeviceCredentialV1409;
+  status: 409;
+};
+
+export type branchesControllerRevokeDeviceCredentialV1Response422 = {
+  data: BranchesControllerRevokeDeviceCredentialV1422;
+  status: 422;
+};
+
+export type branchesControllerRevokeDeviceCredentialV1Response429 = {
+  data: BranchesControllerRevokeDeviceCredentialV1429;
+  status: 429;
+};
+
+export type branchesControllerRevokeDeviceCredentialV1Response503 = {
+  data: BranchesControllerRevokeDeviceCredentialV1503;
+  status: 503;
+};
+
+export type branchesControllerRevokeDeviceCredentialV1ResponseSuccess =
+  branchesControllerRevokeDeviceCredentialV1Response200 & {
+    headers: Headers;
+  };
+export type branchesControllerRevokeDeviceCredentialV1ResponseError = (
+  | branchesControllerRevokeDeviceCredentialV1Response400
+  | branchesControllerRevokeDeviceCredentialV1Response401
+  | branchesControllerRevokeDeviceCredentialV1Response403
+  | branchesControllerRevokeDeviceCredentialV1Response404
+  | branchesControllerRevokeDeviceCredentialV1Response409
+  | branchesControllerRevokeDeviceCredentialV1Response422
+  | branchesControllerRevokeDeviceCredentialV1Response429
+  | branchesControllerRevokeDeviceCredentialV1Response503
+) & {
+  headers: Headers;
+};
+
+export type branchesControllerRevokeDeviceCredentialV1Response =
+  | branchesControllerRevokeDeviceCredentialV1ResponseSuccess
+  | branchesControllerRevokeDeviceCredentialV1ResponseError;
+
+export const getBranchesControllerRevokeDeviceCredentialV1Url = (
+  id: string,
+  credentialId: string,
+) => {
+  return `/api/v1/devices/${id}/credentials/${credentialId}/revoke`;
+};
+
+/**
+ * ShopCity API operation
+ */
+export const branchesControllerRevokeDeviceCredentialV1 = async (
+  id: string,
+  credentialId: string,
+  options?: RequestInit,
+): Promise<branchesControllerRevokeDeviceCredentialV1Response> => {
+  const res = await fetch(
+    getBranchesControllerRevokeDeviceCredentialV1Url(id, credentialId),
+    {
+      ...options,
+      method: 'POST',
+    },
+  );
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: branchesControllerRevokeDeviceCredentialV1Response['data'] = body
+    ? JSON.parse(body)
+    : {};
+  return {
+    data,
+    status: res.status,
+    headers: res.headers,
+  } as branchesControllerRevokeDeviceCredentialV1Response;
+};
+
 export type branchesControllerUpdateDeviceV1Response200 = {
   data: BranchesControllerUpdateDeviceV1200;
   status: 200;
@@ -17119,6 +22657,318 @@ export const customersControllerCreateCustomerV1 = async (
   } as customersControllerCreateCustomerV1Response;
 };
 
+export type customersControllerGetCustomerProfileProjectionV1Response200 = {
+  data: CustomersControllerGetCustomerProfileProjectionV1200;
+  status: 200;
+};
+
+export type customersControllerGetCustomerProfileProjectionV1Response400 = {
+  data: CustomersControllerGetCustomerProfileProjectionV1400;
+  status: 400;
+};
+
+export type customersControllerGetCustomerProfileProjectionV1Response401 = {
+  data: CustomersControllerGetCustomerProfileProjectionV1401;
+  status: 401;
+};
+
+export type customersControllerGetCustomerProfileProjectionV1Response403 = {
+  data: CustomersControllerGetCustomerProfileProjectionV1403;
+  status: 403;
+};
+
+export type customersControllerGetCustomerProfileProjectionV1Response404 = {
+  data: CustomersControllerGetCustomerProfileProjectionV1404;
+  status: 404;
+};
+
+export type customersControllerGetCustomerProfileProjectionV1Response409 = {
+  data: CustomersControllerGetCustomerProfileProjectionV1409;
+  status: 409;
+};
+
+export type customersControllerGetCustomerProfileProjectionV1Response422 = {
+  data: CustomersControllerGetCustomerProfileProjectionV1422;
+  status: 422;
+};
+
+export type customersControllerGetCustomerProfileProjectionV1Response429 = {
+  data: CustomersControllerGetCustomerProfileProjectionV1429;
+  status: 429;
+};
+
+export type customersControllerGetCustomerProfileProjectionV1Response503 = {
+  data: CustomersControllerGetCustomerProfileProjectionV1503;
+  status: 503;
+};
+
+export type customersControllerGetCustomerProfileProjectionV1ResponseSuccess =
+  customersControllerGetCustomerProfileProjectionV1Response200 & {
+    headers: Headers;
+  };
+export type customersControllerGetCustomerProfileProjectionV1ResponseError = (
+  | customersControllerGetCustomerProfileProjectionV1Response400
+  | customersControllerGetCustomerProfileProjectionV1Response401
+  | customersControllerGetCustomerProfileProjectionV1Response403
+  | customersControllerGetCustomerProfileProjectionV1Response404
+  | customersControllerGetCustomerProfileProjectionV1Response409
+  | customersControllerGetCustomerProfileProjectionV1Response422
+  | customersControllerGetCustomerProfileProjectionV1Response429
+  | customersControllerGetCustomerProfileProjectionV1Response503
+) & {
+  headers: Headers;
+};
+
+export type customersControllerGetCustomerProfileProjectionV1Response =
+  | customersControllerGetCustomerProfileProjectionV1ResponseSuccess
+  | customersControllerGetCustomerProfileProjectionV1ResponseError;
+
+export const getCustomersControllerGetCustomerProfileProjectionV1Url = (
+  id: string,
+) => {
+  return `/api/v1/customers/${id}/profile-projection`;
+};
+
+/**
+ * Read the authenticated customer profile projection
+ * @summary Read the authenticated customer profile projection
+ */
+export const customersControllerGetCustomerProfileProjectionV1 = async (
+  id: string,
+  options?: RequestInit,
+): Promise<customersControllerGetCustomerProfileProjectionV1Response> => {
+  const res = await fetch(
+    getCustomersControllerGetCustomerProfileProjectionV1Url(id),
+    {
+      ...options,
+      method: 'GET',
+    },
+  );
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: customersControllerGetCustomerProfileProjectionV1Response['data'] =
+    body ? JSON.parse(body) : {};
+  return {
+    data,
+    status: res.status,
+    headers: res.headers,
+  } as customersControllerGetCustomerProfileProjectionV1Response;
+};
+
+export type customersControllerGetMarketingPreferenceV1Response200 = {
+  data: CustomersControllerGetMarketingPreferenceV1200;
+  status: 200;
+};
+
+export type customersControllerGetMarketingPreferenceV1Response400 = {
+  data: CustomersControllerGetMarketingPreferenceV1400;
+  status: 400;
+};
+
+export type customersControllerGetMarketingPreferenceV1Response401 = {
+  data: CustomersControllerGetMarketingPreferenceV1401;
+  status: 401;
+};
+
+export type customersControllerGetMarketingPreferenceV1Response403 = {
+  data: CustomersControllerGetMarketingPreferenceV1403;
+  status: 403;
+};
+
+export type customersControllerGetMarketingPreferenceV1Response404 = {
+  data: CustomersControllerGetMarketingPreferenceV1404;
+  status: 404;
+};
+
+export type customersControllerGetMarketingPreferenceV1Response409 = {
+  data: CustomersControllerGetMarketingPreferenceV1409;
+  status: 409;
+};
+
+export type customersControllerGetMarketingPreferenceV1Response422 = {
+  data: CustomersControllerGetMarketingPreferenceV1422;
+  status: 422;
+};
+
+export type customersControllerGetMarketingPreferenceV1Response429 = {
+  data: CustomersControllerGetMarketingPreferenceV1429;
+  status: 429;
+};
+
+export type customersControllerGetMarketingPreferenceV1Response503 = {
+  data: CustomersControllerGetMarketingPreferenceV1503;
+  status: 503;
+};
+
+export type customersControllerGetMarketingPreferenceV1ResponseSuccess =
+  customersControllerGetMarketingPreferenceV1Response200 & {
+    headers: Headers;
+  };
+export type customersControllerGetMarketingPreferenceV1ResponseError = (
+  | customersControllerGetMarketingPreferenceV1Response400
+  | customersControllerGetMarketingPreferenceV1Response401
+  | customersControllerGetMarketingPreferenceV1Response403
+  | customersControllerGetMarketingPreferenceV1Response404
+  | customersControllerGetMarketingPreferenceV1Response409
+  | customersControllerGetMarketingPreferenceV1Response422
+  | customersControllerGetMarketingPreferenceV1Response429
+  | customersControllerGetMarketingPreferenceV1Response503
+) & {
+  headers: Headers;
+};
+
+export type customersControllerGetMarketingPreferenceV1Response =
+  | customersControllerGetMarketingPreferenceV1ResponseSuccess
+  | customersControllerGetMarketingPreferenceV1ResponseError;
+
+export const getCustomersControllerGetMarketingPreferenceV1Url = (
+  id: string,
+) => {
+  return `/api/v1/customers/${id}/marketing-preference`;
+};
+
+/**
+ * Read a customer marketing preference
+ * @summary Read a customer marketing preference
+ */
+export const customersControllerGetMarketingPreferenceV1 = async (
+  id: string,
+  options?: RequestInit,
+): Promise<customersControllerGetMarketingPreferenceV1Response> => {
+  const res = await fetch(
+    getCustomersControllerGetMarketingPreferenceV1Url(id),
+    {
+      ...options,
+      method: 'GET',
+    },
+  );
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: customersControllerGetMarketingPreferenceV1Response['data'] = body
+    ? JSON.parse(body)
+    : {};
+  return {
+    data,
+    status: res.status,
+    headers: res.headers,
+  } as customersControllerGetMarketingPreferenceV1Response;
+};
+
+export type customersControllerWithdrawMarketingPreferenceV1Response201 = {
+  data: CustomersControllerWithdrawMarketingPreferenceV1201;
+  status: 201;
+};
+
+export type customersControllerWithdrawMarketingPreferenceV1Response400 = {
+  data: CustomersControllerWithdrawMarketingPreferenceV1400;
+  status: 400;
+};
+
+export type customersControllerWithdrawMarketingPreferenceV1Response401 = {
+  data: CustomersControllerWithdrawMarketingPreferenceV1401;
+  status: 401;
+};
+
+export type customersControllerWithdrawMarketingPreferenceV1Response403 = {
+  data: CustomersControllerWithdrawMarketingPreferenceV1403;
+  status: 403;
+};
+
+export type customersControllerWithdrawMarketingPreferenceV1Response404 = {
+  data: CustomersControllerWithdrawMarketingPreferenceV1404;
+  status: 404;
+};
+
+export type customersControllerWithdrawMarketingPreferenceV1Response409 = {
+  data: CustomersControllerWithdrawMarketingPreferenceV1409;
+  status: 409;
+};
+
+export type customersControllerWithdrawMarketingPreferenceV1Response422 = {
+  data: CustomersControllerWithdrawMarketingPreferenceV1422;
+  status: 422;
+};
+
+export type customersControllerWithdrawMarketingPreferenceV1Response429 = {
+  data: CustomersControllerWithdrawMarketingPreferenceV1429;
+  status: 429;
+};
+
+export type customersControllerWithdrawMarketingPreferenceV1Response503 = {
+  data: CustomersControllerWithdrawMarketingPreferenceV1503;
+  status: 503;
+};
+
+export type customersControllerWithdrawMarketingPreferenceV1ResponseSuccess =
+  customersControllerWithdrawMarketingPreferenceV1Response201 & {
+    headers: Headers;
+  };
+export type customersControllerWithdrawMarketingPreferenceV1ResponseError = (
+  | customersControllerWithdrawMarketingPreferenceV1Response400
+  | customersControllerWithdrawMarketingPreferenceV1Response401
+  | customersControllerWithdrawMarketingPreferenceV1Response403
+  | customersControllerWithdrawMarketingPreferenceV1Response404
+  | customersControllerWithdrawMarketingPreferenceV1Response409
+  | customersControllerWithdrawMarketingPreferenceV1Response422
+  | customersControllerWithdrawMarketingPreferenceV1Response429
+  | customersControllerWithdrawMarketingPreferenceV1Response503
+) & {
+  headers: Headers;
+};
+
+export type customersControllerWithdrawMarketingPreferenceV1Response =
+  | customersControllerWithdrawMarketingPreferenceV1ResponseSuccess
+  | customersControllerWithdrawMarketingPreferenceV1ResponseError;
+
+export const getCustomersControllerWithdrawMarketingPreferenceV1Url = (
+  id: string,
+) => {
+  return `/api/v1/customers/${id}/marketing-preference/withdrawal`;
+};
+
+/**
+ * Record an in-store marketing preference withdrawal
+ * @summary Record an in-store marketing preference withdrawal
+ */
+export const customersControllerWithdrawMarketingPreferenceV1 = async (
+  id: string,
+  withdrawCustomerMarketingPreferenceDto: WithdrawCustomerMarketingPreferenceDto,
+  options?: RequestInit,
+): Promise<customersControllerWithdrawMarketingPreferenceV1Response> => {
+  const getHeaders = (
+    h?: NonNullable<RequestInit['headers']>,
+  ): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Array.isArray(h)) return Object.fromEntries(h);
+    return h;
+  };
+  const res = await fetch(
+    getCustomersControllerWithdrawMarketingPreferenceV1Url(id),
+    {
+      ...options,
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...getHeaders(options?.headers),
+      },
+      body: JSON.stringify(withdrawCustomerMarketingPreferenceDto),
+    },
+  );
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: customersControllerWithdrawMarketingPreferenceV1Response['data'] =
+    body ? JSON.parse(body) : {};
+  return {
+    data,
+    status: res.status,
+    headers: res.headers,
+  } as customersControllerWithdrawMarketingPreferenceV1Response;
+};
+
 export type customersControllerGetCustomerV1Response200 = {
   data: CustomersControllerGetCustomerV1200;
   status: 200;
@@ -17427,6 +23277,217 @@ export const customersControllerUpdateStatusV1 = async (
     status: res.status,
     headers: res.headers,
   } as customersControllerUpdateStatusV1Response;
+};
+
+export type cardsControllerListIssuedManagementCardsV1Response200 = {
+  data: CardsControllerListIssuedManagementCardsV1200;
+  status: 200;
+};
+
+export type cardsControllerListIssuedManagementCardsV1Response400 = {
+  data: CardsControllerListIssuedManagementCardsV1400;
+  status: 400;
+};
+
+export type cardsControllerListIssuedManagementCardsV1Response401 = {
+  data: CardsControllerListIssuedManagementCardsV1401;
+  status: 401;
+};
+
+export type cardsControllerListIssuedManagementCardsV1Response403 = {
+  data: CardsControllerListIssuedManagementCardsV1403;
+  status: 403;
+};
+
+export type cardsControllerListIssuedManagementCardsV1Response404 = {
+  data: CardsControllerListIssuedManagementCardsV1404;
+  status: 404;
+};
+
+export type cardsControllerListIssuedManagementCardsV1Response409 = {
+  data: CardsControllerListIssuedManagementCardsV1409;
+  status: 409;
+};
+
+export type cardsControllerListIssuedManagementCardsV1Response422 = {
+  data: CardsControllerListIssuedManagementCardsV1422;
+  status: 422;
+};
+
+export type cardsControllerListIssuedManagementCardsV1Response429 = {
+  data: CardsControllerListIssuedManagementCardsV1429;
+  status: 429;
+};
+
+export type cardsControllerListIssuedManagementCardsV1Response503 = {
+  data: CardsControllerListIssuedManagementCardsV1503;
+  status: 503;
+};
+
+export type cardsControllerListIssuedManagementCardsV1ResponseSuccess =
+  cardsControllerListIssuedManagementCardsV1Response200 & {
+    headers: Headers;
+  };
+export type cardsControllerListIssuedManagementCardsV1ResponseError = (
+  | cardsControllerListIssuedManagementCardsV1Response400
+  | cardsControllerListIssuedManagementCardsV1Response401
+  | cardsControllerListIssuedManagementCardsV1Response403
+  | cardsControllerListIssuedManagementCardsV1Response404
+  | cardsControllerListIssuedManagementCardsV1Response409
+  | cardsControllerListIssuedManagementCardsV1Response422
+  | cardsControllerListIssuedManagementCardsV1Response429
+  | cardsControllerListIssuedManagementCardsV1Response503
+) & {
+  headers: Headers;
+};
+
+export type cardsControllerListIssuedManagementCardsV1Response =
+  | cardsControllerListIssuedManagementCardsV1ResponseSuccess
+  | cardsControllerListIssuedManagementCardsV1ResponseError;
+
+export const getCardsControllerListIssuedManagementCardsV1Url = (
+  params?: CardsControllerListIssuedManagementCardsV1Params,
+) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value));
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/v1/cards/management/issued?${stringifiedParams}`
+    : `/api/v1/cards/management/issued`;
+};
+
+/**
+ * List issued cards for card management
+ * @summary List issued cards for card management
+ */
+export const cardsControllerListIssuedManagementCardsV1 = async (
+  params?: CardsControllerListIssuedManagementCardsV1Params,
+  options?: RequestInit,
+): Promise<cardsControllerListIssuedManagementCardsV1Response> => {
+  const res = await fetch(
+    getCardsControllerListIssuedManagementCardsV1Url(params),
+    {
+      ...options,
+      method: 'GET',
+    },
+  );
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: cardsControllerListIssuedManagementCardsV1Response['data'] = body
+    ? JSON.parse(body)
+    : {};
+  return {
+    data,
+    status: res.status,
+    headers: res.headers,
+  } as cardsControllerListIssuedManagementCardsV1Response;
+};
+
+export type cardsControllerLookupManagementCardV1Response200 = {
+  data: CardsControllerLookupManagementCardV1200;
+  status: 200;
+};
+
+export type cardsControllerLookupManagementCardV1Response400 = {
+  data: CardsControllerLookupManagementCardV1400;
+  status: 400;
+};
+
+export type cardsControllerLookupManagementCardV1Response401 = {
+  data: CardsControllerLookupManagementCardV1401;
+  status: 401;
+};
+
+export type cardsControllerLookupManagementCardV1Response403 = {
+  data: CardsControllerLookupManagementCardV1403;
+  status: 403;
+};
+
+export type cardsControllerLookupManagementCardV1Response404 = {
+  data: CardsControllerLookupManagementCardV1404;
+  status: 404;
+};
+
+export type cardsControllerLookupManagementCardV1Response409 = {
+  data: CardsControllerLookupManagementCardV1409;
+  status: 409;
+};
+
+export type cardsControllerLookupManagementCardV1Response422 = {
+  data: CardsControllerLookupManagementCardV1422;
+  status: 422;
+};
+
+export type cardsControllerLookupManagementCardV1Response429 = {
+  data: CardsControllerLookupManagementCardV1429;
+  status: 429;
+};
+
+export type cardsControllerLookupManagementCardV1Response503 = {
+  data: CardsControllerLookupManagementCardV1503;
+  status: 503;
+};
+
+export type cardsControllerLookupManagementCardV1ResponseSuccess =
+  cardsControllerLookupManagementCardV1Response200 & {
+    headers: Headers;
+  };
+export type cardsControllerLookupManagementCardV1ResponseError = (
+  | cardsControllerLookupManagementCardV1Response400
+  | cardsControllerLookupManagementCardV1Response401
+  | cardsControllerLookupManagementCardV1Response403
+  | cardsControllerLookupManagementCardV1Response404
+  | cardsControllerLookupManagementCardV1Response409
+  | cardsControllerLookupManagementCardV1Response422
+  | cardsControllerLookupManagementCardV1Response429
+  | cardsControllerLookupManagementCardV1Response503
+) & {
+  headers: Headers;
+};
+
+export type cardsControllerLookupManagementCardV1Response =
+  | cardsControllerLookupManagementCardV1ResponseSuccess
+  | cardsControllerLookupManagementCardV1ResponseError;
+
+export const getCardsControllerLookupManagementCardV1Url = (
+  serialNumber: string,
+) => {
+  return `/api/v1/cards/management/lookup/${serialNumber}`;
+};
+
+/**
+ * ShopCity API operation
+ */
+export const cardsControllerLookupManagementCardV1 = async (
+  serialNumber: string,
+  options?: RequestInit,
+): Promise<cardsControllerLookupManagementCardV1Response> => {
+  const res = await fetch(
+    getCardsControllerLookupManagementCardV1Url(serialNumber),
+    {
+      ...options,
+      method: 'GET',
+    },
+  );
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: cardsControllerLookupManagementCardV1Response['data'] = body
+    ? JSON.parse(body)
+    : {};
+  return {
+    data,
+    status: res.status,
+    headers: res.headers,
+  } as cardsControllerLookupManagementCardV1Response;
 };
 
 export type cardsControllerLookupCardV1Response200 = {
@@ -18484,6 +24545,117 @@ export const loyaltyControllerEarnV1 = async (
     status: res.status,
     headers: res.headers,
   } as loyaltyControllerEarnV1Response;
+};
+
+export type loyaltyControllerSearchTransactionsByReceiptV1Response200 = {
+  data: LoyaltyControllerSearchTransactionsByReceiptV1200;
+  status: 200;
+};
+
+export type loyaltyControllerSearchTransactionsByReceiptV1Response400 = {
+  data: LoyaltyControllerSearchTransactionsByReceiptV1400;
+  status: 400;
+};
+
+export type loyaltyControllerSearchTransactionsByReceiptV1Response401 = {
+  data: LoyaltyControllerSearchTransactionsByReceiptV1401;
+  status: 401;
+};
+
+export type loyaltyControllerSearchTransactionsByReceiptV1Response403 = {
+  data: LoyaltyControllerSearchTransactionsByReceiptV1403;
+  status: 403;
+};
+
+export type loyaltyControllerSearchTransactionsByReceiptV1Response404 = {
+  data: LoyaltyControllerSearchTransactionsByReceiptV1404;
+  status: 404;
+};
+
+export type loyaltyControllerSearchTransactionsByReceiptV1Response409 = {
+  data: LoyaltyControllerSearchTransactionsByReceiptV1409;
+  status: 409;
+};
+
+export type loyaltyControllerSearchTransactionsByReceiptV1Response422 = {
+  data: LoyaltyControllerSearchTransactionsByReceiptV1422;
+  status: 422;
+};
+
+export type loyaltyControllerSearchTransactionsByReceiptV1Response429 = {
+  data: LoyaltyControllerSearchTransactionsByReceiptV1429;
+  status: 429;
+};
+
+export type loyaltyControllerSearchTransactionsByReceiptV1Response503 = {
+  data: LoyaltyControllerSearchTransactionsByReceiptV1503;
+  status: 503;
+};
+
+export type loyaltyControllerSearchTransactionsByReceiptV1ResponseSuccess =
+  loyaltyControllerSearchTransactionsByReceiptV1Response200 & {
+    headers: Headers;
+  };
+export type loyaltyControllerSearchTransactionsByReceiptV1ResponseError = (
+  | loyaltyControllerSearchTransactionsByReceiptV1Response400
+  | loyaltyControllerSearchTransactionsByReceiptV1Response401
+  | loyaltyControllerSearchTransactionsByReceiptV1Response403
+  | loyaltyControllerSearchTransactionsByReceiptV1Response404
+  | loyaltyControllerSearchTransactionsByReceiptV1Response409
+  | loyaltyControllerSearchTransactionsByReceiptV1Response422
+  | loyaltyControllerSearchTransactionsByReceiptV1Response429
+  | loyaltyControllerSearchTransactionsByReceiptV1Response503
+) & {
+  headers: Headers;
+};
+
+export type loyaltyControllerSearchTransactionsByReceiptV1Response =
+  | loyaltyControllerSearchTransactionsByReceiptV1ResponseSuccess
+  | loyaltyControllerSearchTransactionsByReceiptV1ResponseError;
+
+export const getLoyaltyControllerSearchTransactionsByReceiptV1Url = (
+  params?: LoyaltyControllerSearchTransactionsByReceiptV1Params,
+) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value));
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/v1/transactions?${stringifiedParams}`
+    : `/api/v1/transactions`;
+};
+
+/**
+ * List and filter branch transactions
+ * @summary List and filter branch transactions
+ */
+export const loyaltyControllerSearchTransactionsByReceiptV1 = async (
+  params?: LoyaltyControllerSearchTransactionsByReceiptV1Params,
+  options?: RequestInit,
+): Promise<loyaltyControllerSearchTransactionsByReceiptV1Response> => {
+  const res = await fetch(
+    getLoyaltyControllerSearchTransactionsByReceiptV1Url(params),
+    {
+      ...options,
+      method: 'GET',
+    },
+  );
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: loyaltyControllerSearchTransactionsByReceiptV1Response['data'] =
+    body ? JSON.parse(body) : {};
+  return {
+    data,
+    status: res.status,
+    headers: res.headers,
+  } as loyaltyControllerSearchTransactionsByReceiptV1Response;
 };
 
 export type loyaltyControllerGetTransactionV1Response200 = {
@@ -19978,8 +26150,22 @@ export type reportsControllerListCashierTodayV1Response =
   | reportsControllerListCashierTodayV1ResponseSuccess
   | reportsControllerListCashierTodayV1ResponseError;
 
-export const getReportsControllerListCashierTodayV1Url = () => {
-  return `/api/v1/reports/cashier-today`;
+export const getReportsControllerListCashierTodayV1Url = (
+  params?: ReportsControllerListCashierTodayV1Params,
+) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value));
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/v1/reports/cashier-today?${stringifiedParams}`
+    : `/api/v1/reports/cashier-today`;
 };
 
 /**
@@ -19987,9 +26173,10 @@ export const getReportsControllerListCashierTodayV1Url = () => {
  * @summary List today's cashier transactions
  */
 export const reportsControllerListCashierTodayV1 = async (
+  params?: ReportsControllerListCashierTodayV1Params,
   options?: RequestInit,
 ): Promise<reportsControllerListCashierTodayV1Response> => {
-  const res = await fetch(getReportsControllerListCashierTodayV1Url(), {
+  const res = await fetch(getReportsControllerListCashierTodayV1Url(params), {
     ...options,
     method: 'GET',
   });
@@ -21019,6 +27206,102 @@ export const reportsControllerRefreshReportV1 = async (
   } as reportsControllerRefreshReportV1Response;
 };
 
+export type reportsControllerRefreshSupervisorDashboardV1Response202 = {
+  data: void;
+  status: 202;
+};
+
+export type reportsControllerRefreshSupervisorDashboardV1Response400 = {
+  data: ReportsControllerRefreshSupervisorDashboardV1400;
+  status: 400;
+};
+
+export type reportsControllerRefreshSupervisorDashboardV1Response401 = {
+  data: ReportsControllerRefreshSupervisorDashboardV1401;
+  status: 401;
+};
+
+export type reportsControllerRefreshSupervisorDashboardV1Response403 = {
+  data: ReportsControllerRefreshSupervisorDashboardV1403;
+  status: 403;
+};
+
+export type reportsControllerRefreshSupervisorDashboardV1Response404 = {
+  data: ReportsControllerRefreshSupervisorDashboardV1404;
+  status: 404;
+};
+
+export type reportsControllerRefreshSupervisorDashboardV1Response409 = {
+  data: ReportsControllerRefreshSupervisorDashboardV1409;
+  status: 409;
+};
+
+export type reportsControllerRefreshSupervisorDashboardV1Response422 = {
+  data: ReportsControllerRefreshSupervisorDashboardV1422;
+  status: 422;
+};
+
+export type reportsControllerRefreshSupervisorDashboardV1Response429 = {
+  data: ReportsControllerRefreshSupervisorDashboardV1429;
+  status: 429;
+};
+
+export type reportsControllerRefreshSupervisorDashboardV1Response503 = {
+  data: ReportsControllerRefreshSupervisorDashboardV1503;
+  status: 503;
+};
+
+export type reportsControllerRefreshSupervisorDashboardV1ResponseSuccess =
+  reportsControllerRefreshSupervisorDashboardV1Response202 & {
+    headers: Headers;
+  };
+export type reportsControllerRefreshSupervisorDashboardV1ResponseError = (
+  | reportsControllerRefreshSupervisorDashboardV1Response400
+  | reportsControllerRefreshSupervisorDashboardV1Response401
+  | reportsControllerRefreshSupervisorDashboardV1Response403
+  | reportsControllerRefreshSupervisorDashboardV1Response404
+  | reportsControllerRefreshSupervisorDashboardV1Response409
+  | reportsControllerRefreshSupervisorDashboardV1Response422
+  | reportsControllerRefreshSupervisorDashboardV1Response429
+  | reportsControllerRefreshSupervisorDashboardV1Response503
+) & {
+  headers: Headers;
+};
+
+export type reportsControllerRefreshSupervisorDashboardV1Response =
+  | reportsControllerRefreshSupervisorDashboardV1ResponseSuccess
+  | reportsControllerRefreshSupervisorDashboardV1ResponseError;
+
+export const getReportsControllerRefreshSupervisorDashboardV1Url = () => {
+  return `/api/v1/reports/dashboard/supervisor/refresh`;
+};
+
+/**
+ * Schedule a branch-scoped Supervisor dashboard refresh
+ * @summary Schedule a branch-scoped Supervisor dashboard refresh
+ */
+export const reportsControllerRefreshSupervisorDashboardV1 = async (
+  options?: RequestInit,
+): Promise<reportsControllerRefreshSupervisorDashboardV1Response> => {
+  const res = await fetch(
+    getReportsControllerRefreshSupervisorDashboardV1Url(),
+    {
+      ...options,
+      method: 'POST',
+    },
+  );
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: reportsControllerRefreshSupervisorDashboardV1Response['data'] =
+    body ? JSON.parse(body) : undefined;
+  return {
+    data,
+    status: res.status,
+    headers: res.headers,
+  } as reportsControllerRefreshSupervisorDashboardV1Response;
+};
+
 export type notificationsControllerListTransactionSmsV1Response200 = {
   data: void;
   status: 200;
@@ -21171,6 +27454,227 @@ export const configurationControllerGetPublicConfigV1 = async (
     status: res.status,
     headers: res.headers,
   } as configurationControllerGetPublicConfigV1Response;
+};
+
+export type configurationControllerGetPolicyConfigurationV1Response200 = {
+  data: ConfigurationControllerGetPolicyConfigurationV1200;
+  status: 200;
+};
+
+export type configurationControllerGetPolicyConfigurationV1Response400 = {
+  data: ConfigurationControllerGetPolicyConfigurationV1400;
+  status: 400;
+};
+
+export type configurationControllerGetPolicyConfigurationV1Response401 = {
+  data: ConfigurationControllerGetPolicyConfigurationV1401;
+  status: 401;
+};
+
+export type configurationControllerGetPolicyConfigurationV1Response403 = {
+  data: ConfigurationControllerGetPolicyConfigurationV1403;
+  status: 403;
+};
+
+export type configurationControllerGetPolicyConfigurationV1Response404 = {
+  data: ConfigurationControllerGetPolicyConfigurationV1404;
+  status: 404;
+};
+
+export type configurationControllerGetPolicyConfigurationV1Response409 = {
+  data: ConfigurationControllerGetPolicyConfigurationV1409;
+  status: 409;
+};
+
+export type configurationControllerGetPolicyConfigurationV1Response422 = {
+  data: ConfigurationControllerGetPolicyConfigurationV1422;
+  status: 422;
+};
+
+export type configurationControllerGetPolicyConfigurationV1Response429 = {
+  data: ConfigurationControllerGetPolicyConfigurationV1429;
+  status: 429;
+};
+
+export type configurationControllerGetPolicyConfigurationV1Response503 = {
+  data: ConfigurationControllerGetPolicyConfigurationV1503;
+  status: 503;
+};
+
+export type configurationControllerGetPolicyConfigurationV1ResponseSuccess =
+  configurationControllerGetPolicyConfigurationV1Response200 & {
+    headers: Headers;
+  };
+export type configurationControllerGetPolicyConfigurationV1ResponseError = (
+  | configurationControllerGetPolicyConfigurationV1Response400
+  | configurationControllerGetPolicyConfigurationV1Response401
+  | configurationControllerGetPolicyConfigurationV1Response403
+  | configurationControllerGetPolicyConfigurationV1Response404
+  | configurationControllerGetPolicyConfigurationV1Response409
+  | configurationControllerGetPolicyConfigurationV1Response422
+  | configurationControllerGetPolicyConfigurationV1Response429
+  | configurationControllerGetPolicyConfigurationV1Response503
+) & {
+  headers: Headers;
+};
+
+export type configurationControllerGetPolicyConfigurationV1Response =
+  | configurationControllerGetPolicyConfigurationV1ResponseSuccess
+  | configurationControllerGetPolicyConfigurationV1ResponseError;
+
+export const getConfigurationControllerGetPolicyConfigurationV1Url = (
+  params: ConfigurationControllerGetPolicyConfigurationV1Params,
+) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value));
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/v1/config/policies?${stringifiedParams}`
+    : `/api/v1/config/policies`;
+};
+
+/**
+ * Get Admin policy configuration
+ * @summary Get Admin policy configuration
+ */
+export const configurationControllerGetPolicyConfigurationV1 = async (
+  params: ConfigurationControllerGetPolicyConfigurationV1Params,
+  options?: RequestInit,
+): Promise<configurationControllerGetPolicyConfigurationV1Response> => {
+  const res = await fetch(
+    getConfigurationControllerGetPolicyConfigurationV1Url(params),
+    {
+      ...options,
+      method: 'GET',
+    },
+  );
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: configurationControllerGetPolicyConfigurationV1Response['data'] =
+    body ? JSON.parse(body) : {};
+  return {
+    data,
+    status: res.status,
+    headers: res.headers,
+  } as configurationControllerGetPolicyConfigurationV1Response;
+};
+
+export type configurationControllerUpdatePolicyConfigurationV1Response200 = {
+  data: ConfigurationControllerUpdatePolicyConfigurationV1200;
+  status: 200;
+};
+
+export type configurationControllerUpdatePolicyConfigurationV1Response400 = {
+  data: ConfigurationControllerUpdatePolicyConfigurationV1400;
+  status: 400;
+};
+
+export type configurationControllerUpdatePolicyConfigurationV1Response401 = {
+  data: ConfigurationControllerUpdatePolicyConfigurationV1401;
+  status: 401;
+};
+
+export type configurationControllerUpdatePolicyConfigurationV1Response403 = {
+  data: ConfigurationControllerUpdatePolicyConfigurationV1403;
+  status: 403;
+};
+
+export type configurationControllerUpdatePolicyConfigurationV1Response404 = {
+  data: ConfigurationControllerUpdatePolicyConfigurationV1404;
+  status: 404;
+};
+
+export type configurationControllerUpdatePolicyConfigurationV1Response409 = {
+  data: ConfigurationControllerUpdatePolicyConfigurationV1409;
+  status: 409;
+};
+
+export type configurationControllerUpdatePolicyConfigurationV1Response422 = {
+  data: ConfigurationControllerUpdatePolicyConfigurationV1422;
+  status: 422;
+};
+
+export type configurationControllerUpdatePolicyConfigurationV1Response429 = {
+  data: ConfigurationControllerUpdatePolicyConfigurationV1429;
+  status: 429;
+};
+
+export type configurationControllerUpdatePolicyConfigurationV1Response503 = {
+  data: ConfigurationControllerUpdatePolicyConfigurationV1503;
+  status: 503;
+};
+
+export type configurationControllerUpdatePolicyConfigurationV1ResponseSuccess =
+  configurationControllerUpdatePolicyConfigurationV1Response200 & {
+    headers: Headers;
+  };
+export type configurationControllerUpdatePolicyConfigurationV1ResponseError = (
+  | configurationControllerUpdatePolicyConfigurationV1Response400
+  | configurationControllerUpdatePolicyConfigurationV1Response401
+  | configurationControllerUpdatePolicyConfigurationV1Response403
+  | configurationControllerUpdatePolicyConfigurationV1Response404
+  | configurationControllerUpdatePolicyConfigurationV1Response409
+  | configurationControllerUpdatePolicyConfigurationV1Response422
+  | configurationControllerUpdatePolicyConfigurationV1Response429
+  | configurationControllerUpdatePolicyConfigurationV1Response503
+) & {
+  headers: Headers;
+};
+
+export type configurationControllerUpdatePolicyConfigurationV1Response =
+  | configurationControllerUpdatePolicyConfigurationV1ResponseSuccess
+  | configurationControllerUpdatePolicyConfigurationV1ResponseError;
+
+export const getConfigurationControllerUpdatePolicyConfigurationV1Url = () => {
+  return `/api/v1/config/policies`;
+};
+
+/**
+ * Update Admin policy configuration
+ * @summary Update Admin policy configuration
+ */
+export const configurationControllerUpdatePolicyConfigurationV1 = async (
+  updatePolicyConfigurationDto: UpdatePolicyConfigurationDto,
+  options?: RequestInit,
+): Promise<configurationControllerUpdatePolicyConfigurationV1Response> => {
+  const getHeaders = (
+    h?: NonNullable<RequestInit['headers']>,
+  ): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Array.isArray(h)) return Object.fromEntries(h);
+    return h;
+  };
+  const res = await fetch(
+    getConfigurationControllerUpdatePolicyConfigurationV1Url(),
+    {
+      ...options,
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+        ...getHeaders(options?.headers),
+      },
+      body: JSON.stringify(updatePolicyConfigurationDto),
+    },
+  );
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: configurationControllerUpdatePolicyConfigurationV1Response['data'] =
+    body ? JSON.parse(body) : {};
+  return {
+    data,
+    status: res.status,
+    headers: res.headers,
+  } as configurationControllerUpdatePolicyConfigurationV1Response;
 };
 
 export type configurationControllerGetOperationalConfigV1Response200 = {

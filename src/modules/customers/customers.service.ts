@@ -1,15 +1,23 @@
 import {
   BadRequestException,
   ConflictException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
 import {
   CardStatus,
   Customer,
+  CustomerMarketingPreference,
+  CustomerMarketingPreferenceSource,
   CustomerStatus,
   IdempotencyRecordStatus,
+  LedgerEntryDirection,
+  LedgerEntryStatus,
+  LedgerEntryType,
   Prisma,
+  ReceiptCaptureStatus,
+  ReceiptReviewStatus,
   UserRole,
 } from '@prisma/client';
 import { createHash } from 'node:crypto';
@@ -19,12 +27,30 @@ import { AuditService } from '../audit/audit.service';
 import { AuthContext } from '../../common/auth/session.types';
 import { DomainHttpException } from '../../common/errors/domain.exception';
 import { normalizePhoneToE164 } from '../../common/phone';
+import { normalizeCardSerial } from '../../common/card-identity';
 import {
   CursorPageRequest,
   decodeCursor,
   encodeCursor,
   pageMeta,
 } from '../../common/pagination/cursor-pagination';
+
+export const CUSTOMER_CONSENT_VERSION = 'v1.2';
+export const CUSTOMER_PRIVACY_NOTICE_VERSION = 'v2.0';
+
+type EffectiveMarketingPreference = {
+  status: 'OPTED_IN' | 'OPTED_OUT' | 'NOT_OPTED_IN' | 'UNAVAILABLE';
+  source:
+    CustomerMarketingPreferenceSource | 'REGISTRATION' | 'NOT_RECORDED' | null;
+  updatedAt: string | null;
+};
+
+type MarketingPreferenceWithdrawalResult = {
+  status: CustomerMarketingPreference;
+  source: CustomerMarketingPreferenceSource;
+  updatedAt: string;
+  alreadyOptedOut: boolean;
+};
 
 @Injectable()
 export class CustomersService {
@@ -100,13 +126,80 @@ export class CustomersService {
         },
       });
 
+      const customerIds = pageItems.map((customer) => customer.id);
+      const [earnedCreditTotals, latestReceiptTimes] =
+        customerIds.length > 0
+          ? await Promise.all([
+              this.prismaService.loyaltyLedgerEntry.groupBy({
+                by: ['customerId'],
+                where: {
+                  tenantId,
+                  customerId: { in: customerIds },
+                  type: LedgerEntryType.EARN,
+                  direction: LedgerEntryDirection.CREDIT,
+                  status: LedgerEntryStatus.CONFIRMED,
+                },
+                _sum: { amountKobo: true },
+              }),
+              this.prismaService.receipt.groupBy({
+                by: ['customerId'],
+                where: {
+                  tenantId,
+                  customerId: { in: customerIds },
+                  captureStatus: ReceiptCaptureStatus.CAPTURED,
+                  reviewStatus: ReceiptReviewStatus.APPROVED,
+                },
+                _max: { occurredAt: true },
+              }),
+            ])
+          : [[], []];
+      // Receipt.purchaseAmountKobo is the full basket total for the most recent approved, captured purchase.
+      const latestReceiptCriteria = latestReceiptTimes.flatMap((receipt) =>
+        receipt._max.occurredAt
+          ? [
+              {
+                customerId: receipt.customerId,
+                occurredAt: receipt._max.occurredAt,
+              },
+            ]
+          : [],
+      );
+      const latestReceipts = latestReceiptCriteria.length
+        ? await this.prismaService.receipt.findMany({
+            where: { tenantId, OR: latestReceiptCriteria },
+            orderBy: [{ customerId: 'asc' }, { id: 'desc' }],
+            select: { customerId: true, purchaseAmountKobo: true },
+          })
+        : [];
+      const earnedByCustomer = new Map(
+        earnedCreditTotals.map((summary) => [
+          summary.customerId,
+          summary._sum.amountKobo ?? 0n,
+        ]),
+      );
+      const purchaseByCustomer = new Map<string, bigint>();
+      latestReceipts.forEach((receipt) => {
+        if (!purchaseByCustomer.has(receipt.customerId)) {
+          purchaseByCustomer.set(
+            receipt.customerId,
+            receipt.purchaseAmountKobo,
+          );
+        }
+      });
+
       return {
-        items: pageItems.map((customer) =>
-          toPrivilegedCustomerSummary(
+        items: pageItems.map((customer) => ({
+          ...toPrivilegedCustomerSummary(
             customer,
             balances.get(customer.id) ?? 0n,
           ),
-        ),
+          lifetimeEarnedKobo: safeKoboNumber(
+            earnedByCustomer.get(customer.id) ?? 0n,
+          ),
+          lastPurchaseAmountKobo: safeKoboNumber(
+            purchaseByCustomer.get(customer.id) ?? null,
+          ),
+        })),
         nextCursor: hasMore ? customerCursor(pageItems.at(-1)!) : null,
         hasMore,
       };
@@ -163,18 +256,652 @@ export class CustomersService {
     return customer;
   }
 
+  async getCustomerProfileProjection(
+    tenantId: string,
+    customerId: string,
+    actor: AuthContext,
+  ) {
+    if (!isPrivilegedCustomerRead(actor)) {
+      throw new ForbiddenException('Supervisor or admin access is required');
+    }
+    const customer = await this.prismaService.customer.findFirst({
+      where: { tenantId, id: customerId },
+      select: { id: true, createdAt: true },
+    });
+    if (!customer) throw new NotFoundException('Customer not found');
+
+    const now = new Date();
+    const [cardsResult, consentResult, marketingPreferenceEventResult] =
+      await Promise.allSettled([
+        this.prismaService.card.findMany({
+          where: { tenantId, customerId },
+          orderBy: { issuedAt: 'desc' },
+          take: 100,
+          select: {
+            id: true,
+            barcodeValue: true,
+            status: true,
+            issuedAt: true,
+            blockedAt: true,
+          },
+        }),
+        this.prismaService.customerConsent.findFirst({
+          where: { tenantId, customerId },
+          select: {
+            loyaltyConsent: true,
+            marketingOptIn: true,
+            consentVersion: true,
+            privacyNoticeVersion: true,
+            capturedAt: true,
+          },
+        }),
+        this.prismaService.customerMarketingPreferenceEvent.findFirst({
+          where: { tenantId, customerId },
+          orderBy: [{ capturedAt: 'desc' }, { id: 'desc' }],
+          select: { preference: true, source: true, capturedAt: true },
+        }),
+      ]);
+    const cards = cardsResult.status === 'fulfilled' ? cardsResult.value : [];
+    const consent =
+      consentResult.status === 'fulfilled' ? consentResult.value : null;
+    const marketingPreferenceEvent =
+      marketingPreferenceEventResult.status === 'fulfilled'
+        ? marketingPreferenceEventResult.value
+        : null;
+    const marketingPreferenceUnavailable =
+      marketingPreferenceEventResult.status === 'rejected' ||
+      (!marketingPreferenceEvent && consentResult.status === 'rejected');
+    const cardIds = cards.map((card) => card.id);
+    const sourceErrors: string[] = [];
+    if (cardsResult.status === 'rejected') sourceErrors.push('card');
+    if (consentResult.status === 'rejected') sourceErrors.push('consent');
+    if (marketingPreferenceUnavailable)
+      sourceErrors.push('marketingPreference');
+
+    const [
+      earnedResult,
+      pendingApprovalsResult,
+      expiryLotsResult,
+      ledgerResult,
+      receiptsResult,
+      redemptionsResult,
+      transactionCountResult,
+      redemptionCountResult,
+      approvalsResult,
+      statusAuditResult,
+    ] = await Promise.allSettled([
+      this.prismaService.loyaltyLedgerEntry.aggregate({
+        where: {
+          tenantId,
+          customerId,
+          type: LedgerEntryType.EARN,
+          direction: LedgerEntryDirection.CREDIT,
+          status: LedgerEntryStatus.CONFIRMED,
+        },
+        _sum: { amountKobo: true },
+      }),
+      this.prismaService.approval.count({
+        where: {
+          tenantId,
+          status: 'PENDING',
+          OR: [{ receipt: { customerId } }, { redemption: { customerId } }],
+        },
+      }),
+      this.prismaService.creditLot.findMany({
+        where: {
+          tenantId,
+          customerId,
+          remainingAmountKobo: { gt: 0n },
+          expiresAt: { gt: now },
+        },
+        orderBy: [{ expiresAt: 'asc' }, { id: 'asc' }],
+        take: 12,
+        select: { id: true, expiresAt: true, remainingAmountKobo: true },
+      }),
+      this.prismaService.loyaltyLedgerEntry.findMany({
+        where: { tenantId, customerId },
+        orderBy: [{ effectiveAt: 'desc' }, { id: 'desc' }],
+        take: 25,
+        select: {
+          id: true,
+          type: true,
+          direction: true,
+          amountKobo: true,
+          status: true,
+          effectiveAt: true,
+        },
+      }),
+      this.prismaService.receipt.findMany({
+        where: { tenantId, customerId },
+        orderBy: [{ occurredAt: 'desc' }, { id: 'desc' }],
+        take: 25,
+        select: {
+          id: true,
+          purchaseAmountKobo: true,
+          occurredAt: true,
+          captureStatus: true,
+          reviewStatus: true,
+          redemption: { select: { status: true } },
+          ledgerEntries: {
+            where: {
+              type: { in: [LedgerEntryType.EARN, LedgerEntryType.REDEEM] },
+            },
+            orderBy: [{ effectiveAt: 'desc' }, { id: 'desc' }],
+            take: 2,
+            select: {
+              type: true,
+              direction: true,
+              amountKobo: true,
+              status: true,
+            },
+          },
+        },
+      }),
+      this.prismaService.redemption.findMany({
+        where: { tenantId, customerId },
+        orderBy: [{ requestedAt: 'desc' }, { id: 'desc' }],
+        take: 25,
+        select: {
+          id: true,
+          requestedAmountKobo: true,
+          confirmedAmountKobo: true,
+          status: true,
+          requestedAt: true,
+          confirmedAt: true,
+        },
+      }),
+      this.prismaService.receipt.count({ where: { tenantId, customerId } }),
+      this.prismaService.redemption.count({ where: { tenantId, customerId } }),
+      this.prismaService.approval.findMany({
+        where: {
+          tenantId,
+          OR: [{ receipt: { customerId } }, { redemption: { customerId } }],
+        },
+        orderBy: [{ requestedAt: 'desc' }, { id: 'desc' }],
+        take: 25,
+        select: {
+          id: true,
+          status: true,
+          targetType: true,
+          requestedAt: true,
+          decidedAt: true,
+          expiresAt: true,
+          receipt: { select: { purchaseAmountKobo: true } },
+          redemption: { select: { requestedAmountKobo: true } },
+        },
+      }),
+      this.prismaService.auditLog.findMany({
+        where: {
+          tenantId,
+          OR: [
+            {
+              action: 'customer.status',
+              entityType: 'customer',
+              entityId: customerId,
+            },
+            ...(cardIds.length
+              ? [
+                  {
+                    action: 'card.status',
+                    entityType: 'card',
+                    entityId: { in: cardIds },
+                  },
+                ]
+              : []),
+          ],
+        },
+        orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+        take: 25,
+        select: {
+          id: true,
+          action: true,
+          entityType: true,
+          entityId: true,
+          metadata: true,
+          createdAt: true,
+        },
+      }),
+    ]);
+
+    const earned =
+      earnedResult.status === 'fulfilled' ? earnedResult.value : null;
+    const pendingApprovalsCount =
+      pendingApprovalsResult.status === 'fulfilled'
+        ? pendingApprovalsResult.value
+        : null;
+    const expiryLots =
+      expiryLotsResult.status === 'fulfilled' ? expiryLotsResult.value : [];
+    const ledger =
+      ledgerResult.status === 'fulfilled' ? ledgerResult.value : [];
+    const receipts =
+      receiptsResult.status === 'fulfilled' ? receiptsResult.value : [];
+    const redemptions =
+      redemptionsResult.status === 'fulfilled' ? redemptionsResult.value : [];
+    const transactionCount =
+      transactionCountResult.status === 'fulfilled'
+        ? transactionCountResult.value
+        : null;
+    const redemptionCount =
+      redemptionCountResult.status === 'fulfilled'
+        ? redemptionCountResult.value
+        : null;
+    const approvals =
+      approvalsResult.status === 'fulfilled' ? approvalsResult.value : [];
+    const statusAudit =
+      statusAuditResult.status === 'fulfilled' ? statusAuditResult.value : [];
+    if (earnedResult.status === 'rejected') sourceErrors.push('lifetimeEarned');
+    if (pendingApprovalsResult.status === 'rejected')
+      sourceErrors.push('pendingApprovals');
+    if (expiryLotsResult.status === 'rejected')
+      sourceErrors.push('expirySchedule');
+    if (ledgerResult.status === 'rejected') sourceErrors.push('walletLedger');
+    if (receiptsResult.status === 'rejected') sourceErrors.push('transactions');
+    if (redemptionsResult.status === 'rejected')
+      sourceErrors.push('redemptions');
+    if (transactionCountResult.status === 'rejected')
+      sourceErrors.push('transactionCount');
+    if (redemptionCountResult.status === 'rejected')
+      sourceErrors.push('redemptionCount');
+    if (approvalsResult.status === 'rejected') sourceErrors.push('approvals');
+    if (statusAuditResult.status === 'rejected')
+      sourceErrors.push('statusEvents');
+
+    await this.auditService.record({
+      tenantId,
+      actorId: actor.user.id,
+      action: 'customer.pii.read',
+      entityType: 'customer',
+      entityId: customerId,
+    });
+
+    const activity = [
+      ...ledger.map((entry) => ({
+        id: `ledger:${entry.id}`,
+        type:
+          entry.type === LedgerEntryType.EARN
+            ? 'EARNING'
+            : entry.type === LedgerEntryType.REDEEM
+              ? 'REDEMPTION'
+              : 'WALLET_ADJUSTMENT',
+        status: entry.status,
+        occurredAt: entry.effectiveAt.toISOString(),
+        amountKobo: safeKoboNumber(entry.amountKobo),
+      })),
+      ...approvals.map((approval) => ({
+        id: `approval:${approval.id}`,
+        type:
+          approval.status === 'PENDING'
+            ? 'APPROVAL_REQUEST'
+            : approval.status === 'EXPIRED'
+              ? 'APPROVAL_EXPIRED'
+              : 'APPROVAL_OUTCOME',
+        targetType: approval.targetType,
+        status: approval.status,
+        occurredAt: (approval.status === 'PENDING'
+          ? approval.requestedAt
+          : approval.status === 'EXPIRED'
+            ? approval.expiresAt
+            : (approval.decidedAt ?? approval.requestedAt)
+        ).toISOString(),
+        amountKobo: null,
+      })),
+      ...statusAudit.flatMap((event) => {
+        const status = auditMetadataStatus(event.metadata);
+        if (!status) return [];
+        return [
+          {
+            id: `audit:${event.id}`,
+            type:
+              event.action === 'customer.status'
+                ? 'CUSTOMER_STATUS'
+                : 'CARD_STATUS',
+            status,
+            occurredAt: event.createdAt.toISOString(),
+            amountKobo: null,
+          },
+        ];
+      }),
+      ...cards.map((card) => ({
+        id: `card-issued:${card.id}`,
+        type: 'CARD_ISSUED',
+        status: 'ISSUED',
+        occurredAt: card.issuedAt.toISOString(),
+        amountKobo: null,
+      })),
+    ]
+      .sort((left, right) => right.occurredAt.localeCompare(left.occurredAt))
+      .slice(0, 50);
+
+    return {
+      customerId,
+      memberSince: customer.createdAt.toISOString(),
+      transactionCount,
+      redemptionCount,
+      pendingApprovalsCount,
+      lifetimeEarnedKobo: earned
+        ? safeKoboNumber(earned._sum.amountKobo ?? 0n)
+        : null,
+      sourceErrors,
+      expirySchedule: expiryLots
+        .filter((lot) => lot.remainingAmountKobo > 0n && lot.expiresAt > now)
+        .map((lot) => ({
+          expiresAt: lot.expiresAt.toISOString(),
+          remainingAmountKobo: safeKoboNumber(lot.remainingAmountKobo),
+        }))
+        .filter(
+          (lot): lot is { expiresAt: string; remainingAmountKobo: number } =>
+            lot.remainingAmountKobo !== null,
+        ),
+      expiryScheduleIsUpcomingWindow: true,
+      expiryScheduleLimit: 12,
+      recentActivity: activity,
+      transactions: receipts.map((receipt) => {
+        const ledgerEntries = receipt.ledgerEntries ?? [];
+        const earnedEntry = ledgerEntries.find(
+          (entry) =>
+            entry.type === LedgerEntryType.EARN &&
+            entry.direction === LedgerEntryDirection.CREDIT &&
+            entry.status === LedgerEntryStatus.CONFIRMED,
+        );
+        const redeemedEntry = ledgerEntries.find(
+          (entry) =>
+            entry.type === LedgerEntryType.REDEEM &&
+            entry.direction === LedgerEntryDirection.DEBIT &&
+            entry.status === LedgerEntryStatus.CONFIRMED,
+        );
+        const earnedAmountKobo = earnedEntry
+          ? safeKoboNumber(earnedEntry.amountKobo)
+          : null;
+        const redeemedAmountKobo = redeemedEntry
+          ? safeKoboNumber(redeemedEntry.amountKobo)
+          : null;
+        const operation = receipt.redemption
+          ? ('REDEEM' as const)
+          : ('EARN' as const);
+
+        return {
+          id: receipt.id,
+          occurredAt: receipt.occurredAt.toISOString(),
+          purchaseAmountKobo: safeKoboNumber(receipt.purchaseAmountKobo),
+          captureStatus: receipt.captureStatus,
+          reviewStatus: receipt.reviewStatus,
+          operation,
+          status: receipt.redemption?.status ?? receipt.reviewStatus,
+          loyaltyAmountKobo:
+            operation === 'REDEEM' ? redeemedAmountKobo : earnedAmountKobo,
+          redeemedAmountKobo,
+          earnedAmountKobo,
+        };
+      }),
+      redemptions: redemptions.map((redemption) => ({
+        id: redemption.id,
+        occurredAt: (
+          redemption.confirmedAt ?? redemption.requestedAt
+        ).toISOString(),
+        requestedAmountKobo: safeKoboNumber(redemption.requestedAmountKobo),
+        confirmedAmountKobo: safeKoboNumber(redemption.confirmedAmountKobo),
+        status: redemption.status,
+      })),
+      walletLedger: ledger.map((entry) => ({
+        id: entry.id,
+        type: entry.type,
+        direction: entry.direction,
+        amountKobo: safeKoboNumber(entry.amountKobo),
+        status: entry.status,
+        effectiveAt: entry.effectiveAt.toISOString(),
+      })),
+      approvals: approvals.map((approval) => ({
+        id: approval.id,
+        targetType: approval.targetType,
+        status: approval.status,
+        requestedAt: approval.requestedAt.toISOString(),
+        decidedAt: approval.decidedAt?.toISOString() ?? null,
+      })),
+      consent: consent
+        ? {
+            loyaltyConsent: consent.loyaltyConsent,
+            marketingOptIn: consent.marketingOptIn,
+            consentVersion: consent.consentVersion,
+            privacyNoticeVersion: consent.privacyNoticeVersion,
+            capturedAt: consent.capturedAt.toISOString(),
+          }
+        : null,
+      marketingPreference: effectiveMarketingPreference(
+        consent,
+        marketingPreferenceEvent,
+        marketingPreferenceUnavailable,
+      ),
+      card: cards[0]
+        ? {
+            identifier: cards[0].barcodeValue,
+            status: cards[0].status,
+            issuedAt: cards[0].issuedAt.toISOString(),
+            blockedAt: cards[0].blockedAt?.toISOString() ?? null,
+          }
+        : null,
+    };
+  }
+
+  async getCustomerMarketingPreference(
+    tenantId: string,
+    customerId: string,
+    actor: AuthContext,
+  ): Promise<EffectiveMarketingPreference> {
+    const customer = await this.prismaService.customer.findFirst({
+      where: { tenantId, id: customerId },
+      select: { id: true },
+    });
+    if (!customer) throw new NotFoundException('Customer not found');
+
+    const [consentResult, preferenceEventResult] = await Promise.allSettled([
+      this.prismaService.customerConsent.findFirst({
+        where: { tenantId, customerId },
+        select: { marketingOptIn: true, capturedAt: true },
+      }),
+      this.prismaService.customerMarketingPreferenceEvent.findFirst({
+        where: { tenantId, customerId },
+        orderBy: [{ capturedAt: 'desc' }, { id: 'desc' }],
+        select: { preference: true, source: true, capturedAt: true },
+      }),
+    ]);
+    const consent =
+      consentResult.status === 'fulfilled' ? consentResult.value : null;
+    const preferenceEvent =
+      preferenceEventResult.status === 'fulfilled'
+        ? preferenceEventResult.value
+        : null;
+    const preferenceUnavailable =
+      preferenceEventResult.status === 'rejected' ||
+      (!preferenceEvent && consentResult.status === 'rejected');
+
+    await this.auditService.record({
+      tenantId,
+      actorId: actor.user.id,
+      action: 'customer.marketing_preference.read',
+      entityType: 'customer',
+      entityId: customerId,
+    });
+
+    return effectiveMarketingPreference(
+      consent,
+      preferenceEvent,
+      preferenceUnavailable,
+    );
+  }
+
+  async withdrawCustomerMarketingPreference(
+    tenantId: string,
+    actor: AuthContext,
+    customerId: string,
+    confirmedInPersonRequest: boolean,
+    idempotencyKey: string | undefined,
+  ): Promise<MarketingPreferenceWithdrawalResult> {
+    if (
+      actor.user.role !== UserRole.CASHIER &&
+      actor.user.role !== UserRole.SUPERVISOR &&
+      actor.user.role !== UserRole.ADMIN
+    ) {
+      throw new ForbiddenException('Store staff access is required');
+    }
+    if (confirmedInPersonRequest !== true) {
+      throw new BadRequestException(
+        'In-person customer request confirmation is required',
+      );
+    }
+    const branchId = actor.user.branchId;
+    if (!branchId) {
+      throw new ForbiddenException(
+        'An assigned active branch is required for this store request',
+      );
+    }
+
+    const normalizedKey = normalizeCustomerIdempotencyKey(idempotencyKey);
+    const endpoint = 'customers.marketingPreference.withdraw';
+    const requestHash = hashCustomerRequest({
+      tenantId,
+      actorId: actor.user.id,
+      customerId,
+      branchId,
+      source: CustomerMarketingPreferenceSource.IN_STORE,
+      confirmedInPersonRequest,
+    });
+    const existingIdempotency = await findCustomerIdempotency(
+      this.prismaService,
+      tenantId,
+      actor.user.id,
+      endpoint,
+      normalizedKey,
+      requestHash,
+    );
+    if (existingIdempotency?.responseJson) {
+      return existingIdempotency.responseJson as unknown as MarketingPreferenceWithdrawalResult;
+    }
+    if (existingIdempotency) {
+      throw new ConflictException('Idempotency key is still being processed');
+    }
+
+    const [branch, customer] = await Promise.all([
+      this.prismaService.branch.findFirst({
+        where: { id: branchId, tenantId, status: 'ACTIVE' },
+        select: { id: true },
+      }),
+      this.prismaService.customer.findFirst({
+        where: { id: customerId, tenantId },
+        select: { id: true },
+      }),
+    ]);
+    if (!branch) {
+      throw new ForbiddenException(
+        'An assigned active branch is required for this store request',
+      );
+    }
+    if (!customer) throw new NotFoundException('Customer not found');
+
+    return this.prismaService.$transaction(async (prisma) => {
+      await prisma.idempotencyRecord.create({
+        data: {
+          tenantId,
+          actorId: actor.user.id,
+          endpoint,
+          idempotencyKey: normalizedKey,
+          requestHash,
+          status: IdempotencyRecordStatus.PENDING,
+          expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
+        },
+      });
+
+      const latestEvent =
+        await prisma.customerMarketingPreferenceEvent.findFirst({
+          where: { tenantId, customerId },
+          orderBy: [{ capturedAt: 'desc' }, { id: 'desc' }],
+          select: { preference: true, source: true, capturedAt: true },
+        });
+      const registrationConsent = latestEvent
+        ? null
+        : await prisma.customerConsent.findFirst({
+            where: { tenantId, customerId },
+            select: { marketingOptIn: true, capturedAt: true },
+          });
+      const alreadyOptedOut =
+        latestEvent?.preference === CustomerMarketingPreference.OPTED_OUT;
+      const event = alreadyOptedOut
+        ? null
+        : await prisma.customerMarketingPreferenceEvent.create({
+            data: {
+              tenantId,
+              customerId,
+              capturedBy: actor.user.id,
+              branchId,
+              preference: CustomerMarketingPreference.OPTED_OUT,
+              source: CustomerMarketingPreferenceSource.IN_STORE,
+            },
+            select: { capturedAt: true },
+          });
+
+      if (event) {
+        await this.auditService.recordWithClient(prisma, {
+          tenantId,
+          actorId: actor.user.id,
+          action: 'customer.marketing_preference.withdrawn',
+          entityType: 'customer',
+          entityId: customerId,
+          metadata: {
+            branchId,
+            preference: CustomerMarketingPreference.OPTED_OUT,
+            source: CustomerMarketingPreferenceSource.IN_STORE,
+          },
+        });
+      }
+
+      const response = {
+        status: CustomerMarketingPreference.OPTED_OUT,
+        source: CustomerMarketingPreferenceSource.IN_STORE,
+        updatedAt: (
+          event?.capturedAt ??
+          latestEvent?.capturedAt ??
+          registrationConsent?.capturedAt ??
+          new Date()
+        ).toISOString(),
+        alreadyOptedOut,
+      };
+
+      await prisma.idempotencyRecord.update({
+        where: {
+          tenantId_actorId_endpoint_idempotencyKey: {
+            tenantId,
+            actorId: actor.user.id,
+            endpoint,
+            idempotencyKey: normalizedKey,
+          },
+        },
+        data: {
+          status: IdempotencyRecordStatus.COMPLETED,
+          responseJson: response,
+        },
+      });
+
+      return response;
+    });
+  }
+
   async createCustomer(
     tenantId: string,
     actor: AuthContext,
     data: {
       fullName: string;
       phone: string;
+      cardSerialNumber: string;
       email?: string;
       isStaff?: boolean;
       branchId?: string;
+      loyaltyConsent: boolean;
+      marketingOptIn: boolean;
     },
     idempotencyKey: string | undefined,
   ) {
+    if (data.loyaltyConsent !== true) {
+      throw new BadRequestException('Loyalty-service consent is required');
+    }
     const normalizedKey = normalizeCustomerIdempotencyKey(idempotencyKey);
     const endpoint = 'customers.create';
     const requestHash = hashCustomerRequest({
@@ -198,9 +925,13 @@ export class CustomersService {
     }
 
     const phoneE164 = normalizePhoneToE164(data.phone);
+    const cardSerialNumber = normalizeCardSerial(data.cardSerialNumber);
     const email = data.email?.trim().toLowerCase();
     if (!phoneE164.startsWith('+')) {
       throw new BadRequestException('Phone number is invalid');
+    }
+    if (!cardSerialNumber) {
+      throw new BadRequestException('Card serial number is required');
     }
 
     const branchId = data.branchId ?? actor.user.branchId ?? undefined;
@@ -215,14 +946,36 @@ export class CustomersService {
       throw new BadRequestException('Branch not found for tenant');
     }
 
-    const existing = await this.prismaService.customer.findFirst({
+    const existingCustomers = await this.prismaService.customer.findMany({
       where: {
         tenantId,
         OR: [{ phoneE164 }, ...(email ? [{ email }] : [])],
       },
+      select: { phoneE164: true, email: true },
     });
-    if (existing) {
-      throw new ConflictException('Active customer already exists');
+    const existingCard = await this.prismaService.card.findFirst({
+      where: { tenantId, barcodeValue: cardSerialNumber },
+      select: { id: true },
+    });
+    const conflictFields = [
+      ...(existingCustomers.some((customer) => customer.phoneE164 === phoneE164)
+        ? (['phone'] as const)
+        : []),
+      ...(email &&
+      existingCustomers.some((customer) => customer.email === email)
+        ? (['email'] as const)
+        : []),
+      ...(existingCard ? (['cardSerialNumber'] as const) : []),
+    ];
+    if (conflictFields.length > 0) {
+      throw new ConflictException({
+        code: 'CUSTOMER_REGISTRATION_CONFLICT',
+        message:
+          conflictFields.includes('phone') || conflictFields.includes('email')
+            ? 'Active customer already exists'
+            : 'Card serial number is already assigned',
+        fields: conflictFields,
+      });
     }
 
     return this.prismaService.$transaction(async (prisma) => {
@@ -250,6 +1003,27 @@ export class CustomersService {
           registeredBy: actor.user.id,
         },
       });
+      await prisma.customerConsent.create({
+        data: {
+          tenantId,
+          customerId: customer.id,
+          capturedBy: actor.user.id,
+          loyaltyConsent: true,
+          marketingOptIn: data.marketingOptIn,
+          consentVersion: CUSTOMER_CONSENT_VERSION,
+          privacyNoticeVersion: CUSTOMER_PRIVACY_NOTICE_VERSION,
+        },
+      });
+      const card = await prisma.card.create({
+        data: {
+          tenantId,
+          customerId: customer.id,
+          barcodeValue: cardSerialNumber,
+          issuedByTenantId: actor.user.tenantId,
+          issuedBy: actor.user.id,
+        },
+        select: { id: true, barcodeValue: true, status: true },
+      });
 
       await this.auditService.recordWithClient(prisma, {
         tenantId,
@@ -257,8 +1031,25 @@ export class CustomersService {
         action: 'customer.create',
         entityType: 'customer',
         entityId: customer.id,
-        metadata: customer,
+        metadata: { customer, initialCardId: card.id },
       });
+      await this.auditService.recordWithClient(prisma, {
+        tenantId,
+        actorId: actor.user.id,
+        action: 'card.create',
+        entityType: 'card',
+        entityId: card.id,
+        metadata: card,
+      });
+
+      const response = {
+        ...customer,
+        card: {
+          id: card.id,
+          serialNumber: card.barcodeValue,
+          status: card.status,
+        },
+      };
 
       await prisma.idempotencyRecord.update({
         where: {
@@ -271,11 +1062,11 @@ export class CustomersService {
         },
         data: {
           status: IdempotencyRecordStatus.COMPLETED,
-          responseJson: customer,
+          responseJson: response,
         },
       });
 
-      return customer;
+      return response;
     });
   }
 
@@ -517,6 +1308,32 @@ function hashCustomerRequest(value: Record<string, unknown>): string {
   return createHash('sha256').update(JSON.stringify(value)).digest('hex');
 }
 
+function effectiveMarketingPreference(
+  consent: { marketingOptIn: boolean; capturedAt: Date } | null,
+  event: {
+    preference: CustomerMarketingPreference;
+    source: CustomerMarketingPreferenceSource;
+    capturedAt: Date;
+  } | null,
+  unavailable = false,
+): EffectiveMarketingPreference {
+  if (unavailable) {
+    return { status: 'UNAVAILABLE', source: null, updatedAt: null };
+  }
+  if (event) {
+    return {
+      status: event.preference,
+      source: event.source,
+      updatedAt: event.capturedAt.toISOString(),
+    };
+  }
+  return {
+    status: consent?.marketingOptIn ? 'OPTED_IN' : 'NOT_OPTED_IN',
+    source: consent ? 'REGISTRATION' : 'NOT_RECORDED',
+    updatedAt: consent?.capturedAt.toISOString() ?? null,
+  };
+}
+
 async function findCustomerIdempotency(
   prisma: PrismaService,
   tenantId: string,
@@ -556,7 +1373,7 @@ async function findCustomerIdempotency(
 
 const customerReadInclude = {
   cards: {
-    select: { status: true },
+    select: { status: true, barcodeValue: true },
     orderBy: { issuedAt: 'desc' },
     take: 1,
   },
@@ -576,6 +1393,14 @@ function isPrivilegedCustomerRead(actor: AuthContext): boolean {
   );
 }
 
+function maskEmail(email: string | null): string | null {
+  if (!email) return null;
+  const [localPart, domainPart] = email.split('@');
+  const visibleLocalPart = localPart.slice(0, 3);
+  if (!domainPart) return `${visibleLocalPart}***`;
+  return `${visibleLocalPart}***@${domainPart}`;
+}
+
 function toCashierCustomerSummary(
   customer: CustomerReadRecord,
   activeBalanceKobo: bigint,
@@ -584,6 +1409,9 @@ function toCashierCustomerSummary(
     customerId: customer.id,
     fullName: customer.fullName,
     maskedPhone: maskPhone(customer.phoneE164),
+    email: maskEmail(customer.email),
+    birthdayMonth: null,
+    cardNumber: customer.cards[0]?.barcodeValue ?? null,
     cardStatus: customer.cards[0]?.status ?? CardStatus.BLOCKED,
     availableBalanceKobo: Number(activeBalanceKobo),
   };
@@ -593,6 +1421,7 @@ function toPrivilegedCustomerSummary(
   customer: CustomerReadRecord,
   activeBalanceKobo: bigint,
 ) {
+  const cardNumber = customer.cards[0]?.barcodeValue ?? null;
   return {
     id: customer.id,
     tenantId: customer.tenantId,
@@ -603,6 +1432,8 @@ function toPrivilegedCustomerSummary(
     isStaff: customer.isStaff,
     status: customer.status,
     activeCardStatus: customer.cards[0]?.status ?? CardStatus.BLOCKED,
+    cardNumber,
+    activeCardSerialNumber: cardNumber,
     availableBalanceKobo: Number(activeBalanceKobo),
     registeredBy: customer.registeredBy,
     registeredByTenantId: customer.registeredByTenantId,
@@ -610,6 +1441,24 @@ function toPrivilegedCustomerSummary(
     createdAt: customer.createdAt,
     updatedAt: customer.updatedAt,
   };
+}
+
+function auditMetadataStatus(metadata: Prisma.JsonValue | null): string | null {
+  if (!metadata || typeof metadata !== 'object' || Array.isArray(metadata)) {
+    return null;
+  }
+  const status = metadata.status;
+  return typeof status === 'string' &&
+    ['ACTIVE', 'BLOCKED', 'REPLACED'].includes(status)
+    ? status
+    : null;
+}
+
+function safeKoboNumber(value: bigint | null): number | null {
+  if (value === null || value < 0n || value > BigInt(Number.MAX_SAFE_INTEGER)) {
+    return null;
+  }
+  return Number(value);
 }
 
 function customerCursor(customer: CustomerReadRecord): string {
@@ -620,25 +1469,40 @@ function customerSearchWhere(
   tenantId: string,
   normalizedQuery?: string,
 ): Prisma.CustomerWhereInput {
+  const query = normalizedQuery?.trim();
+  const phoneQuery = isPhoneSearchQuery(query)
+    ? normalizePhoneToE164(query)
+    : null;
   return {
     tenantId,
-    ...(normalizedQuery
+    ...(query
       ? {
           OR: [
             {
-              fullName: { contains: normalizedQuery, mode: 'insensitive' },
+              fullName: { contains: query, mode: 'insensitive' },
             },
-            { phoneE164: { contains: normalizedQuery } },
-            { email: { contains: normalizedQuery, mode: 'insensitive' } },
+            { phoneE164: { contains: query } },
+            ...(phoneQuery && phoneQuery !== query
+              ? [{ phoneE164: { contains: phoneQuery } }]
+              : []),
+            { email: { contains: query, mode: 'insensitive' } },
             {
               cards: {
-                some: { barcodeValue: { contains: normalizedQuery } },
+                some: { barcodeValue: { contains: query } },
               },
             },
           ],
         }
       : {}),
   };
+}
+
+function isPhoneSearchQuery(query?: string): query is string {
+  return Boolean(
+    query &&
+    /^[+()\d\s.-]+$/.test(query) &&
+    query.replace(/\D/g, '').length >= 7,
+  );
 }
 
 function classifyCustomerSearchQuery(
@@ -653,7 +1517,7 @@ function classifyCustomerSearchQuery(
     return 'email';
   }
 
-  if (/^\+?\d[\d\s-]+$/.test(query)) {
+  if (isPhoneSearchQuery(query)) {
     return 'phone';
   }
 

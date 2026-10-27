@@ -21,6 +21,7 @@ import {
 import { CreditExpiryService } from './modules/credit-expiry/credit-expiry.service';
 import { ExpiryReminderService } from './modules/credit-expiry/expiry-reminder.service';
 import { initializeSentryIfConfigured } from './common/observability/sentry';
+import { resolveReleaseSha } from './config/release';
 import { SystemActorService } from './common/system/system-actor.service';
 
 export async function bootstrap() {
@@ -88,7 +89,7 @@ export async function bootstrap() {
     await reportMaterializationRuntime.start();
     await approvalExpiryRuntime.start();
     await creditExpiryRuntime.start();
-    const releaseSha = process.env.RELEASE_SHA?.trim() || 'dev';
+    const releaseSha = resolveReleaseSha(process.env);
     process.stdout.write(
       `SHOPCITY_WORKER_READY\nSHOPCITY_WORKER_SHA=${releaseSha}\n`,
     );

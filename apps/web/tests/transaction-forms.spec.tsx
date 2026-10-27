@@ -1,6 +1,13 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { EarnTransactionForm } from '../components/workflows/earn-transaction-form';
 import { RedeemTransactionForm } from '../components/workflows/redeem-transaction-form';
+import { saveOfflineEarnRecord } from '../lib/browser/offline-earn-queue';
+import {
+  clearAdjustmentOperationIdentity,
+  getAdjustmentOperationIdentity,
+  type AdjustmentOperationPayload,
+  type AdjustmentOperationStorage,
+} from '../lib/adjustment-operation';
 import {
   loyaltyControllerEarnV1,
   redemptionsControllerRedeemV1,
@@ -25,6 +32,175 @@ jest.mock('../lib/api/generated-client', () => {
   };
 });
 
+describe('adjustment operation identity', () => {
+  const payload: AdjustmentOperationPayload = {
+    customerId: 'customer-1',
+    amountKobo: 500_000,
+    reason: 'Correction',
+    kind: 'CREDIT',
+  };
+  const digest = async (value: string) => {
+    let hash = 2166136261;
+    for (const character of value)
+      hash = Math.imul(hash ^ character.charCodeAt(0), 16777619);
+    return (hash >>> 0).toString(16).padStart(64, '0');
+  };
+  class MemoryStorage implements AdjustmentOperationStorage {
+    values = new Map<string, string>();
+    getItem(key: string) {
+      return this.values.get(key) ?? null;
+    }
+    setItem(key: string, value: string) {
+      this.values.set(key, value);
+    }
+  }
+  const identityOptions = (
+    storage: AdjustmentOperationStorage,
+    id = '00000000-0000-4000-8000-000000000001',
+    now = '2026-10-17T10:00:00.000Z',
+  ) => ({
+    storage,
+    digest,
+    createId: () => id,
+    now: () => now,
+  });
+
+  it('reuses the persisted identity after remount and changed-then-reverted drafts', async () => {
+    const storage = new MemoryStorage();
+    const first = await getAdjustmentOperationIdentity(
+      payload,
+      identityOptions(storage),
+    );
+    await getAdjustmentOperationIdentity(
+      { ...payload, amountKobo: 600_000 },
+      identityOptions(storage, '00000000-0000-4000-8000-000000000002'),
+    );
+    const remounted = await getAdjustmentOperationIdentity(
+      payload,
+      identityOptions(storage, '00000000-0000-4000-8000-000000000003'),
+    );
+    expect(remounted).toEqual(first);
+    const encoded = [...storage.values.values()].join('');
+    expect(encoded).not.toContain(payload.customerId);
+    expect(encoded).not.toContain(payload.reason);
+  });
+
+  it('fails closed for unavailable, corrupt, and expired storage identities', async () => {
+    await expect(
+      getAdjustmentOperationIdentity(payload, {
+        ...identityOptions(new MemoryStorage()),
+        digest: async () => {
+          throw Error('unavailable');
+        },
+      }),
+    ).rejects.toThrow(/uncertain/i);
+    const corrupt = new MemoryStorage();
+    corrupt.setItem('shopcity.adjustment-operation-identities', '{');
+    await expect(
+      getAdjustmentOperationIdentity(payload, identityOptions(corrupt)),
+    ).rejects.toThrow(/uncertain/i);
+    const unavailable: AdjustmentOperationStorage = {
+      getItem: () => {
+        throw new Error('storage disabled');
+      },
+      setItem: () => {
+        throw new Error('storage disabled');
+      },
+    };
+    await expect(
+      getAdjustmentOperationIdentity(payload, identityOptions(unavailable)),
+    ).rejects.toThrow(/uncertain/i);
+    const expired = new MemoryStorage();
+    await getAdjustmentOperationIdentity(
+      payload,
+      identityOptions(
+        expired,
+        '00000000-0000-4000-8000-000000000004',
+        '2026-10-01T00:00:00.000Z',
+      ),
+    );
+    await expect(
+      getAdjustmentOperationIdentity(
+        payload,
+        identityOptions(
+          expired,
+          '00000000-0000-4000-8000-000000000005',
+          '2026-10-09T00:00:00.000Z',
+        ),
+      ),
+    ).rejects.toThrow(/expired/i);
+  });
+
+  it('rejects semantically malformed JSON records and duplicate identities', async () => {
+    const valid = {
+      payloadDigest: 'a'.repeat(64),
+      idempotencyKey: '00000000-0000-4000-8000-000000000001',
+      effectiveAt: '2026-10-17T10:00:00.000Z',
+      createdAt: '2026-10-17T10:00:00.000Z',
+    };
+    const malformedRecords = [
+      { ...valid, payloadDigest: 'not-a-digest' },
+      { ...valid, idempotencyKey: '' },
+      { ...valid, idempotencyKey: 'not-a-uuid' },
+      { ...valid, effectiveAt: 'not-a-timestamp' },
+      { ...valid, createdAt: '2026-10-17' },
+      { ...valid, effectiveAt: '2026-10-17T10:00:01.000Z' },
+      [valid, valid],
+      [valid, { ...valid, payloadDigest: 'b'.repeat(64) }],
+    ];
+    for (const record of malformedRecords) {
+      const storage = new MemoryStorage();
+      storage.setItem(
+        'shopcity.adjustment-operation-identities',
+        JSON.stringify(record),
+      );
+      await expect(
+        getAdjustmentOperationIdentity(payload, identityOptions(storage)),
+      ).rejects.toThrow(/uncertain/i);
+    }
+  });
+
+  it('uses a fresh identity for new payloads and clears only a successfully resolved identity', async () => {
+    const storage = new MemoryStorage();
+    const first = await getAdjustmentOperationIdentity(
+      payload,
+      identityOptions(storage, '00000000-0000-4000-8000-000000000006'),
+    );
+    const otherPayload = { ...payload, amountKobo: 600_000 };
+    const other = await getAdjustmentOperationIdentity(
+      otherPayload,
+      identityOptions(storage, '00000000-0000-4000-8000-000000000007'),
+    );
+    const fresh = await getAdjustmentOperationIdentity(
+      payload,
+      identityOptions(
+        storage,
+        '00000000-0000-4000-8000-000000000008',
+        '2026-10-18T10:00:00.000Z',
+      ),
+    );
+    expect(fresh).toEqual(first);
+    await clearAdjustmentOperationIdentity(payload, first, { storage, digest });
+    const afterClear = await getAdjustmentOperationIdentity(
+      payload,
+      identityOptions(
+        storage,
+        '00000000-0000-4000-8000-000000000008',
+        '2026-10-18T10:00:00.000Z',
+      ),
+    );
+    expect(afterClear.idempotencyKey).toBe(
+      '00000000-0000-4000-8000-000000000008',
+    );
+    expect(
+      await getAdjustmentOperationIdentity(
+        otherPayload,
+        identityOptions(storage, '00000000-0000-4000-8000-000000000009'),
+      ),
+    ).toEqual(other);
+  });
+});
+
 const lookupContext = {
   cardSerialNumber: 'CARD-001',
   customerId: 'customer-1',
@@ -40,20 +216,78 @@ const policyContext = {
   offlineRedemptionDisabled: false,
 };
 
+function advanceRedeemToAmount(basketSubtotal = '100', receipt = 'R-001') {
+  const basket = screen.getByLabelText('Basket subtotal (₦)');
+  fireEvent.change(basket, { target: { value: basketSubtotal } });
+  fireEvent.blur(basket);
+  fireEvent.change(screen.getByLabelText('POS receipt number'), {
+    target: { value: receipt },
+  });
+  fireEvent.click(screen.getByRole('button', { name: 'Proceed', exact: true }));
+}
+
+function advanceRedeemToConfirmation(redemptionAmount = '10') {
+  const requested = screen.getByLabelText('Redemption amount (₦)');
+  fireEvent.change(requested, { target: { value: redemptionAmount } });
+  fireEvent.blur(requested);
+  fireEvent.click(screen.getByRole('button', { name: 'Proceed', exact: true }));
+}
+
 describe('cashier transaction forms', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    window.localStorage.clear();
     jest.mocked(loyaltyControllerEarnV1).mockResolvedValue({
       status: 201,
-      data: { data: { transactionId: 'earn-1' } },
+      data: {
+        success: true,
+        data: {
+          id: 'receipt-1',
+          transactionId: 'earn-1',
+          state: 'CONFIRMED',
+          receiptId: 'receipt-1',
+          tenantId: 'tenant-1',
+          branchId: 'branch-1',
+          deviceId: 'device-1',
+          customerId: 'customer-1',
+          cardSerialNumber: 'CARD-001',
+          posReceiptNumber: 'R-001',
+          purchaseAmountKobo: 1000,
+          creditKobo: 50,
+          captureStatus: 'CAPTURED',
+          availableBalanceKobo: 6150,
+          expiresAt: '2026-10-05T12:00:00.000Z',
+          smsStatus: 'QUEUED',
+          occurredAt: '2026-09-05T11:28:00.000Z',
+          capturedAt: '2026-09-05T12:00:00.000Z',
+          reviewStatus: 'APPROVED',
+        },
+        meta: {
+          timestamp: '2026-09-05T12:00:00.000Z',
+          path: '/api/v1/transactions/earn',
+          requestId: 'req-earn-1',
+        },
+      },
     } as never);
     jest.mocked(redemptionsControllerRedeemV1).mockResolvedValue({
       status: 201,
-      data: { data: { transactionId: 'redeem-1' } },
+      data: {
+        data: {
+          redemptionId: 'redeem-1',
+          transactionId: 'redeem-1',
+          state: 'CONFIRMED',
+          posReceiptNumber: 'R-001',
+          basketAmountKobo: 10000,
+          redeemedAmountKobo: 1000,
+          remainingBalanceKobo: 4500,
+          smsStatus: 'QUEUED',
+        },
+      },
     } as never);
   });
 
   it('shows authoritative Earn confirmation and refreshes the shell', async () => {
+    const onFlowStepChange = jest.fn();
     render(
       <EarnTransactionForm
         lookupContext={lookupContext}
@@ -61,20 +295,27 @@ describe('cashier transaction forms', () => {
         cashierId="cashier-1"
         deviceId="device-1"
         branchId="branch-1"
+        onFlowStepChange={onFlowStepChange}
       />,
     );
 
-    fireEvent.change(screen.getByLabelText('POS receipt number'), {
+    fireEvent.change(screen.getByLabelText('Receipt number *'), {
       target: { value: 'R-001' },
     });
-    const purchase = screen.getByLabelText('Purchase amount');
+    const purchase = screen.getByLabelText('Receipt amount (₦) *');
     fireEvent.change(purchase, { target: { value: '10' } });
     fireEvent.blur(purchase);
-    fireEvent.click(screen.getByRole('button', { name: 'Submit earn' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Proceed to review' }));
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Confirm & add credit' }),
+    );
 
     await waitFor(() => {
       expect(
-        screen.getByText('Earn confirmed by backend contract.'),
+        screen.getByRole('heading', {
+          level: 2,
+          name: 'ShopCity Credit earned',
+        }),
       ).toBeInTheDocument();
     });
     expect(loyaltyControllerEarnV1).toHaveBeenCalledTimes(1);
@@ -87,10 +328,79 @@ describe('cashier transaction forms', () => {
       'posReceiptNumber',
       'purchaseAmountKobo',
     ]);
+    expect(earnPayload.purchaseAmountKobo).toBe(1000);
     expect(earnPayload).not.toHaveProperty('balanceKobo');
     expect(earnPayload).not.toHaveProperty('role');
     expect(earnPayload).not.toHaveProperty('approval');
+    expect(screen.getByText('+₦0.50')).toBeInTheDocument();
+    expect(screen.getByText('₦61.50')).toBeInTheDocument();
+    expect(screen.getByText('5%')).toBeInTheDocument();
+    expect(screen.getAllByText('₦10.00')).toHaveLength(2);
+    expect(screen.getByText('R-001')).toBeInTheDocument();
+    expect(screen.getByText('Approved')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Redeem Now' })).toHaveAttribute(
+      'href',
+      '/cashier/redeem?card=CARD-001',
+    );
+    expect(screen.getByRole('link', { name: 'View Customer' })).toHaveAttribute(
+      'href',
+      '/cashier/customers?id=customer-1',
+    );
+    expect(
+      screen.getByRole('button', { name: 'Capture Another' }),
+    ).toBeInTheDocument();
+    const copyButton = screen.getByRole('button', {
+      name: 'Copy cashier name Cashier',
+    });
+    expect(copyButton).toBeInTheDocument();
+    const previousClipboard = Object.getOwnPropertyDescriptor(
+      navigator,
+      'clipboard',
+    );
+    const writeClipboardText = jest.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, 'clipboard', {
+      configurable: true,
+      value: { writeText: writeClipboardText },
+    });
+    try {
+      fireEvent.click(copyButton);
+      await waitFor(() => {
+        expect(writeClipboardText).toHaveBeenCalledWith('Cashier');
+        expect(screen.getByText('Cashier name copied.')).toBeInTheDocument();
+      });
+    } finally {
+      if (previousClipboard) {
+        Object.defineProperty(navigator, 'clipboard', previousClipboard);
+      } else {
+        Reflect.deleteProperty(navigator, 'clipboard');
+      }
+    }
     expect(mockRouterRefresh).toHaveBeenCalledTimes(1);
+    await waitFor(() => {
+      expect(onFlowStepChange).toHaveBeenLastCalledWith(4);
+    });
+  });
+
+  it('does not unlock Earn from customer name without verified card context', () => {
+    render(
+      <EarnTransactionForm
+        lookupContext={{ customerName: 'Ada Shopper' }}
+        policyContext={policyContext}
+      />,
+    );
+
+    fireEvent.change(screen.getByLabelText('Receipt number *'), {
+      target: { value: 'R-NO-CARD' },
+    });
+    fireEvent.change(screen.getByLabelText('Receipt amount (₦) *'), {
+      target: { value: '10' },
+    });
+    fireEvent.blur(screen.getByLabelText('Receipt amount (₦) *'));
+
+    expect(
+      screen.getByRole('button', { name: 'Proceed to review' }),
+    ).toBeDisabled();
+    expect(screen.getByText('Awaiting lookup')).toBeInTheDocument();
   });
 
   it('requires receipt and uses ceiling rounding for the advisory preview', async () => {
@@ -101,20 +411,198 @@ describe('cashier transaction forms', () => {
       />,
     );
 
-    const submit = screen.getByRole('button', { name: 'Submit earn' });
+    const submit = screen.getByRole('button', { name: 'Proceed to review' });
     expect(submit).toBeDisabled();
-    expect(screen.getByText('Required')).toBeInTheDocument();
+    expect(screen.getByLabelText('Receipt number *')).toBeRequired();
 
-    fireEvent.change(screen.getByLabelText('POS receipt number'), {
+    fireEvent.change(screen.getByLabelText('Receipt number *'), {
       target: { value: 'R-002' },
     });
-    fireEvent.change(screen.getByLabelText('Purchase amount'), {
+    fireEvent.change(screen.getByLabelText('Receipt amount (₦) *'), {
       target: { value: '1.01' },
     });
-    fireEvent.blur(screen.getByLabelText('Purchase amount'));
+    fireEvent.blur(screen.getByLabelText('Receipt amount (₦) *'));
 
     expect(screen.getByText('₦0.06')).toBeInTheDocument();
     expect(submit).toBeEnabled();
+  });
+
+  it('requires a valid occurred-at timestamp before allowing Earn review', () => {
+    render(
+      <EarnTransactionForm
+        lookupContext={lookupContext}
+        policyContext={policyContext}
+      />,
+    );
+
+    const occurredAt = screen.getByLabelText('Receipt date & time *');
+    expect(occurredAt).toBeRequired();
+    fireEvent.change(screen.getByLabelText('Receipt number *'), {
+      target: { value: 'R-REQUIRED-TIMESTAMP' },
+    });
+    fireEvent.change(screen.getByLabelText('Receipt amount (₦) *'), {
+      target: { value: '10' },
+    });
+    fireEvent.blur(screen.getByLabelText('Receipt amount (₦) *'));
+
+    const proceedButton = screen.getByRole('button', {
+      name: 'Proceed to review',
+    });
+    expect(proceedButton).toBeEnabled();
+    fireEvent.change(occurredAt, { target: { value: '' } });
+
+    expect(occurredAt).toHaveValue('');
+    expect(
+      screen.getByText('Receipt date and time is required.'),
+    ).toBeInTheDocument();
+    expect(proceedButton).toBeDisabled();
+    expect(loyaltyControllerEarnV1).not.toHaveBeenCalled();
+  });
+
+  it('renders the receipt-details design with an authoritative credit estimate', () => {
+    render(
+      <EarnTransactionForm
+        lookupContext={lookupContext}
+        policyContext={policyContext}
+      />,
+    );
+
+    expect(
+      screen.getByRole('heading', { name: 'Step 3 — Receipt details' }),
+    ).toBeInTheDocument();
+    expect(screen.getByLabelText('Receipt number *')).toBeRequired();
+    expect(screen.getByLabelText('Receipt amount (₦) *')).toBeInTheDocument();
+    expect(screen.getByLabelText('Receipt date & time *')).toBeRequired();
+    expect(
+      screen.queryByRole('textbox', { name: /till|cashier reference/i }),
+    ).not.toBeInTheDocument();
+
+    const receiptAmount = screen.getByLabelText('Receipt amount (₦) *');
+    fireEvent.change(receiptAmount, { target: { value: '10' } });
+    fireEvent.blur(receiptAmount);
+
+    expect(screen.getByText('₦0.50')).toBeInTheDocument();
+    const creditLabel = screen.getByText('Estimated ShopCity credit');
+    expect(creditLabel.parentElement).toHaveClass(
+      'cashier-earn-receipt-estimate-field',
+    );
+    expect(creditLabel.closest('.cashier-earn-receipt-estimate')).toBeNull();
+    expect(
+      screen.queryByText(/final credit amount is calculated by ShopCity/i),
+    ).not.toBeInTheDocument();
+  });
+
+  it('renders an Earn review with the Figma summary and non-authoritative estimates', () => {
+    render(
+      <EarnTransactionForm
+        lookupContext={lookupContext}
+        policyContext={policyContext}
+      />,
+    );
+
+    fireEvent.change(screen.getByLabelText('Receipt number *'), {
+      target: { value: 'R-REVIEW' },
+    });
+    const receiptAmount = screen.getByLabelText('Receipt amount (₦) *');
+    fireEvent.change(receiptAmount, { target: { value: '10' } });
+    fireEvent.blur(receiptAmount);
+    fireEvent.click(screen.getByRole('button', { name: 'Proceed to review' }));
+
+    expect(
+      screen.getByRole('heading', { name: 'Step 4 — Review' }),
+    ).toBeInTheDocument();
+    for (const label of [
+      'Customer',
+      'Receipt number',
+      'Receipt amount',
+      'Eligible amount',
+      'Cashback rate',
+      'Receipt date',
+      'Estimated ShopCity Credit',
+      'Balance before',
+      'Estimated new balance',
+    ]) {
+      expect(screen.getByText(label)).toBeInTheDocument();
+    }
+    expect(screen.getByText('5%')).toBeInTheDocument();
+    expect(screen.getByText('+₦0.50')).toBeInTheDocument();
+    expect(screen.getByText('Receipt amount').parentElement).toHaveTextContent(
+      '₦10.00',
+    );
+    expect(screen.getByText('Eligible amount').parentElement).toHaveTextContent(
+      '₦10.00',
+    );
+    expect(screen.getByText('₦55.00')).toBeInTheDocument();
+    expect(screen.getByText('₦55.50')).toBeInTheDocument();
+    expect(screen.queryByText('Till reference')).not.toBeInTheDocument();
+    expect(
+      screen.queryByText('ShopCity Credit earned'),
+    ).not.toBeInTheDocument();
+    expect(screen.getByText('Back')).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: 'Confirm & add credit' }),
+    ).toBeEnabled();
+    expect(loyaltyControllerEarnV1).not.toHaveBeenCalled();
+  });
+
+  it('uses the TRD 2% policy rate and full receipt amount as eligible in review', () => {
+    render(
+      <EarnTransactionForm
+        lookupContext={lookupContext}
+        policyContext={{ ...policyContext, defaultEarnRateBps: 200 }}
+      />,
+    );
+
+    fireEvent.change(screen.getByLabelText('Receipt number *'), {
+      target: { value: 'R-TRD-RATE' },
+    });
+    const receiptAmount = screen.getByLabelText('Receipt amount (₦) *');
+    fireEvent.change(receiptAmount, { target: { value: '10' } });
+    fireEvent.blur(receiptAmount);
+    fireEvent.click(screen.getByRole('button', { name: 'Proceed to review' }));
+
+    expect(screen.getByText('2%')).toBeInTheDocument();
+    expect(screen.getByText('+₦0.20')).toBeInTheDocument();
+    expect(screen.getByText('₦55.20')).toBeInTheDocument();
+    expect(screen.getAllByText('₦10.00')).toHaveLength(2);
+    expect(loyaltyControllerEarnV1).not.toHaveBeenCalled();
+  });
+
+  it('uses the current wallet balance for the Earn review projection', () => {
+    render(
+      <EarnTransactionForm
+        lookupContext={lookupContext}
+        currentWalletBalanceKobo={7600}
+        policyContext={policyContext}
+      />,
+    );
+
+    fireEvent.change(screen.getByLabelText('Receipt number *'), {
+      target: { value: 'R-CURRENT-BALANCE' },
+    });
+    const receiptAmount = screen.getByLabelText('Receipt amount (₦) *');
+    fireEvent.change(receiptAmount, { target: { value: '10' } });
+    fireEvent.blur(receiptAmount);
+    fireEvent.click(screen.getByRole('button', { name: 'Proceed to review' }));
+
+    expect(screen.getByText('₦76.00')).toBeInTheDocument();
+    expect(screen.getByText('₦76.50')).toBeInTheDocument();
+    expect(screen.queryByText('₦55.00')).not.toBeInTheDocument();
+  });
+
+  it('returns from receipt details to customer confirmation when Back is used', () => {
+    const onBackToCustomerConfirmation = jest.fn();
+    render(
+      <EarnTransactionForm
+        lookupContext={lookupContext}
+        policyContext={policyContext}
+        onBackToCustomerConfirmation={onBackToCustomerConfirmation}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Back' }));
+
+    expect(onBackToCustomerConfirmation).toHaveBeenCalledTimes(1);
   });
 
   it('maps duplicate receipt errors to an actionable message', async () => {
@@ -128,18 +616,269 @@ describe('cashier transaction forms', () => {
         policyContext={policyContext}
       />,
     );
-    fireEvent.change(screen.getByLabelText('POS receipt number'), {
+    fireEvent.change(screen.getByLabelText('Receipt number *'), {
       target: { value: 'R-003' },
     });
-    fireEvent.change(screen.getByLabelText('Purchase amount'), {
+    fireEvent.change(screen.getByLabelText('Receipt amount (₦) *'), {
       target: { value: '10' },
     });
-    fireEvent.blur(screen.getByLabelText('Purchase amount'));
-    fireEvent.click(screen.getByRole('button', { name: 'Submit earn' }));
+    fireEvent.blur(screen.getByLabelText('Receipt amount (₦) *'));
+    fireEvent.click(screen.getByRole('button', { name: 'Proceed to review' }));
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Confirm & add credit' }),
+    );
 
     await waitFor(() => {
       expect(
         screen.getByText(/receipt has already been used this week/i),
+      ).toBeInTheDocument();
+    });
+  });
+
+  it.each([
+    {
+      code: 'SESSION_DEVICE_REQUIRED',
+      message:
+        'Your cashier session needs an assigned device. Sign in again with your cashier device or contact a supervisor.',
+    },
+    {
+      code: 'DEVICE_NOT_ACTIVE',
+      message:
+        'This cashier device is inactive. Contact a supervisor before capturing a purchase.',
+    },
+    {
+      code: 'DEVICE_BRANCH_MISMATCH',
+      message:
+        'This cashier device is assigned to a different branch. Contact a supervisor.',
+    },
+    {
+      code: 'BRANCH_CONTEXT_REQUIRED',
+      message:
+        'Your cashier session is missing a branch assignment. Sign in again or contact a supervisor.',
+    },
+    {
+      code: 'VALIDATION_ERROR',
+      message:
+        'ShopCity rejected the receipt details. Check the receipt number, amount, and date/time.',
+    },
+    {
+      code: 'UNEXPECTED_BAD_REQUEST',
+      message:
+        'ShopCity rejected the earn request (UNEXPECTED_BAD_REQUEST). Check the receipt details and cashier device, then try again.',
+    },
+  ])('maps $code to an actionable Earn message', async ({ code, message }) => {
+    jest.mocked(loyaltyControllerEarnV1).mockResolvedValue({
+      status: 400,
+      data: { error: { code } },
+    } as never);
+    render(
+      <EarnTransactionForm
+        lookupContext={lookupContext}
+        policyContext={policyContext}
+      />,
+    );
+
+    fireEvent.change(screen.getByLabelText('Receipt number *'), {
+      target: { value: 'R-400' },
+    });
+    const purchase = screen.getByLabelText('Receipt amount (₦) *');
+    fireEvent.change(purchase, { target: { value: '10' } });
+    fireEvent.blur(purchase);
+    fireEvent.click(screen.getByRole('button', { name: 'Proceed to review' }));
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Confirm & add credit' }),
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText(message, { exact: true })).toBeInTheDocument();
+    });
+    expect(screen.queryByText(/status 400/i)).not.toBeInTheDocument();
+    expect(jest.mocked(saveOfflineEarnRecord)).not.toHaveBeenCalled();
+  });
+
+  it('renders one approval-pending Earn notice without exposing the backend payload', async () => {
+    jest.mocked(loyaltyControllerEarnV1).mockResolvedValue({
+      status: 202,
+      data: {
+        success: true,
+        data: {
+          id: 'receipt-pending',
+          transactionId: null,
+          state: 'PENDING_APPROVAL',
+          receiptId: 'receipt-pending',
+          approvalId: 'approval-pending',
+          tenantId: 'tenant-internal',
+          branchId: 'branch-internal',
+          deviceId: 'device-internal',
+          customerId: 'customer-internal',
+          cardSerialNumber: 'SC-PENDING',
+          posReceiptNumber: 'RC-PENDING',
+          purchaseAmountKobo: 8_000_000,
+          creditKobo: null,
+          captureStatus: 'PENDING_APPROVAL',
+          availableBalanceKobo: null,
+          reasonCode: 'LATE_RECEIPT_CLAIM',
+          occurredAt: '2026-10-14T09:03:00.000Z',
+          capturedAt: '2026-10-21T22:24:25.617Z',
+        },
+        meta: {
+          timestamp: '2026-10-21T22:24:25.648Z',
+          path: '/api/v1/transactions/earn',
+        },
+      },
+    } as never);
+    render(
+      <EarnTransactionForm
+        lookupContext={lookupContext}
+        policyContext={policyContext}
+        branchTimezone="Africa/Lagos"
+      />,
+    );
+    fireEvent.change(screen.getByLabelText('Receipt number *'), {
+      target: { value: 'R-PENDING' },
+    });
+    fireEvent.change(screen.getByLabelText('Receipt amount (₦) *'), {
+      target: { value: '10' },
+    });
+    fireEvent.blur(screen.getByLabelText('Receipt amount (₦) *'));
+    fireEvent.click(screen.getByRole('button', { name: 'Proceed to review' }));
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Confirm & add credit' }),
+    );
+
+    await waitFor(() => {
+      expect(
+        screen.getByRole('heading', { name: 'Awaiting approval' }),
+      ).toBeInTheDocument();
+    });
+    const result = screen.getByRole('region', {
+      name: 'Capture purchase result',
+    });
+    expect(screen.getByText('Purchase recorded')).toBeVisible();
+    expect(
+      screen.getAllByText(
+        'A supervisor needs to review this purchase before rewards are added.',
+      ),
+    ).toHaveLength(1);
+    expect(result.querySelector('table')).toBeNull();
+    expect(result).toHaveTextContent('Ada Shopper');
+    expect(result).toHaveTextContent('CARD-001');
+    expect(result).toHaveTextContent('RC-PENDING');
+    expect(result).toHaveTextContent(/80,000\.00/);
+    expect(result).toHaveTextContent('14 Oct 2026, 10:03');
+    expect(result).toHaveTextContent('21 Oct 2026, 23:24');
+    expect(result).toHaveTextContent('Late receipt claim');
+    expect(result).not.toHaveTextContent(
+      /receipt-pending|approval-pending|tenant-internal|branch-internal|device-internal|customer-internal|SC-PENDING|success|PENDING_APPROVAL/i,
+    );
+    expect(
+      screen.queryByText('ShopCity Credit earned'),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: 'Capture another' }),
+    ).toBeVisible();
+  });
+
+  it('shows the basket and customer-payable amount across the redemption stages', () => {
+    render(
+      <RedeemTransactionForm
+        lookupContext={lookupContext}
+        policyContext={policyContext}
+      />,
+    );
+
+    const cardPreview = screen.getByRole('img', {
+      name: 'ShopCity card preview for Ada Shopper; card number CARD-001; status Not provided',
+    });
+    expect(cardPreview.querySelector('img')?.getAttribute('src')).toContain(
+      'IMG-20260802-WA0001.jpg',
+    );
+    expect(screen.getByText('Status: Not provided')).toBeInTheDocument();
+
+    advanceRedeemToAmount();
+    expect(
+      screen.getByRole('heading', { name: 'Step 3 — Redemption amount' }),
+    ).toBeInTheDocument();
+    advanceRedeemToConfirmation();
+    expect(screen.getByText('Customer pays')).toBeInTheDocument();
+    expect(screen.getByText('₦90.00')).toBeInTheDocument();
+    expect(screen.queryByLabelText('4-digit OTP')).not.toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: 'Confirm redemption' }),
+    ).toBeInTheDocument();
+  });
+
+  it('keeps a pending redemption outcome distinct from a completed debit', async () => {
+    jest.mocked(redemptionsControllerRedeemV1).mockResolvedValue({
+      status: 202,
+      data: {
+        data: {
+          transactionId: 'redeem-pending',
+          state: 'PENDING_APPROVAL',
+          posReceiptNumber: 'R-001',
+          basketAmountKobo: 10000,
+        },
+      },
+    } as never);
+    render(
+      <RedeemTransactionForm
+        lookupContext={lookupContext}
+        policyContext={policyContext}
+      />,
+    );
+
+    advanceRedeemToAmount();
+    advanceRedeemToConfirmation();
+    fireEvent.click(screen.getByRole('button', { name: 'Confirm redemption' }));
+
+    await waitFor(() => {
+      expect(
+        screen.getByRole('heading', { name: 'Redemption pending approval' }),
+      ).toBeInTheDocument();
+    });
+    expect(
+      screen.getByText('Pending approval', { selector: 'strong' }),
+    ).toBeInTheDocument();
+    expect(screen.queryByText('Redemption completed')).not.toBeInTheDocument();
+  });
+
+  it('does not unlock Redeem from customer name without verified card context', () => {
+    render(
+      <RedeemTransactionForm
+        lookupContext={{ customerName: 'Ada Shopper' }}
+        policyContext={policyContext}
+      />,
+    );
+
+    const basket = screen.getByLabelText('Basket subtotal (₦)');
+    fireEvent.change(basket, { target: { value: '100' } });
+    fireEvent.blur(basket);
+    fireEvent.change(screen.getByLabelText('POS receipt number'), {
+      target: { value: 'R-NO-CARD' },
+    });
+
+    expect(screen.getByRole('button', { name: 'Proceed' })).toBeDisabled();
+  });
+
+  it('maps insufficient redemption balance to an actionable message', async () => {
+    jest.mocked(redemptionsControllerRedeemV1).mockResolvedValue({
+      status: 422,
+      data: { error: { code: 'INSUFFICIENT_BALANCE' } },
+    } as never);
+    render(
+      <RedeemTransactionForm
+        lookupContext={{ ...lookupContext, availableBalanceKobo: 100000 }}
+        policyContext={policyContext}
+      />,
+    );
+
+    advanceRedeemToAmount('400');
+    advanceRedeemToConfirmation('120');
+    fireEvent.click(screen.getByRole('button', { name: 'Confirm redemption' }));
+
+    await waitFor(() => {
+      expect(
+        screen.getByText('Available credit is lower than this redemption.'),
       ).toBeInTheDocument();
     });
   });
@@ -161,16 +900,11 @@ describe('cashier transaction forms', () => {
       />,
     );
 
-    fireEvent.change(screen.getByLabelText('Basket amount'), {
-      target: { value: '100' },
-    });
-    const requested = screen.getByLabelText('Requested redemption');
-    fireEvent.change(requested, { target: { value: '10' } });
-    fireEvent.blur(screen.getByLabelText('Basket amount'));
-    fireEvent.blur(requested);
-    const submit = screen.getByRole('button', { name: 'Submit redemption' });
-    fireEvent.click(submit);
-    fireEvent.click(submit);
+    advanceRedeemToAmount();
+    advanceRedeemToConfirmation();
+    const confirm = screen.getByRole('button', { name: 'Confirm redemption' });
+    fireEvent.click(confirm);
+    fireEvent.click(confirm);
 
     expect(redemptionsControllerRedeemV1).toHaveBeenCalledTimes(1);
     const redeemPayload = jest.mocked(redemptionsControllerRedeemV1).mock
@@ -190,7 +924,7 @@ describe('cashier transaction forms', () => {
     });
     await waitFor(() => {
       expect(
-        screen.getByText('Redemption confirmed by backend contract.'),
+        screen.getByRole('heading', { name: 'Redemption successful' }),
       ).toBeInTheDocument();
     });
   });

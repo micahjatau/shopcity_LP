@@ -1,0 +1,24 @@
+<svg preserveAspectRatio="none" overflow="visible" style="display: block;" width="197.357" height="207.565" viewBox="0 0 197.357 207.565" fill="none" xmlns="http://www.w3.org/2000/svg">
+<g id="Frame 45">
+<circle id="Ellipse 1" cx="98.6786" cy="103.54" r="56.846" stroke="#16977E" stroke-width="2"/>
+<circle id="Ellipse 2" cx="97.9495" cy="13.8539" r="1.70135" fill="#16977E" fill-opacity="0.2"/>
+<circle id="Ellipse 3" cx="183.989" cy="75.1027" r="1.70135" fill="#16977E" fill-opacity="0.2"/>
+<circle id="Ellipse 4" cx="150.448" cy="30.3813" r="1.70135" fill="#16977E" fill-opacity="0.2"/>
+<circle id="Ellipse 12" cx="45.9365" cy="31.8396" r="1.70135" fill="#16977E" fill-opacity="0.2"/>
+<circle id="Ellipse 6" cx="13.3677" cy="76.5609" r="1.70135" fill="#16977E" fill-opacity="0.2"/>
+<circle id="Ellipse 7" cx="13.3677" cy="131.976" r="1.70135" fill="#16977E" fill-opacity="0.2"/>
+<circle id="Ellipse 8" cx="47.3951" cy="176.698" r="1.70135" fill="#16977E" fill-opacity="0.2"/>
+<circle id="Ellipse 9" cx="99.894" cy="193.225" r="1.70135" fill="#16977E" fill-opacity="0.2"/>
+<circle id="Ellipse 10" cx="152.393" cy="175.239" r="1.70135" fill="#16977E" fill-opacity="0.2"/>
+<circle id="Ellipse 11" cx="183.989" cy="130.032" r="1.70135" fill="#16977E" fill-opacity="0.2"/>
+<g id="Mask Group">
+<mask id="mask0_0_109" style="mask-type:alpha" maskUnits="userSpaceOnUse" x="72" y="82" width="53" height="43">
+<path id="Vector 1" d="M78.7316 100.361L72.4956 106.597L89.9866 124.088L124.664 89.4102L118.124 82.8701L89.6824 111.312L78.7316 100.361Z" fill="black"/>
+</mask>
+<g mask="url(#mask0_0_109)">
+<rect id="Rectangle 1" x="72.915" y="93.8174" width="38.402" height="9.72202" transform="rotate(45 72.915 93.8174)" fill="#16977E"/>
+<rect id="Rectangle 2" x="81.6651" y="119.095" width="71.943" height="9.72202" transform="rotate(-45 81.6651 119.095)" fill="#16977E"/>
+</g>
+</g>
+</g>
+</svg>

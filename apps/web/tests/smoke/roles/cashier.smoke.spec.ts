@@ -134,7 +134,7 @@ test.describe.serial('Cashier smoke workflows', () => {
       const earnTiming = await measureWorkflow('confirmed earn', async () => {
         await page.getByRole('button', { name: /submit earn/i }).click();
         await expect(
-          page.getByText('Earn confirmed by backend contract.', {
+          page.getByText('Purchase captured and credit added.', {
             exact: true,
           }),
         ).toBeVisible();
@@ -194,23 +194,27 @@ test.describe.serial('Cashier smoke workflows', () => {
       await page.goto(
         `/cashier/redeem?card=${encodeURIComponent(config.activeCardSerial)}`,
       );
-      await expect(page.getByText(/lookup resolved/i)).toBeVisible();
+      await expect(
+        page.getByRole('heading', { name: 'Step 2 — Basket subtotal' }),
+      ).toBeVisible();
       await page
         .getByLabel('POS receipt number')
         .fill(`${run.smokeRunId}${attemptSuffix}-REDEEM-01`);
-      await page.getByLabel('Basket amount').fill('2000');
-      await page.getByLabel('Basket amount').blur();
-      await page.getByLabel('Requested redemption').fill('500');
-      await page.getByLabel('Requested redemption').blur();
+      await page.getByLabel('Basket subtotal (₦)').fill('2000');
+      await page.getByLabel('Basket subtotal (₦)').blur();
+      await page.getByRole('button', { name: 'Proceed', exact: true }).click();
+      await page.getByLabel('Redemption amount (₦)').fill('500');
+      await page.getByLabel('Redemption amount (₦)').blur();
+      await page.getByRole('button', { name: 'Proceed', exact: true }).click();
       const redeemResponse = page.waitForResponse(
         (response) =>
           response.url().includes('/api/v1/transactions/redeem') &&
           response.request().method() === 'POST',
       );
       const redeemTiming = await measureWorkflow('redeem', async () => {
-        await page.getByRole('button', { name: /submit redemption/i }).click();
+        await page.getByRole('button', { name: 'Confirm redemption' }).click();
         await expect(
-          page.getByText('Redemption confirmed by backend contract.', {
+          page.getByText('Credit redeemed successfully.', {
             exact: true,
           }),
         ).toBeVisible();

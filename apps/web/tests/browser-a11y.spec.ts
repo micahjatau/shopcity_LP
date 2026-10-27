@@ -91,9 +91,7 @@ test.describe('browser accessibility', () => {
   }) => {
     await page.goto(`${baseUrl}/login`);
     await expect(
-      page.getByRole('heading', {
-        name: /sign in to the shopcity retail operations shell/i,
-      }),
+      page.getByRole('heading', { name: /staff sign in/i }),
     ).toBeVisible();
 
     let violations = await runAxe(page);
@@ -103,6 +101,15 @@ test.describe('browser accessibility', () => {
     await expect(page.getByTestId('flow-login-session')).toBeVisible();
     violations = await runAxe(page);
     expect(violations).toEqual([]);
+  });
+
+  test('keeps the Cashier shell and controls axe-clean', async ({ page }) => {
+    await mockCashierShell(page);
+    await page.goto(`${baseUrl}/cashier`);
+    await expect(
+      page.getByRole('heading', { name: 'Hi, Cashier!' }),
+    ).toBeVisible();
+    expect(await runAxe(page)).toEqual([]);
   });
 
   test('keeps mobile drawer focus and escape behavior accessible', async ({

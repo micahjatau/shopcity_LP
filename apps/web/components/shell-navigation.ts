@@ -15,6 +15,7 @@ export type ShellNavigationItem = {
   href: string;
   icon: ShellNavigationIconName;
   exact?: boolean;
+  routeAliases?: string[];
   badge?: ShellNavigationItemBadge;
 };
 
@@ -42,31 +43,32 @@ export const shellNavigationByRole: Record<
         },
         {
           id: 'cashier-lookup',
-          label: 'Lookup',
+          label: 'Find Customer',
           href: '/cashier/lookup',
           icon: 'search',
+          routeAliases: ['/cashier/customers'],
         },
         {
           id: 'cashier-earn',
-          label: 'Earn',
+          label: 'Capture Purchase',
           href: '/cashier/earn',
           icon: 'spark',
         },
         {
           id: 'cashier-redeem',
-          label: 'Redeem',
+          label: 'Redeem Credit',
           href: '/cashier/redeem',
           icon: 'wallet',
         },
         {
-          id: 'cashier-customers',
-          label: 'Customers',
-          href: '/cashier/customers',
-          icon: 'users',
+          id: 'cashier-transactions',
+          label: 'Transactions',
+          href: '/cashier/transactions',
+          icon: 'list',
         },
         {
           id: 'cashier-sync',
-          label: 'Sync queue',
+          label: 'Sync Queue',
           href: '/cashier/sync',
           icon: 'refresh',
         },
@@ -126,6 +128,12 @@ export const shellNavigationByRole: Record<
           label: 'Reports',
           href: '/supervisor/reports',
           icon: 'chart',
+        },
+        {
+          id: 'supervisor-devices',
+          label: 'Devices',
+          href: '/supervisor/devices',
+          icon: 'device',
         },
       ],
     },
@@ -238,6 +246,12 @@ export const shellNavigationByRole: Record<
           href: '/admin/branches',
           icon: 'branch',
         },
+        {
+          id: 'admin-policies',
+          label: 'Policies',
+          href: '/admin/policies',
+          icon: 'sliders',
+        },
       ],
     },
   ],
@@ -270,11 +284,12 @@ export function matchShellRoute(
     return false;
   }
 
-  if (item.exact) {
-    return pathname === item.href;
-  }
-
-  return pathname === item.href || pathname.startsWith(`${item.href}/`);
+  const routes = [item.href, ...(item.routeAliases ?? [])];
+  return routes.some((route) =>
+    item.exact
+      ? pathname === route
+      : pathname === route || pathname.startsWith(`${route}/`),
+  );
 }
 
 export function getActiveShellNavigationItem(

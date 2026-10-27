@@ -1,0 +1,5 @@
+schema: spec-driven
+created: 2026-09-19
+goal: Deliver approved Transactions and Sync Queue frontend surfaces with
+  truthful bounded data, role-safe navigation, accessible modal detail, and
+  complete regression coverage.

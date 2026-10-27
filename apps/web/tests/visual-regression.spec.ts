@@ -1,8 +1,46 @@
 import { expect, test } from '@playwright/test';
 
 test.describe.configure({ timeout: 120000 });
+test.use({ viewport: { width: 1440, height: 923 } });
 
 test.describe('visual regression gallery', () => {
+  test('captures prototype login surface', async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 923 });
+    await page.goto('/login', { waitUntil: 'networkidle' });
+    await page.locator('[data-od-id="login-page"]').waitFor();
+    await expect(
+      page.getByText(
+        'Your ShopCity account determines your workspace and access.',
+      ),
+    ).toBeVisible();
+    await expect(page.locator('[data-od-id="login-heading"]')).toHaveText(
+      'Staff sign in',
+    );
+    await expect(page.locator('[data-od-id="brand-link"]')).toBeVisible();
+    await expect(
+      page.locator('[data-od-id="login-form"] input[type="radio"]'),
+    ).toHaveCount(0);
+    expect(page.viewportSize()).toEqual({ width: 1440, height: 923 });
+    const loginGeometry = await page
+      .locator('[data-od-id="login-page"]')
+      .boundingBox();
+    expect(loginGeometry?.width).toBe(1440);
+    expect(loginGeometry?.height).toBeGreaterThanOrEqual(923);
+    const buttonRhythm = await page
+      .locator('button:visible')
+      .evaluateAll((buttons) =>
+        buttons.map((button) => {
+          const style = getComputedStyle(button);
+          return { display: style.display, whiteSpace: style.whiteSpace };
+        }),
+      );
+    for (const button of buttonRhythm) {
+      expect(['flex', 'inline-flex', 'grid']).toContain(button.display);
+      expect(button.whiteSpace).toBe('nowrap');
+    }
+    await expect(page).toHaveScreenshot('visual-login-page.png');
+  });
+
   test.beforeEach(async ({ page }) => {
     await page.goto('/visual-regression');
   });

@@ -4,6 +4,7 @@ import { LoggerModule } from 'nestjs-pino';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { envValidationSchema } from './config/env.validation';
+import { resolveReleaseSha } from './config/release';
 import { PrismaModule } from './database/prisma.module';
 import { HealthModule } from './modules/health/health.module';
 import { SupabaseModule } from './supabase/supabase.module';
@@ -45,7 +46,7 @@ import { CreditExpiryModule } from './modules/credit-expiry/credit-expiry.module
         level: process.env.LOG_LEVEL ?? 'info',
         base: {
           service: 'shopcity-api',
-          releaseSha: process.env.RELEASE_SHA ?? 'dev',
+          releaseSha: resolveReleaseSha(process.env),
           releaseVersion: process.env.RELEASE_VERSION ?? '0.0.0-dev',
         },
         redact: {

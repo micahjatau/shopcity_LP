@@ -1,6 +1,6 @@
 import { execSync } from 'node:child_process';
 import { createHmac, randomUUID } from 'node:crypto';
-import { PrismaClient, UserRole } from '@prisma/client';
+import { DeviceAuthBindingMode, PrismaClient, UserRole } from '@prisma/client';
 import { PostgreSqlContainer } from '@testcontainers/postgresql';
 import request from 'supertest';
 import { seedFoundation } from '../prisma/seed';
@@ -134,6 +134,7 @@ describe('offline earn sync HTTP (int)', () => {
 
     const loginResponse = await request(httpServer)
       .post('/api/v1/auth/login')
+      .set('origin', 'http://localhost:3000')
       .set('x-device-id', fixture.device.id)
       .set(
         'x-device-attestation',
@@ -222,6 +223,7 @@ async function createHttpFixture(
       branchId,
       name: `Device-${receiptNumber}`,
       fingerprintHash: `fingerprint-${receiptNumber}`,
+      authBindingMode: DeviceAuthBindingMode.HMAC_LEGACY,
       status: 'ACTIVE',
     }),
   });

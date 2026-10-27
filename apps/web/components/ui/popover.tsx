@@ -5,10 +5,21 @@ import type { ReactNode } from 'react';
 export function Popover({
   open,
   children,
-}: Readonly<{ open: boolean; children: ReactNode }>) {
+  label,
+  className = '',
+}: Readonly<{
+  open: boolean;
+  children: ReactNode;
+  label?: string;
+  className?: string;
+}>) {
   if (!open) return null;
   return (
-    <div role="dialog" className="sc-popover">
+    <div
+      role="dialog"
+      aria-label={label}
+      className={['sc-popover', className].filter(Boolean).join(' ')}
+    >
       {children}
     </div>
   );

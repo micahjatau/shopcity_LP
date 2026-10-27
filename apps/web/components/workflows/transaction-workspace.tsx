@@ -10,7 +10,11 @@ import {
 } from '../../lib/api/generated-client';
 import { createApiRequest } from '../../lib/api/request';
 import { Alert, Button, Input, Textarea, Table } from '../../components/ui';
-import { Money, StatusBadge } from '../../components/shopcity';
+import {
+  CashierPageHeader,
+  Money,
+  StatusBadge,
+} from '../../components/shopcity';
 
 type TransactionRecord = LoyaltyControllerGetTransactionV1200Data & {
   status?: string;
@@ -30,10 +34,12 @@ export function TransactionWorkspace({
   backHref,
   backLabel = 'Back to workspace',
   relatedRoutes = [],
+  presentation = 'default',
 }: Readonly<{
   backHref?: string;
   backLabel?: string;
   relatedRoutes?: ReadonlyArray<readonly [string, string]>;
+  presentation?: 'default' | 'supervisor';
 }> = {}) {
   const [transactionId, setTransactionId] = useState('');
   const [reason, setReason] = useState('');
@@ -136,7 +142,12 @@ export function TransactionWorkspace({
           : null,
       );
       if (response.status === 201) {
-        setMessage('Reversal created. Reloading transaction detail…');
+        const result = response.data as Record<string, unknown>;
+        setMessage(
+          typeof result.receiptId === 'string'
+            ? `Receipt settlement reversed: Earn ${String(result.originalEarnTransactionId)} and redemption ${String(result.originalRedemptionTransactionId)} were compensated together.`
+            : 'Reversal created. Reloading transaction detail…',
+        );
         setReverseConfirmation('');
         await loadTransaction();
         return;
@@ -150,31 +161,65 @@ export function TransactionWorkspace({
   }
 
   return (
-    <section style={{ display: 'grid', gap: 'var(--sc-spacing-4)' }}>
-      <header style={{ display: 'grid', gap: 'var(--sc-spacing-2)' }}>
-        <h1 style={{ margin: 0 }}>Transaction review</h1>
-        <p
-          style={{ margin: 0, color: 'var(--sc-color-semantic-textSecondary)' }}
-        >
-          Inspect a transaction and create an immutable compensating reversal
-          where allowed.
-        </p>
-        {backHref || relatedRoutes.length > 0 ? (
-          <div style={routeRow}>
-            {backHref ? <Link href={backHref}>{backLabel}</Link> : null}
-            {relatedRoutes.map(([href, label]) => (
-              <Link key={href} href={href}>
-                {label}
-              </Link>
-            ))}
-          </div>
-        ) : null}
-      </header>
+    <section
+      className={presentation === 'supervisor' ? 'supervisor-page' : undefined}
+      style={{ display: 'grid', gap: 'var(--sc-spacing-4)' }}
+      data-od-id="transactions-view"
+    >
+      {presentation === 'supervisor' ? (
+        <CashierPageHeader
+          className="cashier-route-header supervisor-page__header"
+          dataOdId="transactions-heading"
+          title="Review transactions"
+          description="Find and inspect a transaction, then submit a compensating reversal where allowed. The original transaction remains unchanged."
+          actions={
+            backHref || relatedRoutes.length > 0 ? (
+              <div style={routeRow}>
+                {backHref ? <Link href={backHref}>{backLabel}</Link> : null}
+                {relatedRoutes.map(([href, label]) => (
+                  <Link key={href} href={href}>
+                    {label}
+                  </Link>
+                ))}
+              </div>
+            ) : null
+          }
+        />
+      ) : (
+        <>
+          <header
+            style={{ display: 'grid', gap: 'var(--sc-spacing-2)' }}
+            data-od-id="transactions-heading"
+          >
+            <h1 style={{ margin: 0 }}>Transaction review</h1>
+            <p
+              style={{
+                margin: 0,
+                color: 'var(--sc-color-semantic-textSecondary)',
+              }}
+            >
+              Inspect a transaction and create an immutable compensating
+              reversal where allowed.
+            </p>
+            {backHref || relatedRoutes.length > 0 ? (
+              <div style={routeRow}>
+                {backHref ? <Link href={backHref}>{backLabel}</Link> : null}
+                {relatedRoutes.map(([href, label]) => (
+                  <Link key={href} href={href}>
+                    {label}
+                  </Link>
+                ))}
+              </div>
+            ) : null}
+          </header>
 
-      <Alert tone="info" title="Transaction route context">
-        Use this route for search, detail inspection, and compensating
-        reversals.
-      </Alert>
+          <Alert tone="info" title="Transaction route context">
+            Use this route for search, detail inspection, and compensating
+            reversals. Results are limited to transactions available through the
+            current transaction read contract.
+          </Alert>
+        </>
+      )}
 
       <div style={statusRow}>
         <StatusBadge label="Immutable reversal flow" tone="success" />
@@ -185,7 +230,7 @@ export function TransactionWorkspace({
         />
       </div>
 
-      <section style={cardStyle}>
+      <section style={cardStyle} data-od-id="transaction-filters">
         <h2 style={{ marginTop: 0 }}>Load transaction</h2>
         <div style={inputRow}>
           <Input

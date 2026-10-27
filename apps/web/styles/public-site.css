@@ -1,0 +1,316 @@
+.public-site {
+  --public-ink: #222421;
+  --public-muted: #5d625e;
+  --public-red: #a51d25;
+  --public-navy: #10213f;
+  min-height: 100dvh;
+  color: var(--public-ink);
+  background: #fbfbf8;
+}
+.public-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  width: 100%;
+  margin: 0;
+  padding: 16px max(32px, calc((100% - 1136px) / 2));
+  background: var(--public-red);
+  color: #fff;
+}
+.public-brand img {
+  display: block;
+  width: 150px;
+  height: 42px;
+  object-fit: contain;
+  object-position: left center;
+}
+.public-nav {
+  display: flex;
+  align-items: center;
+  gap: 30px;
+}
+.public-nav a,
+.public-contact address a {
+  color: inherit;
+  text-decoration: none;
+}
+.public-nav a:hover,
+.public-contact address a:hover {
+  text-decoration: underline;
+}
+.public-nav-cta {
+  border: 1px solid rgb(255 255 255 / 70%);
+  border-radius: 999px;
+  padding: 10px 20px;
+  font-weight: 650;
+}
+.public-nav .public-nav-cta:hover {
+  background: rgb(255 255 255 / 12%);
+  text-decoration: none;
+}
+.public-hero {
+  display: grid;
+  grid-template-columns: 1.08fr 0.92fr;
+  align-items: center;
+  gap: 60px;
+  max-width: 1200px;
+  min-height: 510px;
+  margin: auto;
+  padding: 44px 32px 70px;
+}
+.public-hero-copy {
+  max-width: 600px;
+}
+.public-kicker {
+  margin: 0 0 18px;
+  color: var(--public-red);
+  font-size: 0.8rem;
+  font-weight: 750;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.public-hero h1 {
+  max-width: 650px;
+  margin: 0;
+  font-size: clamp(2.7rem, 5vw, 4.5rem);
+  line-height: 1.04;
+  letter-spacing: -0.055em;
+}
+.public-lede {
+  max-width: 530px;
+  margin: 22px 0 28px;
+  color: var(--public-muted);
+  font-size: 1.12rem;
+  line-height: 1.7;
+}
+.public-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 24px;
+}
+.public-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 50px;
+  padding: 0 24px;
+  border-radius: 999px;
+  background: var(--public-red);
+  color: white;
+  font-weight: 700;
+  text-decoration: none;
+  white-space: nowrap;
+  transition:
+    transform 0.18s ease,
+    background 0.18s ease;
+}
+.public-button:hover {
+  background: #82171e;
+  transform: translateY(-2px);
+}
+.public-button:focus-visible,
+.public-actions a:focus-visible {
+  outline: 3px solid #222;
+  outline-offset: 4px;
+}
+.public-header a:focus-visible {
+  outline: 3px solid #fff;
+  outline-offset: 4px;
+}
+.public-text-link {
+  color: var(--public-ink);
+  font-weight: 650;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 4px;
+}
+.public-hero-art {
+  position: relative;
+  display: grid;
+  min-height: 350px;
+  place-items: center;
+  border-radius: 20px;
+  background: #f0efea;
+  overflow: hidden;
+}
+.public-hero-art > figure {
+  max-width: min(100%, 380px);
+}
+.public-hero-art > figure > div > p:first-child {
+  font-size: 0.875rem;
+}
+.public-hero-art > figure > div > p + p {
+  font-size: 0.75rem;
+}
+.public-about {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 64px;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 46px 32px 58px;
+  border-top: 1px solid #dedfd9;
+}
+.public-about h2,
+.public-contact h2 {
+  max-width: 520px;
+  margin: 0;
+  font-size: clamp(1.8rem, 3vw, 2.8rem);
+  line-height: 1.12;
+  letter-spacing: -0.04em;
+}
+.public-about > p {
+  max-width: 500px;
+  align-self: end;
+  margin: 0;
+  color: var(--public-muted);
+  font-size: 1.05rem;
+  line-height: 1.75;
+}
+.public-features {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  max-width: 1200px;
+  margin: auto;
+  padding: 0 32px 78px;
+}
+.public-feature {
+  padding: 22px 30px 14px 0;
+  border-top: 2px solid #cfd1ca;
+}
+.public-feature + .public-feature {
+  padding-left: 26px;
+  border-left: 1px solid #dedfd9;
+}
+.public-feature-number {
+  color: var(--public-red);
+  font-size: 0.8rem;
+  font-weight: 750;
+}
+.public-feature h3 {
+  margin: 17px 0 8px;
+  font-size: 1.25rem;
+}
+.public-feature p {
+  max-width: 290px;
+  margin: 0;
+  color: var(--public-muted);
+  line-height: 1.65;
+}
+.public-contact {
+  display: grid;
+  grid-template-columns: 1.1fr 0.9fr;
+  gap: 50px;
+  padding: 64px max(32px, calc((100% - 1136px) / 2));
+  background: var(--public-navy);
+  color: #fff;
+}
+.public-contact-logo {
+  display: block;
+  width: 150px;
+  height: 42px;
+  margin-bottom: 22px;
+  object-fit: contain;
+  object-position: left center;
+}
+.public-contact h2 {
+  margin-bottom: 25px;
+}
+.public-button-light {
+  background: #fff;
+  color: var(--public-navy);
+}
+.public-button-light:hover {
+  background: #ededeb;
+}
+.public-contact address {
+  display: grid;
+  align-content: center;
+  gap: 13px;
+  color: #f0f1ee;
+  font-size: 0.95rem;
+  font-style: normal;
+  line-height: 1.6;
+}
+.public-contact address a {
+  color: inherit;
+}
+.public-contact address strong {
+  color: white;
+}
+.public-contact-footer {
+  grid-column: 1 / -1;
+  display: flex;
+  justify-content: flex-end;
+  padding-top: 18px;
+  border-top: 1px solid rgb(255 255 255 / 20%);
+  color: #e1e7f0;
+  font-size: 0.82rem;
+}
+@media (max-width: 760px) {
+  .public-header {
+    padding: 18px 20px;
+  }
+  .public-brand img {
+    width: 124px;
+  }
+  .public-nav {
+    gap: 16px;
+    font-size: 0.9rem;
+  }
+  .public-nav-cta {
+    padding: 8px 13px;
+  }
+  .public-hero {
+    grid-template-columns: 1fr;
+    gap: 32px;
+    min-height: auto;
+    padding: 42px 20px 52px;
+  }
+  .public-hero-art {
+    min-height: 270px;
+  }
+  .public-about {
+    grid-template-columns: 1fr;
+    gap: 20px;
+    padding: 38px 20px;
+  }
+  .public-features {
+    grid-template-columns: 1fr;
+    padding: 0 20px 52px;
+  }
+  .public-feature,
+  .public-feature + .public-feature {
+    padding: 20px 0;
+    border-left: 0;
+  }
+  .public-contact {
+    grid-template-columns: 1fr;
+    gap: 34px;
+    padding: 46px 20px;
+  }
+  .public-contact-footer {
+    justify-content: flex-start;
+  }
+}
+@media (max-width: 420px) {
+  .public-header {
+    gap: 12px;
+  }
+  .public-brand img {
+    width: 96px;
+  }
+  .public-nav {
+    gap: 10px;
+    font-size: 0.8rem;
+  }
+  .public-nav-cta {
+    padding: 8px 9px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .public-button {
+    transition: none;
+  }
+}

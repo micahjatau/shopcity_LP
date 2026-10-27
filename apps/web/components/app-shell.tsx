@@ -37,6 +37,29 @@ export function AppShell({ children }: Readonly<{ children: ReactNode }>) {
   );
 }
 
+function ShellLoadingScreen() {
+  return (
+    <main className="shell-loading-screen" aria-busy="true" aria-live="polite">
+      <div className="shell-loading-card">
+        <Image
+          className="shell-loading-logo"
+          src="/brand/Frame%202147224881.svg"
+          alt="ShopCity Supermarket"
+          width={142}
+          height={37}
+          priority
+        />
+        <p>Preparing your workspace…</p>
+        <div className="shell-loading-lines" aria-hidden="true">
+          <span />
+          <span />
+          <span />
+        </div>
+      </div>
+    </main>
+  );
+}
+
 function AppShellContent({ children }: Readonly<{ children: ReactNode }>) {
   const router = useRouter();
   const pathname = usePathname();
@@ -45,7 +68,6 @@ function AppShellContent({ children }: Readonly<{ children: ReactNode }>) {
     role,
     sessionLabel,
     deviceId,
-    publicConfig,
     configMessage,
     reset: resetSessionContext,
   } = useSessionBootstrapState();
@@ -63,16 +85,11 @@ function AppShellContent({ children }: Readonly<{ children: ReactNode }>) {
     let mounted = true;
 
     if (typeof window !== 'undefined') {
-      const stored = window.sessionStorage.getItem(
-        'shopcity:shell:sidebar-collapsed',
-      );
-      if (stored !== null) {
+      const stored =
+        window.localStorage.getItem('shopcity:shell:sidebar-collapsed') ??
+        window.sessionStorage.getItem('shopcity:shell:sidebar-collapsed');
+      if (stored === 'true' || stored === 'false') {
         setSidebarCollapsed(stored === 'true');
-      } else if (
-        typeof window.matchMedia === 'function' &&
-        window.matchMedia('(min-width: 768px) and (max-width: 1199px)').matches
-      ) {
-        setSidebarCollapsed(true);
       }
     }
 
@@ -100,6 +117,21 @@ function AppShellContent({ children }: Readonly<{ children: ReactNode }>) {
       mounted = false;
       unsubscribe();
     };
+  }, []);
+
+  const toggleSidebar = useCallback(() => {
+    setSidebarCollapsed((collapsed) => {
+      const next = !collapsed;
+      window.localStorage.setItem(
+        'shopcity:shell:sidebar-collapsed',
+        String(next),
+      );
+      window.sessionStorage.setItem(
+        'shopcity:shell:sidebar-collapsed',
+        String(next),
+      );
+      return next;
+    });
   }, []);
 
   const sections = useMemo(
@@ -143,7 +175,6 @@ function AppShellContent({ children }: Readonly<{ children: ReactNode }>) {
     sections.some((section) =>
       section.items.some((item) => matchShellRoute(pathname, item)),
     );
-  const activeSection = getActiveShellNavigationSection(pathname, sections);
   const navigationTrail = getShellNavigationTrail(pathname, sections);
   const workspaceLabel = getShellWorkspaceLabel(role, status);
   const routeTrailLabel =
@@ -263,19 +294,6 @@ function AppShellContent({ children }: Readonly<{ children: ReactNode }>) {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [closeMobileNavigation, mobileNavigationOpen]);
 
-  function handleToggleSidebar() {
-    setSidebarCollapsed((current) => {
-      const next = !current;
-      if (typeof window !== 'undefined') {
-        window.sessionStorage.setItem(
-          'shopcity:shell:sidebar-collapsed',
-          String(next),
-        );
-      }
-      return next;
-    });
-  }
-
   async function handleLogout() {
     try {
       await logoutSession();
@@ -286,91 +304,85 @@ function AppShellContent({ children }: Readonly<{ children: ReactNode }>) {
     }
   }
 
+  if (status === 'loading') {
+    return <ShellLoadingScreen />;
+  }
+
   const showProtectedContent = status === 'ready' && isAuthorizedRoute;
-  const context = publicConfig as {
-    tenant?: { id?: string; name?: string };
-    branch?: {
-      id?: string;
-      name?: string;
-      timezone?: string;
-      receiptWeekStartDay?: number;
-    };
-    policies?: {
-      defaultEarnRateBps?: number;
-      minRedemptionKobo?: number;
-      maxRedemptionBasketPercent?: number;
-      purchaseFlagThresholdKobo?: number;
-      purchaseApprovalThresholdKobo?: number;
-      redemptionApprovalThresholdKobo?: number;
-      offlineRedemptionDisabled?: boolean;
-    };
-  } | null;
 
   return (
-    <div className="shell-root">
+    <div
+      className={`shell-root${role === 'CASHIER' ? ' shell-root--cashier' : ''}${role === 'SUPERVISOR' ? ' shell-root--supervisor' : ''}`}
+    >
       <Link className="shell-skip-link" href="#shell-main-content">
         Skip to content
       </Link>
       <div ref={shellFrameRef} className="shell-frame">
-        <AppTopbar
-          status={status}
-          sessionLabel={sessionLabel}
-          configMessage={configMessage}
-          workspaceLabel={workspaceLabel}
-          activeSectionLabel={activeSection?.label ?? 'Section pending'}
-          routeTrailLabel={routeTrailLabel}
-          pageTitle={pageTitle}
-          deviceLabel={deviceId}
-          context={context}
-          showProtectedContent={showProtectedContent}
-          mobileMenuButtonRef={mobileMenuButtonRef}
-          onLogout={() => void handleLogout()}
-          onOpenMobileMenu={() => setMobileNavigationOpen(true)}
-        />
-
         <div
           className={`shell-body${sidebarCollapsed ? ' shell-body--collapsed' : ''}`}
         >
           <AppSidebar
+            role={
+              role === 'CASHIER' || role === 'SUPERVISOR' || role === 'ADMIN'
+                ? role
+                : null
+            }
             sections={navigationSections}
             pathname={pathname}
             workspaceLabel={workspaceLabel}
-            branchLabel={
-              context?.branch?.name ?? context?.branch?.id ?? 'Branch pending'
-            }
-            branchTimezone={context?.branch?.timezone ?? 'Timezone pending'}
             isCollapsed={sidebarCollapsed}
-            onToggleCollapse={handleToggleSidebar}
+            onToggleCollapse={toggleSidebar}
+            onLogout={() => void handleLogout()}
           />
 
-          <main id="shell-main-content" tabIndex={-1} className="shell-main">
-            <BrowserStateBootstrap />
-            <div className="shell-main-status-row">
-              {showProtectedContent ? null : (
-                <p className="shell-access-message">
-                  {status === 'ready'
-                    ? 'You do not have access to this workspace. Redirecting to your permitted shell.'
-                    : 'Sign in to access cashier, supervisor and admin workflows.'}
-                </p>
+          <div className="shell-main-column">
+            <AppTopbar
+              status={status}
+              sessionLabel={sessionLabel}
+              configMessage={configMessage}
+              workspaceLabel={workspaceLabel}
+              routeTrailLabel={routeTrailLabel}
+              deviceLabel={deviceId}
+              role={
+                role === 'CASHIER' || role === 'SUPERVISOR' || role === 'ADMIN'
+                  ? role
+                  : null
+              }
+              mobileMenuButtonRef={mobileMenuButtonRef}
+              onOpenMobileMenu={() => setMobileNavigationOpen(true)}
+            />
+
+            <main id="shell-main-content" tabIndex={-1} className="shell-main">
+              <BrowserStateBootstrap />
+              <div className="shell-main-status-row">
+                {showProtectedContent ? null : (
+                  <p className="shell-access-message">
+                    {status === 'ready'
+                      ? 'You do not have access to this workspace. Redirecting to your permitted shell.'
+                      : 'Sign in to access cashier, supervisor and admin workflows.'}
+                  </p>
+                )}
+              </div>
+              <OfflineIndicator />
+              {showProtectedContent ? (
+                children
+              ) : (
+                <section className="shell-gate-card">
+                  <h1 className="shell-gate-heading">{workspaceLabel}</h1>
+                  <p className="shell-access-message">
+                    {status === 'ready'
+                      ? 'You do not have access to this workspace. Redirecting to your permitted shell.'
+                      : 'Sign in to access cashier, supervisor and admin workflows.'}
+                  </p>
+                  <Link href={status === 'ready' ? primaryRoute : '/login'}>
+                    {status === 'ready'
+                      ? 'Go to my workspace'
+                      : 'Go to sign in'}
+                  </Link>
+                </section>
               )}
-            </div>
-            <OfflineIndicator />
-            {showProtectedContent ? (
-              children
-            ) : (
-              <section className="shell-gate-card">
-                <h1 style={{ margin: 0 }}>{workspaceLabel}</h1>
-                <p className="shell-access-message">
-                  {status === 'ready'
-                    ? 'You do not have access to this workspace. Redirecting to your permitted shell.'
-                    : 'Sign in to access cashier, supervisor and admin workflows.'}
-                </p>
-                <Link href={status === 'ready' ? primaryRoute : '/login'}>
-                  {status === 'ready' ? 'Go to my workspace' : 'Go to sign in'}
-                </Link>
-              </section>
-            )}
-          </main>
+            </main>
+          </div>
         </div>
       </div>
 
@@ -394,15 +406,12 @@ function AppShellContent({ children }: Readonly<{ children: ReactNode }>) {
             <div className="shell-mobile-drawer-header">
               <div className="shell-mobile-drawer-brand">
                 <Image
-                  src="/brand/shopcity-mark-white.svg"
-                  alt=""
-                  width={32}
+                  src="/brand/Frame%202147224881.svg"
+                  alt="ShopCity Supermarket"
+                  width={120}
                   height={32}
                 />
-                <div>
-                  <strong>ShopCity</strong>
-                  <span>{workspaceLabel}</span>
-                </div>
+                <span>{workspaceLabel}</span>
               </div>
               <button
                 type="button"
@@ -420,304 +429,25 @@ function AppShellContent({ children }: Readonly<{ children: ReactNode }>) {
               onNavigate={closeMobileNavigation}
             />
             <div className="shell-mobile-drawer-footer">
-              <span>
-                {context?.branch?.name ??
-                  context?.branch?.id ??
-                  'Branch pending'}
+              <a href="/help" className="shell-mobile-drawer-action">
+                <span aria-hidden="true">?</span>
+                Help &amp; Training
+              </a>
+              <button
+                type="button"
+                className="shell-mobile-drawer-action"
+                onClick={() => void handleLogout()}
+              >
+                <span aria-hidden="true">↪</span>
+                Logout
+              </button>
+              <span className="shell-mobile-drawer-footer-meta">
+                Powered by Radar Solutions
               </span>
-              <span>{context?.branch?.timezone ?? 'Timezone pending'}</span>
             </div>
           </div>
         </div>
       ) : null}
-
-      <style>{`
-        .shell-root {
-          min-height: 100vh;
-          background: var(--sc-color-neutral-50);
-          color: var(--sc-color-neutral-900);
-        }
-
-        .shell-skip-link {
-          position: absolute;
-          left: var(--sc-spacing-4);
-          top: var(--sc-spacing-4);
-          transform: translateY(-180%);
-          background: var(--sc-color-neutral-0);
-          color: var(--sc-color-brand-700);
-          border-radius: var(--sc-radius-full);
-          padding: 8px 14px;
-          z-index: 60;
-        }
-
-        .shell-skip-link:focus {
-          transform: translateY(0);
-        }
-
-        .shell-frame {
-          display: grid;
-        }
-
-        .shell-topbar {
-          background: var(--sc-color-brand-700);
-          color: var(--sc-color-neutral-0);
-          padding: var(--sc-spacing-4);
-        }
-
-        .shell-brand-row {
-          display: flex;
-          gap: var(--sc-spacing-4);
-          align-items: flex-start;
-          justify-content: space-between;
-          flex-wrap: wrap;
-          margin: 0 auto;
-          max-width: 1440px;
-        }
-
-        .shell-brand {
-          display: flex;
-          gap: var(--sc-spacing-3);
-          align-items: center;
-          color: inherit;
-          text-decoration: none;
-        }
-
-        .shell-brand-mark,
-        .shell-sidebar-brand-title {
-          font-weight: 700;
-          letter-spacing: 0.04em;
-        }
-
-        .shell-brand-subtitle,
-        .shell-sidebar-brand-subtitle,
-        .shell-context-label,
-        .shell-sidebar-footer-label {
-          font-size: var(--sc-font-size-sm);
-          opacity: 0.86;
-        }
-
-        .shell-topbar-actions {
-          display: flex;
-          gap: var(--sc-spacing-3);
-          flex-wrap: wrap;
-          align-items: center;
-          justify-content: flex-end;
-        }
-
-        .shell-session-label {
-          margin: 0;
-        }
-
-        .shell-signout,
-        .shell-mobile-menu-button,
-        .shell-mobile-close {
-          border-radius: var(--sc-radius-full);
-          border: 1px solid rgba(255, 255, 255, 0.24);
-          background: rgba(255, 255, 255, 0.08);
-          color: var(--sc-color-neutral-0);
-          padding: 6px 12px;
-        }
-
-        .shell-mobile-menu-button {
-          display: none;
-        }
-
-        .shell-context-grid {
-          display: grid;
-          gap: var(--sc-spacing-3);
-          grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-          max-width: 1440px;
-          margin: var(--sc-spacing-4) auto 0;
-        }
-
-        .shell-context-card {
-          border-radius: var(--sc-radius-lg);
-          background: rgba(255, 255, 255, 0.08);
-          padding: var(--sc-spacing-4);
-        }
-
-        .shell-context-meta {
-          font-size: var(--sc-font-size-sm);
-          opacity: 0.9;
-        }
-
-        .shell-body {
-          display: grid;
-          grid-template-columns: minmax(240px, 280px) minmax(0, 1fr);
-          gap: var(--sc-spacing-5);
-          align-items: start;
-          max-width: 1440px;
-          margin: 0 auto;
-          padding: var(--sc-spacing-6);
-        }
-
-        .shell-body--collapsed {
-          grid-template-columns: 84px minmax(0, 1fr);
-        }
-
-        .shell-sidebar {
-          position: sticky;
-          top: var(--sc-spacing-4);
-          display: grid;
-          gap: var(--sc-spacing-4);
-          border-radius: var(--sc-radius-xl);
-          background: var(--sc-color-brand-700);
-          color: var(--sc-color-neutral-0);
-          padding: var(--sc-spacing-4);
-          box-shadow: var(--sc-shadow-level2);
-        }
-
-        .shell-main {
-          min-width: 0;
-          display: grid;
-          gap: var(--sc-spacing-4);
-        }
-
-        .shell-main-status-row {
-          display: flex;
-          gap: var(--sc-spacing-3);
-          flex-wrap: wrap;
-          align-items: center;
-        }
-
-        .shell-access-message {
-          margin: 0;
-          color: var(--sc-color-semantic-textSecondary);
-        }
-
-        .shell-gate-card {
-          border-radius: var(--sc-radius-xl);
-          background: var(--sc-color-neutral-0);
-          border: 1px solid var(--sc-color-semantic-border);
-          padding: var(--sc-spacing-6);
-          box-shadow: var(--sc-shadow-level1);
-          display: grid;
-          gap: var(--sc-spacing-3);
-        }
-
-        .shell-mobile-overlay {
-          position: fixed;
-          inset: 0;
-          z-index: 50;
-          background: rgba(13, 13, 13, 0.52);
-          padding: var(--sc-spacing-4);
-        }
-
-        .shell-mobile-drawer {
-          display: grid;
-          grid-template-rows: auto 1fr auto;
-          gap: var(--sc-spacing-4);
-          width: min(100%, 360px);
-          height: 100%;
-          max-height: 100%;
-          overflow: auto;
-          border-radius: var(--sc-radius-xl);
-          background: var(--sc-color-brand-700);
-          color: var(--sc-color-neutral-0);
-          padding: var(--sc-spacing-4);
-          box-shadow: var(--sc-shadow-level3);
-        }
-
-        .shell-mobile-drawer-header {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          gap: var(--sc-spacing-3);
-        }
-
-        .shell-mobile-drawer-brand {
-          display: flex;
-          align-items: center;
-          gap: var(--sc-spacing-3);
-        }
-
-        .shell-mobile-drawer-brand div {
-          display: grid;
-          gap: 2px;
-        }
-
-        .shell-mobile-drawer-brand span,
-        .shell-mobile-drawer-footer {
-          font-size: var(--sc-font-size-sm);
-          opacity: 0.84;
-        }
-
-        .shell-mobile-drawer-footer {
-          display: grid;
-          gap: 2px;
-          border-top: 1px solid rgba(255, 255, 255, 0.16);
-          padding-top: var(--sc-spacing-3);
-        }
-
-        @media (max-width: 767px) {
-          .shell-topbar {
-            padding-bottom: 0;
-          }
-
-          .shell-brand-row {
-            gap: var(--sc-spacing-3);
-          }
-
-          .shell-mobile-menu-button {
-            display: inline-flex;
-          }
-
-          .shell-body {
-            grid-template-columns: minmax(0, 1fr);
-            padding-top: var(--sc-spacing-4);
-          }
-        }
-
-        @media (min-width: 768px) and (max-width: 1199px) {
-          .shell-body,
-          .shell-body--collapsed {
-            grid-template-columns: 84px minmax(0, 1fr);
-          }
-
-          .shell-sidebar {
-            gap: var(--sc-spacing-3);
-            padding-inline: var(--sc-spacing-3);
-          }
-
-          .shell-sidebar-brand-subtitle,
-          .shell-sidebar-footer,
-          .shell-nav-section-label,
-          .shell-nav-link-label,
-          .shell-nav-badge {
-            display: none;
-          }
-
-          .shell-sidebar-brand-title {
-            display: none;
-          }
-
-          .shell-sidebar-brand-row {
-            flex-direction: column;
-            align-items: center;
-          }
-
-          .shell-sidebar-toggle {
-            width: 2.5rem;
-            height: 2.5rem;
-            justify-content: center;
-            padding: 0;
-          }
-
-          .shell-sidebar-toggle-label {
-            display: none;
-          }
-
-          .shell-nav-link {
-            justify-content: center;
-            padding: 10px;
-          }
-
-          .shell-nav-link-icon {
-            width: 1.1rem;
-            height: 1.1rem;
-          }
-        }
-      `}</style>
     </div>
   );
 }
@@ -739,13 +469,21 @@ function ShellNavigation({
           <ul className="shell-nav-list">
             {section.items.map((item) => {
               const active = matchShellRoute(pathname, item);
+              const accessibleLabel =
+                item.id === 'cashier-lookup'
+                  ? 'Find Customer Lookup'
+                  : item.id === 'cashier-earn'
+                    ? 'Capture Purchase Earn'
+                    : item.id === 'cashier-redeem'
+                      ? 'Redeem Credit Redeem'
+                      : item.label;
               return (
                 <li key={item.id}>
                   <Link
                     href={item.href}
                     onClick={onNavigate}
                     aria-current={active ? 'page' : undefined}
-                    aria-label={item.label}
+                    aria-label={accessibleLabel}
                     title={item.badge?.title ?? item.label}
                     className={`shell-nav-link${active ? ' is-active' : ''}`}
                   >
@@ -769,102 +507,6 @@ function ShellNavigation({
           </ul>
         </section>
       ))}
-
-      <style>{`
-        .shell-nav {
-          display: grid;
-          gap: var(--sc-spacing-4);
-        }
-
-        .shell-nav-section {
-          display: grid;
-          gap: var(--sc-spacing-2);
-        }
-
-        .shell-nav-section + .shell-nav-section {
-          border-top: 1px solid rgba(255, 255, 255, 0.16);
-          padding-top: var(--sc-spacing-4);
-        }
-
-        .shell-nav-section-label {
-          margin: 0;
-          text-transform: uppercase;
-          letter-spacing: 0.08em;
-          font-size: 0.75rem;
-          opacity: 0.78;
-        }
-
-        .shell-nav-list {
-          list-style: none;
-          display: grid;
-          gap: var(--sc-spacing-2);
-          padding: 0;
-          margin: 0;
-        }
-
-        .shell-nav-link {
-          display: flex;
-          align-items: center;
-          gap: var(--sc-spacing-2);
-          min-height: 44px;
-          border-radius: var(--sc-radius-md);
-          border: 1px solid rgba(255, 255, 255, 0.18);
-          padding: 10px 12px;
-          text-decoration: none;
-          color: inherit;
-          background: transparent;
-          transition: background-color 160ms ease, border-color 160ms ease,
-            transform 160ms ease;
-        }
-
-        .shell-nav-link:hover {
-          background: rgba(255, 255, 255, 0.08);
-          border-color: rgba(255, 255, 255, 0.28);
-        }
-
-        .shell-nav-link:active {
-          transform: translateY(1px);
-        }
-
-        .shell-nav-link-icon {
-          display: inline-flex;
-          width: 1rem;
-          height: 1rem;
-          flex: none;
-        }
-
-        .shell-nav-link-icon :global(svg) {
-          width: 100%;
-          height: 100%;
-        }
-
-        .shell-nav-link-label {
-          min-width: 0;
-        }
-
-        .shell-nav-badge {
-          flex: none;
-          white-space: nowrap;
-          margin-left: auto;
-        }
-
-        .shell-nav-link.is-active {
-          background: rgba(255, 255, 255, 0.12);
-          border-color: rgba(255, 255, 255, 0.34);
-          font-weight: 700;
-        }
-
-        .shell-nav-link:focus-visible {
-          outline: 3px solid var(--sc-color-warning-300);
-          outline-offset: 3px;
-        }
-
-        @media (prefers-reduced-motion: reduce) {
-          .shell-nav-link {
-            transition: none;
-          }
-        }
-      `}</style>
     </nav>
   );
 }

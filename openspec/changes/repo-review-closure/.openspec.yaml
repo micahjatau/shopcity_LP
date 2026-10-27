@@ -1,0 +1,3 @@
+schema: spec-driven
+created: 2026-10-16
+goal: Close the identified pilot-readiness risks with safe mutation retries, approved correction semantics, truthful runtime acceptance, environment isolation, and actionable specifications.

@@ -347,7 +347,10 @@ export async function resolveTaggedSmokeFraudFlags(
   let cursor: string | undefined;
   let resolved = 0;
   const normalizedPrefix = tagPrefix.toUpperCase();
+  const taggedIds: string[] = [];
 
+  // Collect IDs before mutating the paginated result set. Resolving while
+  // walking cursor pages can shift later pages and leave tagged flags open.
   for (let pageNumber = 0; pageNumber < 10; pageNumber += 1) {
     const path = `/api/v1/fraud-flags?status=OPEN&limit=100${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ''}`;
     const page = unwrapRecords(
@@ -363,18 +366,12 @@ export async function resolveTaggedSmokeFraudFlags(
       const evidence = asRecord(record.evidence);
       const receiptNumber = evidence.normalizedPosReceiptNumber;
       if (
-        !id ||
-        typeof receiptNumber !== 'string' ||
-        !receiptNumber.toUpperCase().startsWith(normalizedPrefix)
+        id &&
+        typeof receiptNumber === 'string' &&
+        receiptNumber.toUpperCase().startsWith(normalizedPrefix)
       ) {
-        continue;
+        taggedIds.push(id);
       }
-      await adminApi.post(
-        `/api/v1/fraud-flags/${id}/decision`,
-        { decision: 'RESOLVED', reason },
-        `smoke-fraud-resolve-${id}`,
-      );
-      resolved += 1;
     }
 
     const hasMore = page.hasMore === true;
@@ -382,6 +379,15 @@ export async function resolveTaggedSmokeFraudFlags(
       typeof page.nextCursor === 'string' ? page.nextCursor : undefined;
     if (!hasMore || !nextCursor) break;
     cursor = nextCursor;
+  }
+
+  for (const id of taggedIds) {
+    await adminApi.post(
+      `/api/v1/fraud-flags/${id}/decision`,
+      { decision: 'RESOLVED', reason },
+      `smoke-fraud-resolve-${id}`,
+    );
+    resolved += 1;
   }
 
   return resolved;

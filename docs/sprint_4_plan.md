@@ -606,9 +606,11 @@ FR-HV-002
 Very-high-value purchase
 → HIGH flag + existing approval workflow
 
-FR-RED-001
+FR-HV-003
 High-value redemption
 → HIGH signal + existing approval workflow
+
+`FR-RED-001` is a legacy planning alias; runtime/persisted flags use `FR-HV-003`.
 
 Do not reimplement approval logic in FraudService.
 

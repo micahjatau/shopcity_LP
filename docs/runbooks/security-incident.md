@@ -16,6 +16,10 @@ Contain and remediate suspected secret exposure or severe security findings befo
 8. Re-run required readiness gates plus the pilot operations summary checks and attach the updated evidence to the release record.
 9. Document customer impact, root cause, remediation, notification decisions, and follow-up prevention work.
 
+## POS WebAuthn device credential incidents
+
+For a suspected POS authenticator, WebAuthn credential, or device compromise, use [`pos-device-credential-recovery.md`](./pos-device-credential-recovery.md) only as a **draft recovery procedure**. It is not approved for pilot or production; do not pair, re-pair, or retire legacy HMAC devices under it until the required Security/Operations approvals, qualification evidence, and tabletop exercise are complete. Preserve the production **NO-GO** decision in [`pos-webauthn-qualification.md`](./pos-webauthn-qualification.md).
+
 ## Rules
 
 - Do not erase evidence before it is preserved.

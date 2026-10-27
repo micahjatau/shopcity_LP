@@ -3,15 +3,39 @@ import { OutboxWorkerRuntime } from './outbox-worker.runtime';
 import type { OutboxJobPayload } from './outbox.worker';
 
 describe('OutboxWorkerRuntime', () => {
+  it('keeps provider DLR lookups off the outbox recovery path', async () => {
+    const findMany = jest.fn();
+    const runtime = runtimeWithRecovery(
+      new OutboxWorkerRuntime(
+        { smsMessage: { findMany } } as never,
+        runtimeConfig(),
+        {
+          send: jest.fn(),
+          getDeliveryReport: jest.fn(),
+        },
+      ),
+    );
+    const recover = jest
+      .spyOn(runtime, 'recoverAndPublishOnce')
+      .mockResolvedValue(undefined);
+
+    await runtime.runRecoveryCycle();
+
+    expect(recover).toHaveBeenCalledTimes(1);
+    expect(findMany).not.toHaveBeenCalled();
+  });
+
   it('polls SMS DLRs and applies monotonic delivery updates', async () => {
     const updateMany = jest.fn().mockResolvedValue({ count: 1 });
     const prisma = {
       smsMessage: {
-        findMany: jest
-          .fn()
-          .mockResolvedValue([
-            { id: 'sms-1', providerMessageId: 'provider-1' },
-          ]),
+        findMany: jest.fn().mockResolvedValue([
+          {
+            id: 'sms-1',
+            providerMessageId: 'provider-1',
+            nextDeliveryReportPollAt: null,
+          },
+        ]),
         updateMany,
       },
     };
@@ -31,6 +55,24 @@ describe('OutboxWorkerRuntime', () => {
 
     await runtimeWithRecovery(runtime).pollDeliveryReports();
 
+    expect(prisma.smsMessage.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+        where: expect.objectContaining({
+          OR: [
+            { nextDeliveryReportPollAt: null },
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+            { nextDeliveryReportPollAt: { lte: expect.any(Date) } },
+          ],
+        }),
+        orderBy: [
+          { nextDeliveryReportPollAt: { sort: 'asc', nulls: 'first' } },
+          { sentAt: 'asc' },
+          { id: 'asc' },
+        ],
+        take: 10,
+      }),
+    );
     expect(smsProvider.getDeliveryReport).toHaveBeenCalledWith('provider-1');
     expect(updateMany).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -41,6 +83,114 @@ describe('OutboxWorkerRuntime', () => {
         data: expect.objectContaining({ status: 'DELIVERED' }),
       }),
     );
+  });
+
+  it('schedules a later DLR poll when the provider has no report or throws', async () => {
+    const updateMany = jest.fn().mockResolvedValue({ count: 1 });
+    const prisma = {
+      smsMessage: {
+        findMany: jest.fn().mockResolvedValue([
+          {
+            id: 'sms-1',
+            providerMessageId: 'provider-1',
+            nextDeliveryReportPollAt: null,
+          },
+        ]),
+        updateMany,
+      },
+    };
+    const smsProvider = {
+      send: jest.fn(),
+      getDeliveryReport: jest
+        .fn()
+        .mockRejectedValue(new Error('provider response contains secrets')),
+    };
+    const runtime = new OutboxWorkerRuntime(
+      prisma as never,
+      runtimeConfig(),
+      smsProvider,
+    );
+
+    await runtimeWithRecovery(runtime).pollDeliveryReports();
+
+    expect(updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+        where: expect.objectContaining({
+          id: 'sms-1',
+          providerMessageId: 'provider-1',
+          status: 'SENT',
+        }),
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+        data: { nextDeliveryReportPollAt: expect.any(Date) },
+      }),
+    );
+  });
+
+  it('does not apply a DLR whose provider message ID does not match', async () => {
+    const updateMany = jest.fn().mockResolvedValue({ count: 1 });
+    const prisma = {
+      smsMessage: {
+        findMany: jest.fn().mockResolvedValue([
+          {
+            id: 'sms-1',
+            providerMessageId: 'provider-1',
+            nextDeliveryReportPollAt: null,
+          },
+        ]),
+        updateMany,
+      },
+    };
+    const smsProvider = {
+      send: jest.fn(),
+      getDeliveryReport: jest.fn().mockResolvedValue({
+        status: 'DELIVERED',
+        providerMessageId: 'provider-other',
+      }),
+    };
+    const runtime = new OutboxWorkerRuntime(
+      prisma as never,
+      runtimeConfig(),
+      smsProvider,
+    );
+
+    await runtimeWithRecovery(runtime).pollDeliveryReports();
+
+    expect(updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+        data: { nextDeliveryReportPollAt: expect.any(Date) },
+      }),
+    );
+  });
+
+  it('skips a DLR row another worker has already claimed', async () => {
+    const updateMany = jest.fn().mockResolvedValue({ count: 0 });
+    const prisma = {
+      smsMessage: {
+        findMany: jest.fn().mockResolvedValue([
+          {
+            id: 'sms-1',
+            providerMessageId: 'provider-1',
+            nextDeliveryReportPollAt: null,
+          },
+        ]),
+        updateMany,
+      },
+    };
+    const smsProvider = {
+      send: jest.fn(),
+      getDeliveryReport: jest.fn(),
+    };
+    const runtime = new OutboxWorkerRuntime(
+      prisma as never,
+      runtimeConfig(),
+      smsProvider,
+    );
+
+    await runtimeWithRecovery(runtime).pollDeliveryReports();
+
+    expect(smsProvider.getDeliveryReport).not.toHaveBeenCalled();
   });
 
   it('stops retrying when an SMS row is already dead-lettered', async () => {
@@ -482,6 +632,208 @@ describe('OutboxWorkerRuntime', () => {
     });
   });
 
+  it('reserves a Twilio outbox event before calling the provider', async () => {
+    const updateMany = jest.fn().mockResolvedValue({ count: 1 });
+    const prisma = prismaStub({
+      outboxEvent: submissionReservationEvent(),
+      smsMessage: { updateMany },
+    });
+    const send = jest.fn().mockResolvedValue({
+      status: 'SENT',
+      providerMessageId: 'SM1234567890abcdef1234567890abcdef',
+    });
+    const job: TestJob = {
+      data: { id: 'outbox-1', tenantId: 'tenant-1' },
+      discard: jest.fn(),
+    };
+    const runtime = new OutboxWorkerRuntime(prisma, runtimeConfig(), {
+      send,
+      requiresLocalSubmissionReservation: true,
+    });
+
+    await runtimeWithHandleJob(runtime).handleJob(job);
+
+    expect(updateMany).toHaveBeenCalledWith({
+      where: {
+        tenantId: 'tenant-1',
+        outboxEventId: 'outbox-1',
+        status: 'QUEUED',
+        attempts: 0,
+        deadLetteredAt: null,
+        failureCategory: null,
+      },
+      data: {
+        failureCategory: 'provider-submission-in-progress',
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+        lastAttemptAt: expect.any(Date),
+      },
+    });
+    expect(updateMany.mock.invocationCallOrder[0]).toBeLessThan(
+      send.mock.invocationCallOrder[0] ?? Number.POSITIVE_INFINITY,
+    );
+  });
+
+  it('does not send when a Twilio reservation compare-and-set loses a race', async () => {
+    const updateMany = jest.fn().mockResolvedValue({ count: 0 });
+    const prisma = prismaStub({
+      outboxEvent: submissionReservationEvent(),
+      smsMessage: { updateMany },
+    });
+    const send = jest.fn();
+    const job: TestJob = {
+      data: { id: 'outbox-1', tenantId: 'tenant-1' },
+      discard: jest.fn(),
+    };
+    const runtime = new OutboxWorkerRuntime(prisma, runtimeConfig(), {
+      send,
+      requiresLocalSubmissionReservation: true,
+    });
+
+    await runtimeWithHandleJob(runtime).handleJob(job);
+
+    expect(updateMany).toHaveBeenCalledTimes(1);
+    expect(send).not.toHaveBeenCalled();
+    expect(job.discard).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not resend while another Twilio submission reservation is fresh', async () => {
+    const lastAttemptAt = new Date();
+    const prisma = prismaStub({
+      outboxEvent: submissionReservationEvent({
+        failureCategory: 'provider-submission-in-progress',
+        lastAttemptAt,
+      }),
+    });
+    const send = jest.fn();
+    const job: TestJob = {
+      data: { id: 'outbox-1', tenantId: 'tenant-1' },
+      discard: jest.fn(),
+    };
+    const runtime = new OutboxWorkerRuntime(prisma, runtimeConfig(), {
+      send,
+      requiresLocalSubmissionReservation: true,
+    });
+
+    await runtimeWithHandleJob(runtime).handleJob(job);
+
+    expect(send).not.toHaveBeenCalled();
+    expect(prisma.smsMessageUpdate).not.toHaveBeenCalled();
+    expect(job.discard).toHaveBeenCalledTimes(1);
+  });
+
+  it('honors the provider timeout window even when it exceeds recovery threshold', async () => {
+    const lastAttemptAt = new Date(Date.now() - 2_000);
+    const prisma = prismaStub({
+      outboxEvent: submissionReservationEvent({
+        failureCategory: 'provider-submission-in-progress',
+        lastAttemptAt,
+      }),
+    });
+    const send = jest.fn();
+    const job: TestJob = {
+      data: { id: 'outbox-1', tenantId: 'tenant-1' },
+      discard: jest.fn(),
+    };
+    const runtime = new OutboxWorkerRuntime(
+      prisma,
+      { ...runtimeConfig(), recoveryThresholdMs: 1_000 },
+      {
+        send,
+        requiresLocalSubmissionReservation: true,
+        submissionReservationWindowMs: 10_000,
+      },
+    );
+
+    await runtimeWithHandleJob(runtime).handleJob(job);
+
+    expect(send).not.toHaveBeenCalled();
+    expect(prisma.smsMessageUpdate).not.toHaveBeenCalled();
+    expect(job.discard).toHaveBeenCalledTimes(1);
+  });
+
+  it('dead-letters stale Twilio reservations without replaying the send', async () => {
+    const lastAttemptAt = new Date(
+      Date.now() - runtimeConfig().recoveryThresholdMs - 1,
+    );
+    const prisma = prismaStub({
+      outboxEvent: submissionReservationEvent({
+        status: 'FAILED',
+        attempts: 1,
+        failureCategory: 'provider-submission-in-progress',
+        lastAttemptAt,
+      }),
+    });
+    const send = jest.fn();
+    const job: TestJob = {
+      data: { id: 'outbox-1', tenantId: 'tenant-1' },
+      discard: jest.fn(),
+    };
+    const runtime = new OutboxWorkerRuntime(prisma, runtimeConfig(), {
+      send,
+      requiresLocalSubmissionReservation: true,
+    });
+
+    await runtimeWithHandleJob(runtime).handleJob(job);
+
+    expect(send).not.toHaveBeenCalled();
+    expect(prisma.smsMessageUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+        data: expect.objectContaining({
+          status: 'FAILED',
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+          deadLetteredAt: expect.any(Date),
+          failureCategory: 'dead-lettered',
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+          lastError: expect.stringContaining('outcome is unknown'),
+        }),
+      }),
+    );
+    expect(lastOutboxUpdate(prisma.outboxEventUpdateCalls)?.data).toMatchObject(
+      {
+        status: 'FAILED',
+        failureCategory: 'provider-outcome-unknown',
+      },
+    );
+    expect(job.discard).toHaveBeenCalledTimes(1);
+  });
+
+  it('clears the Twilio reservation into a retryable state after HTTP 429', async () => {
+    const updateMany = jest.fn().mockResolvedValue({ count: 1 });
+    const prisma = prismaStub({
+      outboxEvent: submissionReservationEvent(),
+      smsMessage: { updateMany },
+    });
+    const send = jest.fn().mockResolvedValue({
+      status: 'FAILED',
+      errorMessage: 'Twilio rate limited the request (HTTP 429)',
+      failureCategory: 'retryable',
+    });
+    const runtime = new OutboxWorkerRuntime(prisma, runtimeConfig(), {
+      send,
+      requiresLocalSubmissionReservation: true,
+    });
+
+    await runtimeWithHandleJob(runtime).handleJob({
+      data: { id: 'outbox-1', tenantId: 'tenant-1' },
+    });
+
+    expect(send).toHaveBeenCalledTimes(1);
+    expect(prisma.smsMessageUpdateCalls[0]).toMatchObject({
+      data: {
+        status: 'FAILED',
+        failureCategory: 'retryable-failure',
+        deadLetteredAt: null,
+      },
+    });
+    expect(prisma.smsMessageUpdateCalls[0]?.data.nextAttemptAt).toBeInstanceOf(
+      Date,
+    );
+    expect(lastOutboxUpdate(prisma.outboxEventUpdateCalls)?.data).toMatchObject(
+      { failureCategory: 'retryable-failure' },
+    );
+  });
+
   it('preserves SMS failedAt evidence when a retry succeeds', async () => {
     const failedAt = new Date('2026-08-10T09:05:00.000Z');
     const prisma = prismaStub({
@@ -769,6 +1121,26 @@ describe('OutboxWorkerRuntime', () => {
     expect(allSql).toContain("'SENT', 'DELIVERED', 'SUPPRESSED'");
   });
 
+  it('waits for an active DLR poll before closing the worker', async () => {
+    const runtime = runtimeWithInternals(
+      new OutboxWorkerRuntime({} as never, runtimeConfig(), {
+        send: jest.fn(),
+      }),
+    );
+    const poll = deferred<void>();
+    const workerClose = jest.fn().mockResolvedValue(undefined);
+    runtime.activeDeliveryReportPoll = poll.promise;
+    runtime.worker = { close: workerClose };
+
+    const stopPromise = runtime.stop();
+    await Promise.resolve();
+    expect(workerClose).not.toHaveBeenCalled();
+
+    poll.resolve();
+    await stopPromise;
+    expect(workerClose).toHaveBeenCalledTimes(1);
+  });
+
   it('waits for active recovery before disconnecting during shutdown', async () => {
     const prisma = prismaStub({
       outboxEvent: {
@@ -811,6 +1183,7 @@ type RuntimeWithHandleJob = {
 
 type RuntimeWithRecovery = {
   recoverAndPublishOnce(): Promise<void>;
+  runRecoveryCycle(): Promise<void>;
   pollDeliveryReports(): Promise<void>;
 };
 
@@ -825,6 +1198,8 @@ type RecoveryTx = {
 
 type RuntimeWithInternals = {
   activeRecovery?: Promise<void>;
+  activeDeliveryReportPoll?: Promise<void>;
+  worker?: unknown;
   stop(): Promise<void>;
 };
 
@@ -870,6 +1245,8 @@ function runtimeConfig() {
     redisUrl: 'redis://localhost:6379',
     publishBatchSize: 10,
     publishIntervalMs: 5_000,
+    deliveryReportPollIntervalMs: 300_000,
+    deliveryReportPollBatchSize: 10,
     retryDelayMs: 30_000,
     recoveryThresholdMs: 60_000,
   };
@@ -879,6 +1256,44 @@ function lastOutboxUpdate(
   calls: OutboxEventUpdateArgs[],
 ): OutboxEventUpdateArgs | undefined {
   return calls[calls.length - 1];
+}
+
+function submissionReservationEvent(
+  smsOverrides: Partial<
+    NonNullable<PrismaStubOverrides['outboxEvent']['smsMessage']>
+  > = {},
+): PrismaStubOverrides['outboxEvent'] {
+  return {
+    id: 'outbox-1',
+    tenantId: 'tenant-1',
+    aggregateType: 'receipt',
+    aggregateId: 'receipt-1',
+    eventType: 'sms.send',
+    payload: { receiptId: 'receipt-1' },
+    publishedAt: null,
+    smsMessage: {
+      id: 'sms-1',
+      tenantId: 'tenant-1',
+      receiptId: 'receipt-1',
+      outboxEventId: 'outbox-1',
+      phoneE164: '+2348000000000',
+      template: 'earn-confirmed',
+      payload: {
+        version: 1,
+        receiptId: 'receipt-1',
+        transactionId: 'ledger-1',
+        customerId: 'customer-1',
+        phoneE164: '+2348000000000',
+        template: 'earn-confirmed',
+        creditKobo: '125050',
+      },
+      status: 'QUEUED',
+      attempts: 0,
+      failedAt: null,
+      deadLetteredAt: null,
+      ...smsOverrides,
+    },
+  };
 }
 
 function defaultReceipt(outboxEvent: PrismaStubOverrides['outboxEvent']) {
@@ -922,6 +1337,8 @@ type PrismaStubOverrides = {
       attempts: number;
       failedAt?: Date | null;
       deadLetteredAt?: Date | null;
+      failureCategory?: string | null;
+      lastAttemptAt?: Date | null;
     } | null;
   };
   receipt?: {
@@ -936,6 +1353,7 @@ type PrismaStubOverrides = {
   };
   smsMessage?: {
     update?: jest.Mock;
+    updateMany?: jest.Mock;
   };
 };
 
@@ -945,7 +1363,7 @@ type SmsMessageUpdateArgs = {
     status?: string;
     deadLetteredAt?: Date;
     failureCategory?: string;
-    nextAttemptAt?: null;
+    nextAttemptAt?: Date | null;
   };
 };
 
@@ -967,6 +1385,7 @@ type PrismaStub = PrismaService & {
   redemptionFindUnique: jest.Mock;
   fraudFlagUpsert: jest.Mock;
   smsMessageUpdate: jest.Mock;
+  smsMessageUpdateMany: jest.Mock;
   smsMessageUpdateCalls: SmsMessageUpdateArgs[];
   smsMessageUpsert: jest.Mock;
   prismaDisconnect: jest.Mock;
@@ -995,6 +1414,9 @@ function prismaStub(overrides: PrismaStubOverrides): PrismaStub {
       smsMessageUpdateCalls.push(args);
       return Promise.resolve(undefined);
     });
+  const smsMessageUpdateMany =
+    overrides.smsMessage?.updateMany ??
+    jest.fn().mockResolvedValue({ count: 1 });
   const smsMessageUpsert = jest.fn().mockResolvedValue(outboxEvent.smsMessage);
   const prismaDisconnect = jest.fn().mockResolvedValue(undefined);
 
@@ -1017,6 +1439,7 @@ function prismaStub(overrides: PrismaStubOverrides): PrismaStub {
     },
     smsMessage: {
       update: smsMessageUpdate,
+      updateMany: smsMessageUpdateMany,
       upsert: smsMessageUpsert,
     },
     $connect: jest.fn().mockResolvedValue(undefined),
@@ -1038,6 +1461,7 @@ function prismaStub(overrides: PrismaStubOverrides): PrismaStub {
     redemptionFindUnique,
     fraudFlagUpsert,
     smsMessageUpdate,
+    smsMessageUpdateMany,
     smsMessageUpdateCalls,
     smsMessageUpsert,
     prismaDisconnect,

@@ -5,6 +5,33 @@ import { ReportExportService } from './report-export.service';
 import { ReportsService } from './reports.service';
 
 describe('ReportsController', () => {
+  it('passes validated cashier page and limit to the report service', async () => {
+    const { service, listCashierToday } = reportsServiceStub();
+    const controller = new ReportsController(
+      service,
+      exportServiceStub().service,
+    );
+    const context = {
+      session: {} as never,
+      user: {
+        id: 'cashier-1',
+        tenantId: 'tenant-1',
+        role: UserRole.CASHIER,
+        branchId: 'branch-1',
+      } as never,
+    };
+
+    await controller.listCashierToday(context, ' customer-1 ', '3', '5');
+
+    expect(listCashierToday).toHaveBeenCalledWith(
+      'tenant-1',
+      context,
+      'customer-1',
+      5,
+      3,
+    );
+  });
+
   it('returns CSV export headers and body', async () => {
     const reportsService = reportsServiceStub().service;
     const exportService = exportServiceStub();
@@ -58,6 +85,24 @@ describe('ReportsController', () => {
     );
   });
 
+  it('schedules a Supervisor branch dashboard refresh', async () => {
+    const exportService = exportServiceStub();
+    const controller = new ReportsController(
+      reportsServiceStub().service,
+      exportService.service,
+    );
+    const context = supervisorContext();
+
+    await expect(
+      controller.refreshSupervisorDashboard(context, 'supervisor-key-1'),
+    ).resolves.toEqual({ status: 'accepted' });
+    expect(exportService.refreshSupervisorDashboard).toHaveBeenCalledWith(
+      'tenant-1',
+      context,
+      'supervisor-key-1',
+    );
+  });
+
   it('schedules report refresh', async () => {
     const exportService = exportServiceStub();
     const controller = new ReportsController(
@@ -83,6 +128,18 @@ describe('ReportsController', () => {
   });
 });
 
+function supervisorContext() {
+  return {
+    session: {} as never,
+    user: {
+      id: 'supervisor-1',
+      tenantId: 'tenant-1',
+      role: UserRole.SUPERVISOR,
+      branchId: 'branch-1',
+    } as never,
+  };
+}
+
 function adminContext() {
   return {
     session: {} as never,
@@ -98,7 +155,17 @@ function adminContext() {
 function reportsServiceStub(): {
   service: ReportsService;
   getPilotOperationsSummary: jest.Mock;
+  listCashierToday: jest.Mock;
 } {
+  const listCashierToday = jest.fn().mockResolvedValue({
+    branchId: 'branch-1',
+    timezone: 'Africa/Lagos',
+    monthlyEarnKobo: null,
+    page: 1,
+    limit: 10,
+    totalCount: 0,
+    items: [],
+  });
   const getPilotOperationsSummary = jest.fn().mockResolvedValue({
     release: { version: '1.2.3', sha: 'abc123', sentryConfigured: true },
     generatedAt: '2026-08-13T00:00:00.000Z',
@@ -120,11 +187,13 @@ function reportsServiceStub(): {
         items: [],
       }),
       getPilotOperationsSummary,
+      listCashierToday,
       listLiabilityAgeing: jest.fn(),
       listCustomerPerformance: jest.fn(),
       listMaterializationState: jest.fn(),
     } as unknown as ReportsService,
     getPilotOperationsSummary,
+    listCashierToday,
   };
 }
 
@@ -135,14 +204,17 @@ function exportServiceStub() {
     rowCount: 1,
   });
   const refreshReport = jest.fn().mockResolvedValue(undefined);
+  const refreshSupervisorDashboard = jest.fn().mockResolvedValue(undefined);
 
   return {
     service: {
       exportCsv,
       refreshReport,
+      refreshSupervisorDashboard,
     } as unknown as ReportExportService,
     exportCsv,
     refreshReport,
+    refreshSupervisorDashboard,
   };
 }
 

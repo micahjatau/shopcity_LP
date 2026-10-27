@@ -24,6 +24,40 @@ export class UsersService {
     return this.prismaService.user.findMany({ where: { tenantId } });
   }
 
+  async listCashiers(tenantId: string, actor: AuthContext, query?: string) {
+    const normalizedQuery = query?.trim().toLowerCase();
+    const branchId =
+      actor.user.role === UserRole.SUPERVISOR
+        ? (actor.user.branchId ?? undefined)
+        : undefined;
+
+    return this.prismaService.user.findMany({
+      where: {
+        tenantId,
+        role: UserRole.CASHIER,
+        status: UserStatus.ACTIVE,
+        ...(branchId ? { branchId } : {}),
+        ...(normalizedQuery
+          ? {
+              username: {
+                contains: normalizedQuery,
+                mode: 'insensitive',
+              },
+            }
+          : {}),
+      },
+      select: {
+        id: true,
+        username: true,
+        branchId: true,
+        role: true,
+        status: true,
+      },
+      orderBy: [{ username: 'asc' }, { id: 'asc' }],
+      take: 10,
+    });
+  }
+
   async createUser(
     tenantId: string,
     actor: AuthContext,

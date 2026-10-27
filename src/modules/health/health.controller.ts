@@ -11,6 +11,7 @@ import { HealthCheckService } from '@nestjs/terminus';
 import { ApiHealthIndicator } from './api-health.indicator';
 import { PrismaHealthIndicator } from './prisma-health.indicator';
 import { RedisHealthIndicator } from './redis-health.indicator';
+import { PosDeviceTokenKeyHealthIndicator } from './pos-device-token-key.health.indicator';
 import { PublicRoute } from '../../common/auth/public-route.decorator';
 import {
   apiErrorEnvelopeResponses,
@@ -29,6 +30,7 @@ export class HealthController {
     private readonly prismaHealth: PrismaHealthIndicator,
     private readonly redisHealth: RedisHealthIndicator,
     private readonly apiHealth: ApiHealthIndicator,
+    private readonly posDeviceTokenKeyHealth: PosDeviceTokenKeyHealthIndicator,
   ) {}
 
   @Get('live')
@@ -60,13 +62,14 @@ export class HealthController {
   @ApiOperation({
     summary: 'Check readiness',
     description:
-      'Returns ok when the application can reach Postgres and Redis.',
+      'Returns ok when the application can reach Postgres and Redis and required POS device-token configuration is valid.',
   })
   async ready(): Promise<HealthReadyDto> {
     try {
       const result = await this.healthCheckService.check([
         async () => this.prismaHealth.pingCheck('database'),
         async () => this.redisHealth.pingCheck('redis'),
+        async () => this.posDeviceTokenKeyHealth.check(),
       ]);
       const info = (result.info ?? {}) as {
         database?: unknown;

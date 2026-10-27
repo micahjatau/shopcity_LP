@@ -1,8 +1,12 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import CashierPage from '../app/(shell)/cashier/page';
 import { CashierOverviewLookup } from '../components/workflows/cashier-overview-lookup';
 import { CashierWorkflowRoute } from '../components/workflows/cashier-transaction-route';
+import { VerifiedCardLookupStep } from '../components/workflows/verified-card-lookup-step';
 import {
   cardsControllerLookupCardV1,
+  customersControllerGetCustomerV1,
+  customersControllerListCustomersV1,
   reportsControllerListCashierTodayV1,
 } from '../lib/api/generated-client';
 
@@ -36,6 +40,7 @@ jest.mock('../lib/api/generated-client', () => {
     ...actual,
     cardsControllerLookupCardV1: jest.fn(),
     reportsControllerListCashierTodayV1: jest.fn(),
+    customersControllerListCustomersV1: jest.fn(),
     customersControllerGetCustomerV1: jest.fn(),
     loyaltyControllerGetCustomerLedgerV1: jest.fn(),
   };
@@ -44,6 +49,19 @@ jest.mock('../lib/api/generated-client', () => {
 describe('Cashier lookup workflow', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    jest
+      .mocked(customersControllerListCustomersV1)
+      .mockReturnValue(new Promise(() => {}) as never);
+    jest.mocked(customersControllerGetCustomerV1).mockResolvedValue({
+      status: 200,
+      data: {
+        data: {
+          customerId: 'customer-1',
+          email: 'ada***@example.com',
+          availableBalanceKobo: 5500,
+        },
+      },
+    } as never);
     jest.mocked(reportsControllerListCashierTodayV1).mockResolvedValue({
       status: 200,
       data: {
@@ -55,6 +73,8 @@ describe('Cashier lookup workflow', () => {
               id: 'receipt-1',
               occurredAt: '2026-08-25T10:00:00.000Z',
               operation: 'EARN',
+              customerName: 'Ada Shopper',
+              purchaseAmountKobo: 42000,
               loyaltyAmountKobo: 42,
               receiptNumber: '1831',
               status: 'CONFIRMED',
@@ -67,7 +87,11 @@ describe('Cashier lookup workflow', () => {
       status: 200,
       data: {
         data: {
-          customer: { id: 'customer-1', fullName: 'Ada Shopper' },
+          customer: {
+            id: 'customer-1',
+            fullName: 'Ada Shopper',
+            maskedPhone: '+234280* *** 5799',
+          },
           serialNumber: 'CARD-001',
           status: 'ACTIVE',
           availableBalanceKobo: 5500,
@@ -77,36 +101,143 @@ describe('Cashier lookup workflow', () => {
     } as never);
   });
 
-  it('looks up a card directly from the cashier overview', async () => {
+  it('renders the Figma-aligned cashier overview activity dashboard', async () => {
     render(<CashierOverviewLookup />);
 
-    const input = screen.getByRole('textbox', {
-      name: 'Scan card or enter card number',
-    });
-    expect(input).toHaveFocus();
-    fireEvent.change(input, { target: { value: 'CARD-001' } });
-    fireEvent.submit(input.closest('form')!);
+    expect(screen.getByText("Today's Activity")).toBeInTheDocument();
+    expect(
+      screen.getByRole('heading', { name: 'Recent Transactions' }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('searchbox', { name: 'Search recent transactions' }),
+    ).toHaveValue('');
 
     await waitFor(() => {
-      expect(screen.getByText('Ada Shopper')).toBeInTheDocument();
+      expect(reportsControllerListCashierTodayV1).toHaveBeenCalledWith(
+        undefined,
+        expect.any(Object),
+      );
     });
-    expect(screen.getByRole('link', { name: 'Earn credit' })).toHaveAttribute(
-      'href',
-      '/cashier/earn?card=CARD-001',
-    );
+    expect(await screen.findByText('Ada Shopper')).toBeInTheDocument();
+    for (const heading of [
+      'Customer',
+      'Receipt No.',
+      'Amount',
+      'Credit',
+      'Status',
+      'Date',
+    ]) {
+      expect(
+        screen.getByRole('columnheader', { name: heading }),
+      ).toBeInTheDocument();
+    }
+    expect(screen.getByText('1831')).toBeInTheDocument();
+    expect(screen.getByText('₦420.00')).toBeInTheDocument();
+    expect(cardsControllerLookupCardV1).not.toHaveBeenCalled();
+  });
+
+  it('keeps overview landmarks in heading, activity, metrics, and table order', () => {
+    render(<CashierPage />);
+
+    const overview = document.querySelector('[data-od-id="overview-main"]');
+    expect(overview).not.toBeNull();
     expect(
-      screen.getByText('Customer verified. Choose the next action.'),
+      Array.from(overview!.children).map((element) => element.dataset.odId),
+    ).toEqual(['overview-heading', 'overview-activity']);
+    expect(
+      Array.from(
+        document.querySelector('[data-od-id="overview-activity"]')!.children,
+      ).map((element) => element.dataset.odId || element.tagName.toLowerCase()),
+    ).toEqual([
+      'activity-heading',
+      'p',
+      'activity-metrics',
+      'recent-transactions',
+    ]);
+  });
+
+  it('renders zero for a loaded empty activity feed', async () => {
+    jest.mocked(reportsControllerListCashierTodayV1).mockResolvedValueOnce({
+      status: 200,
+      data: {
+        data: {
+          branchId: 'branch-1',
+          timezone: 'Africa/Lagos',
+          items: [],
+        },
+      },
+    } as never);
+
+    render(<CashierOverviewLookup />);
+    await waitFor(() => {
+      expect(reportsControllerListCashierTodayV1).toHaveBeenCalled();
+    });
+
+    for (const metricId of [
+      'metric-receipts',
+      'metric-earn',
+      'metric-redeem',
+    ]) {
+      expect(
+        document.querySelector(`[data-od-id="${metricId}"] .metric-value`),
+      ).toHaveTextContent('0');
+    }
+    expect(
+      document.querySelector('[data-od-id="metric-issued"] .metric-value'),
+    ).toHaveTextContent('₦0.00');
+    expect(screen.getByText('Redemptions')).toBeInTheDocument();
+    expect(
+      screen.getByRole('link', { name: 'View today’s transactions →' }),
     ).toBeInTheDocument();
+  });
+
+  it('reserves em dashes for an unavailable activity feed', async () => {
+    jest.mocked(reportsControllerListCashierTodayV1).mockResolvedValueOnce({
+      status: 503,
+      data: { data: {} },
+    } as never);
+
+    render(<CashierOverviewLookup />);
+    expect(
+      await screen.findByText('Today’s activity is temporarily unavailable.'),
+    ).toBeInTheDocument();
+
+    for (const metricId of [
+      'metric-receipts',
+      'metric-earn',
+      'metric-issued',
+      'metric-redeem',
+    ]) {
+      expect(
+        document.querySelector(`[data-od-id="${metricId}"] .metric-value`),
+      ).toHaveTextContent('—');
+    }
+  });
+
+  it('filters the bounded activity feed locally by receipt number', async () => {
+    render(<CashierOverviewLookup />);
+
+    const search = screen.getByRole('searchbox', {
+      name: 'Search recent transactions',
+    });
+    await screen.findByText('1831');
+    fireEvent.change(search, { target: { value: 'Ada' } });
+    expect(screen.getByText('1831')).toBeInTheDocument();
+    fireEvent.change(search, { target: { value: 'missing' } });
+
+    expect(screen.queryByText('1831')).not.toBeInTheDocument();
+    expect(screen.getByText('No matching transactions.')).toBeInTheDocument();
+    expect(reportsControllerListCashierTodayV1).toHaveBeenCalledTimes(1);
   });
 
   it('renders authenticated cashier activity', async () => {
     render(<CashierOverviewLookup />);
 
-    expect(await screen.findByText('#1831')).toBeInTheDocument();
-    expect(screen.getByText('EARN')).toBeInTheDocument();
-    expect(screen.getByText('CONFIRMED')).toBeInTheDocument();
+    expect(await screen.findByText('1831')).toBeInTheDocument();
+    expect(screen.getByText('Approved')).toBeInTheDocument();
     expect(screen.getByText('+')).toBeInTheDocument();
     expect(reportsControllerListCashierTodayV1).toHaveBeenCalledWith(
+      undefined,
       expect.any(Object),
     );
   });
@@ -134,14 +265,91 @@ describe('Cashier lookup workflow', () => {
 
     render(<CashierOverviewLookup />);
 
-    expect(await screen.findByText('#1832')).toBeInTheDocument();
+    expect(await screen.findByText('1832')).toBeInTheDocument();
     expect(screen.getByText('−')).toBeInTheDocument();
     expect(
       screen.getByLabelText('Credit redeemed: 450 kobo'),
     ).toBeInTheDocument();
   });
 
-  it('renders pending Earn without a fabricated credit amount', async () => {
+  it('shows both effects for a confirmed redeem-and-earn receipt', async () => {
+    jest.mocked(reportsControllerListCashierTodayV1).mockResolvedValueOnce({
+      status: 200,
+      data: {
+        data: {
+          branchId: 'branch-1',
+          timezone: 'Africa/Lagos',
+          items: [
+            {
+              id: 'receipt-settlement',
+              occurredAt: '2026-08-25T10:00:00.000Z',
+              operation: 'REDEEM',
+              loyaltyAmountKobo: 450,
+              redeemedAmountKobo: 450,
+              netPaidAmountKobo: 550,
+              earnedAmountKobo: 11,
+              receiptNumber: 'SETTLEMENT-1',
+              status: 'CONFIRMED',
+            },
+          ],
+        },
+      },
+    } as never);
+
+    render(<CashierOverviewLookup />);
+
+    const receipt = await screen.findByText('SETTLEMENT-1');
+    const row = receipt.closest('tr');
+    expect(row).toHaveTextContent('Redeemed');
+    expect(row).toHaveTextContent('₦4.50');
+    expect(row).toHaveTextContent('Earned');
+    expect(row).toHaveTextContent('₦0.11');
+    expect(
+      document.querySelector('[data-od-id="metric-issued"] .metric-value'),
+    ).toHaveTextContent('₦0.11');
+  });
+
+  it('does not present pending settlement amounts as completed effects', async () => {
+    jest.mocked(reportsControllerListCashierTodayV1).mockResolvedValueOnce({
+      status: 200,
+      data: {
+        data: {
+          branchId: 'branch-1',
+          timezone: 'Africa/Lagos',
+          items: [
+            {
+              id: 'receipt-pending-settlement',
+              occurredAt: '2026-08-25T10:00:00.000Z',
+              operation: 'REDEEM',
+              loyaltyAmountKobo: 450,
+              redeemedAmountKobo: null,
+              netPaidAmountKobo: null,
+              earnedAmountKobo: null,
+              receiptNumber: 'SETTLEMENT-PENDING',
+              status: 'PENDING_APPROVAL',
+            },
+          ],
+        },
+      },
+    } as never);
+
+    render(<CashierOverviewLookup />);
+
+    const receipt = await screen.findByText('SETTLEMENT-PENDING');
+    const row = receipt.closest('tr');
+    expect(row).toHaveTextContent('Redeemed');
+    expect(row).toHaveTextContent('Earned');
+    expect(
+      row?.querySelectorAll('.transaction-table-credit--pending'),
+    ).toHaveLength(2);
+    expect(row).toHaveTextContent('Awaiting approval');
+    expect(row).not.toHaveTextContent('₦4.50');
+    expect(
+      document.querySelector('[data-od-id="metric-issued"] .metric-value'),
+    ).toHaveTextContent('—');
+  });
+
+  it('shows pending Earn as awaiting approval without a fabricated amount', async () => {
     jest.mocked(reportsControllerListCashierTodayV1).mockResolvedValueOnce({
       status: 200,
       data: {
@@ -164,11 +372,14 @@ describe('Cashier lookup workflow', () => {
 
     render(<CashierOverviewLookup />);
 
-    expect(await screen.findByText('Pending calculation')).toBeInTheDocument();
+    expect(await screen.findByText('Awaiting approval')).toBeInTheDocument();
     expect(screen.queryByText('₦10,000.00')).not.toBeInTheDocument();
+    expect(
+      document.querySelector('[data-od-id="metric-issued"] .metric-value'),
+    ).toHaveTextContent('—');
   });
 
-  it('renders pending Earn with an authoritative credit amount', async () => {
+  it('does not present pending Earn as issued credit when an amount is available', async () => {
     jest.mocked(reportsControllerListCashierTodayV1).mockResolvedValueOnce({
       status: 200,
       data: {
@@ -191,12 +402,15 @@ describe('Cashier lookup workflow', () => {
 
     render(<CashierOverviewLookup />);
 
-    expect(await screen.findByText('#1831-AUTH')).toBeInTheDocument();
-    expect(screen.getByLabelText('Credit added: 42 kobo')).toBeInTheDocument();
-    expect(screen.queryByText('Pending calculation')).not.toBeInTheDocument();
+    expect(await screen.findByText('1831-AUTH')).toBeInTheDocument();
+    expect(screen.getByText('Awaiting approval')).toBeInTheDocument();
+    expect(screen.queryByText('₦0.42')).not.toBeInTheDocument();
+    expect(
+      document.querySelector('[data-od-id="metric-issued"] .metric-value'),
+    ).toHaveTextContent('—');
   });
 
-  it('keeps lookup focused and preserves context for Earn and Redeem', async () => {
+  it('reconstructs the committed Find Customer presentation landmarks', () => {
     render(
       <CashierWorkflowRoute
         kind="lookup"
@@ -205,22 +419,796 @@ describe('Cashier lookup workflow', () => {
       />,
     );
 
+    expect(
+      document.querySelector('[data-od-id="customer-search"]'),
+    ).toBeInTheDocument();
+    expect(
+      document.querySelector('[data-od-id="recent-customers"]'),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('searchbox', { name: 'Customer search' }),
+    ).toHaveAttribute('placeholder', 'Search customers, phone, or card…');
+    expect(screen.getByRole('button', { name: 'Scan' })).toBeInTheDocument();
+    expect(
+      screen.queryByRole('columnheader', { name: 'Customer ID' }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByRole('columnheader', { name: 'Available balance' }),
+    ).toBeInTheDocument();
+  });
+
+  it('keeps workflow landmarks in prototype reading order', () => {
+    const routes = [
+      {
+        kind: 'lookup' as const,
+        page: 'lookup-page',
+        heading: 'find-customer-heading',
+        stages: null,
+        flow: null,
+      },
+      {
+        kind: 'earn' as const,
+        page: 'capture-purchase-page',
+        heading: 'capture-purchase-heading',
+        stages: 'capture-stages',
+        flow: 'capture-flow',
+      },
+      {
+        kind: 'redeem' as const,
+        page: 'redeem-page',
+        heading: 'redeem-heading',
+        stages: 'redeem-stages',
+        flow: 'redeem-flow',
+      },
+    ];
+
+    for (const route of routes) {
+      const { unmount } = render(
+        <CashierWorkflowRoute
+          kind={route.kind}
+          title={route.kind === 'lookup' ? 'Find customer' : route.kind}
+          description="Route description"
+        />,
+      );
+      const page = document.querySelector(`[data-od-id="${route.page}"]`);
+      expect(page).toBeInTheDocument();
+      expect(page?.firstElementChild).toHaveAttribute(
+        'data-od-id',
+        route.heading,
+      );
+      if (route.stages && route.flow) {
+        expect(page?.children[1]).toHaveAttribute('data-od-id', route.stages);
+        expect(page?.children[2]).toHaveAttribute('data-od-id', route.flow);
+        if (route.kind === 'earn') {
+          expect(page?.children[1]).toHaveClass('cashier-flow-steps--capture');
+          expect(page?.querySelectorAll('.cashier-flow-step')).toHaveLength(4);
+          expect(
+            page?.querySelectorAll('.cashier-flow-connector'),
+          ).toHaveLength(3);
+          expect(page?.querySelector('.cashier-flow-step b')).toBeNull();
+          expect(page?.querySelector('.cashier-flow-step svg')).toBeNull();
+          expect(
+            page?.querySelector('[data-od-id="verified-card-lookup"]'),
+          ).toBeInTheDocument();
+        }
+      } else {
+        const content = page?.querySelector(
+          '[data-od-id="find-customer-content"]',
+        );
+        expect(content?.children).toHaveLength(4);
+        expect(content?.children[0]).toHaveAttribute(
+          'data-od-id',
+          'recent-customers-heading',
+        );
+        expect(content?.children[1]).toHaveAttribute(
+          'data-od-id',
+          'customer-search',
+        );
+        expect(content?.children[2]).toHaveAttribute(
+          'data-od-id',
+          'customer-search-state',
+        );
+        expect(content?.children[3]).toHaveAttribute(
+          'data-od-id',
+          'recent-customers',
+        );
+        expect(
+          screen.queryByText(/Search by name, phone number, or card serial/i),
+        ).not.toBeInTheDocument();
+        expect(
+          screen.queryByText(
+            /Search by customer name, phone number, or card serial/i,
+          ),
+        ).not.toBeInTheDocument();
+      }
+      unmount();
+    }
+  });
+
+  it('keeps the verified-card idle state quiet and shows actionable lookup feedback', async () => {
+    render(
+      <CashierWorkflowRoute
+        kind="earn"
+        title="Capture purchase"
+        description="Capture a purchase"
+      />,
+    );
+
+    const lookupStep = document.querySelector(
+      '[data-od-id="verified-card-lookup"]',
+    );
+    const searchButton = screen.getByRole('button', {
+      name: 'Search customer',
+    });
+    expect(
+      screen.getByRole('heading', { name: 'Step 1 — Find customer' }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        'Scan the virtual card, or search by phone number or card serial.',
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getByPlaceholderText('Search')).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        'Target lookup speed is under 5 seconds. Press Enter to search.',
+      ),
+    ).toBeInTheDocument();
+    expect(lookupStep?.querySelector('[role="alert"]')).not.toBeInTheDocument();
+    expect(screen.queryByText('Ready to continue')).not.toBeInTheDocument();
+    expect(
+      screen.queryByText('Scan or type a card serial.'),
+    ).not.toBeInTheDocument();
+    expect(searchButton).toHaveClass('cashier-capture-search-primary');
+    expect(searchButton.querySelector('img')).toHaveAttribute(
+      'src',
+      '/brand/cashier/cashier-capture-step1-search-icon.svg',
+    );
+    expect(screen.getByRole('button', { name: 'Scan' })).toHaveClass(
+      'cashier-capture-search-action--scan',
+    );
+
+    fireEvent.click(searchButton);
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'Enter a customer name, phone number, or card number.',
+    );
+  });
+
+  it('uses the capture layout with real recent earn activity and scanner focus', async () => {
+    render(
+      <CashierWorkflowRoute
+        kind="earn"
+        title="Capture purchase"
+        description="Capture a purchase"
+      />,
+    );
+
+    expect(
+      screen.getByRole('button', { name: 'Search customer' }),
+    ).toHaveTextContent('Search');
+    const searchField = screen.getByRole('textbox', { name: 'Lookup' });
+    fireEvent.click(screen.getByRole('button', { name: 'Scan' }));
+    expect(searchField).toHaveFocus();
+    expect(
+      await screen.findByRole('heading', { name: 'Recently captured' }),
+    ).toBeInTheDocument();
+    expect(await screen.findByText('Ada Shopper')).toBeInTheDocument();
+    expect(screen.getByText('Receipt 1831')).toBeInTheDocument();
+    expect(screen.getByText('Approved')).toBeInTheDocument();
+    expect(
+      document.querySelector('.cashier-recent-captures__amount'),
+    ).toHaveClass('cashier-recent-captures__amount--approved');
+    expect(
+      document.querySelector('[data-od-id="capture-recent-list"]'),
+    ).toBeInTheDocument();
+  });
+
+  it('shows recent redemption outcomes under Find Customer and removes them after verification', async () => {
+    jest.mocked(reportsControllerListCashierTodayV1).mockResolvedValueOnce({
+      status: 200,
+      data: {
+        data: {
+          branchId: 'branch-1',
+          timezone: 'Africa/Lagos',
+          monthlyEarnKobo: null,
+          page: 1,
+          limit: 10,
+          totalCount: 8,
+          items: [
+            {
+              id: 'earn-receipt',
+              transactionId: 'earn-transaction',
+              occurredAt: '2026-08-25T11:00:00.000Z',
+              operation: 'EARN',
+              customerName: 'Earn Customer',
+              purchaseAmountKobo: 100000,
+              loyaltyAmountKobo: 1000,
+              redeemedAmountKobo: null,
+              netPaidAmountKobo: null,
+              earnedAmountKobo: 1000,
+              receiptNumber: 'E-1',
+              status: 'CONFIRMED',
+            },
+            {
+              id: 'confirmed-redeem',
+              transactionId: 'confirmed-transaction',
+              occurredAt: '2026-08-25T10:00:00.000Z',
+              operation: 'REDEEM',
+              customerName: 'Ada Shopper',
+              purchaseAmountKobo: 1000000,
+              loyaltyAmountKobo: 451000,
+              redeemedAmountKobo: 451000,
+              netPaidAmountKobo: 549000,
+              earnedAmountKobo: 10980,
+              receiptNumber: 'R-1',
+              status: 'CONFIRMED',
+            },
+            {
+              id: 'pending-redeem',
+              transactionId: null,
+              occurredAt: '2026-08-25T09:00:00.000Z',
+              operation: 'REDEEM',
+              customerName: 'Sam Customer',
+              purchaseAmountKobo: 500000,
+              loyaltyAmountKobo: 250000,
+              redeemedAmountKobo: null,
+              netPaidAmountKobo: null,
+              earnedAmountKobo: null,
+              receiptNumber: 'R-2',
+              status: 'PENDING_APPROVAL',
+            },
+            {
+              id: 'reversed-redeem',
+              transactionId: 'reversed-transaction',
+              occurredAt: '2026-08-25T08:00:00.000Z',
+              operation: 'REDEEM',
+              customerName: 'Rae Customer',
+              purchaseAmountKobo: 200000,
+              loyaltyAmountKobo: 100000,
+              redeemedAmountKobo: null,
+              netPaidAmountKobo: null,
+              earnedAmountKobo: null,
+              receiptNumber: 'R-3',
+              status: 'REVERSED',
+            },
+            {
+              id: 'missing-amount-redeem',
+              transactionId: 'missing-amount-transaction',
+              occurredAt: '2026-08-25T07:00:00.000Z',
+              operation: 'REDEEM',
+              customerName: 'Lee Customer',
+              purchaseAmountKobo: 200000,
+              loyaltyAmountKobo: 120000,
+              redeemedAmountKobo: null,
+              netPaidAmountKobo: null,
+              earnedAmountKobo: null,
+              receiptNumber: 'R-4',
+              status: 'CONFIRMED',
+            },
+            ...Array.from({ length: 3 }, (_, index) => ({
+              id: `extra-redeem-${index + 1}`,
+              transactionId: `extra-transaction-${index + 1}`,
+              occurredAt: `2026-08-25T06:0${index}:00.000Z`,
+              operation: 'REDEEM',
+              customerName: `Extra Customer ${index + 1}`,
+              purchaseAmountKobo: 100000,
+              loyaltyAmountKobo: 10000,
+              redeemedAmountKobo: 10000,
+              netPaidAmountKobo: 90000,
+              earnedAmountKobo: 1800,
+              receiptNumber: `R-${index + 5}`,
+              status: 'CONFIRMED',
+            })),
+          ],
+        },
+      },
+    } as never);
+
+    render(
+      <CashierWorkflowRoute
+        kind="redeem"
+        title="Redeem credit"
+        description="Redeem eligible credit"
+      />,
+    );
+
+    const table = await screen.findByRole('table', {
+      name: /Recent redemption activity/,
+    });
+    expect(table.querySelectorAll('tbody tr')).toHaveLength(6);
+    expect(table).not.toHaveTextContent('Earn Customer');
+    expect(table).not.toHaveTextContent('Extra Customer 3');
+
+    const confirmedRow = screen.getByRole('row', { name: /Ada Shopper/ });
+    expect(confirmedRow).toHaveTextContent('Receipt R-1');
+    expect(confirmedRow).toHaveTextContent('Redeemed');
+    expect(confirmedRow).toHaveTextContent('₦4,510');
+    expect(confirmedRow).toHaveTextContent('Approved');
+
+    const pendingRow = screen.getByRole('row', { name: /Sam Customer/ });
+    expect(pendingRow).toHaveTextContent('Requested');
+    expect(pendingRow).toHaveTextContent('₦2,500');
+    expect(pendingRow).toHaveTextContent('Pending');
+    expect(pendingRow).not.toHaveTextContent('Redeemed');
+
+    const reversedRow = screen.getByRole('row', { name: /Rae Customer/ });
+    expect(reversedRow).toHaveTextContent('Reversed');
+    expect(reversedRow).toHaveTextContent('₦1,000');
+
+    const unavailableAmountRow = screen.getByRole('row', {
+      name: /Lee Customer/,
+    });
+    expect(unavailableAmountRow).toHaveTextContent('Amount unavailable');
+    expect(unavailableAmountRow).not.toHaveTextContent('₦1,200');
+
     fireEvent.change(screen.getByRole('textbox', { name: 'Lookup' }), {
       target: { value: 'CARD-001' },
     });
-    fireEvent.click(screen.getByRole('button', { name: 'Lookup' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Search customer' }));
+    expect(
+      await screen.findByRole('heading', { name: 'Step 2 — Basket subtotal' }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole('table', { name: /Recent redemption activity/ }),
+    ).not.toBeInTheDocument();
+  });
+
+  it('shows loading, empty, and unavailable states for recent redemptions', async () => {
+    jest
+      .mocked(reportsControllerListCashierTodayV1)
+      .mockReturnValueOnce(new Promise(() => {}) as never);
+
+    const { unmount } = render(
+      <CashierWorkflowRoute
+        kind="redeem"
+        title="Redeem credit"
+        description="Redeem eligible credit"
+      />,
+    );
+    expect(screen.getByRole('status')).toHaveTextContent(
+      'Loading recent redemptions…',
+    );
+    unmount();
+
+    jest.mocked(reportsControllerListCashierTodayV1).mockResolvedValueOnce({
+      status: 200,
+      data: {
+        data: {
+          branchId: 'branch-1',
+          timezone: 'Africa/Lagos',
+          items: [],
+        },
+      },
+    } as never);
+    const emptyView = render(
+      <CashierWorkflowRoute
+        kind="redeem"
+        title="Redeem credit"
+        description="Redeem eligible credit"
+      />,
+    );
+    expect(
+      await screen.findByText('No recent redemptions found.'),
+    ).toBeInTheDocument();
+    emptyView.unmount();
+
+    jest.mocked(reportsControllerListCashierTodayV1).mockResolvedValueOnce({
+      status: 503,
+      data: { data: {} },
+    } as never);
+    render(
+      <CashierWorkflowRoute
+        kind="redeem"
+        title="Redeem credit"
+        description="Redeem eligible credit"
+      />,
+    );
+    expect(
+      await screen.findByText(
+        'Recent redemptions are temporarily unavailable.',
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it('preserves the default Redeem lookup presentation outside Capture Purchase', () => {
+    render(
+      <VerifiedCardLookupStep
+        lookupValue=""
+        lookupMessage="Scan or type a card serial."
+        lookupPending={false}
+        policyMessage="Public context loaded."
+        onLookup={jest.fn()}
+        onQueryChange={jest.fn()}
+      />,
+    );
+
+    expect(
+      screen.getByPlaceholderText('Scan card serial number'),
+    ).toBeInTheDocument();
+    expect(screen.getByText('Ready to continue')).toBeInTheDocument();
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      'Scan or type a card serial.',
+    );
+    expect(screen.queryByPlaceholderText('Search')).not.toBeInTheDocument();
+  });
+
+  it('shows an accessible email skeleton while the existing summary request loads', async () => {
+    jest
+      .mocked(customersControllerGetCustomerV1)
+      .mockReturnValueOnce(new Promise(() => {}) as never);
+    jest.mocked(cardsControllerLookupCardV1).mockResolvedValueOnce({
+      status: 200,
+      data: {
+        data: {
+          customer: {
+            id: 'customer-1',
+            fullName: 'Ada Shopper',
+            maskedPhone: '+234280* *** 5799',
+          },
+          serialNumber: 'CARD-001',
+          status: 'ACTIVE',
+          availableBalanceKobo: 5500,
+          branchId: 'branch-1',
+        },
+      },
+    } as never);
+
+    render(
+      <CashierWorkflowRoute
+        kind="earn"
+        title="Capture purchase"
+        description="Capture a purchase"
+      />,
+    );
+
+    fireEvent.change(screen.getByRole('textbox', { name: 'Lookup' }), {
+      target: { value: 'CARD-001' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Search customer' }));
+
+    expect(
+      await screen.findByRole('heading', {
+        name: 'Step 2 — Confirm customer',
+      }),
+    ).toBeInTheDocument();
+    const emailLoading = screen.getByRole('status', {
+      name: 'Loading customer email',
+    });
+    expect(emailLoading).toBeInTheDocument();
+    expect(emailLoading.parentElement).toHaveAttribute('aria-busy', 'true');
+    expect(screen.getByRole('button', { name: 'Proceed' })).toBeEnabled();
+  });
+
+  it('animates the pathway connector when customer lookup completes', async () => {
+    jest.mocked(cardsControllerLookupCardV1).mockResolvedValueOnce({
+      status: 200,
+      data: {
+        data: {
+          customer: {
+            id: 'customer-1',
+            fullName: 'Ada Shopper',
+            maskedPhone: '+234280* *** 5799',
+          },
+          serialNumber: 'CARD-001',
+          status: 'ACTIVE',
+          branchId: 'branch-1',
+        },
+      },
+    } as never);
+
+    render(
+      <CashierWorkflowRoute
+        kind="earn"
+        title="Capture purchase"
+        description="Capture a purchase"
+      />,
+    );
+
+    fireEvent.change(screen.getByRole('textbox', { name: 'Lookup' }), {
+      target: { value: 'CARD-001' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Search customer' }));
+
+    expect(
+      await screen.findByRole('heading', {
+        name: 'Step 2 — Confirm customer',
+      }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByText('Step 2', { exact: true }),
+    ).not.toBeInTheDocument();
+    expect(await screen.findByText('ada***@example.com')).toBeInTheDocument();
+    const confirmationDetails = document.querySelector(
+      '.cashier-capture-confirm__details',
+    );
+    expect(confirmationDetails).toHaveTextContent('Wallet Balance');
+    expect(confirmationDetails).toHaveTextContent('₦55.00');
+    expect(confirmationDetails).toHaveTextContent('+234280* *** 5799');
+    const cardPreview = screen.getByRole('img', {
+      name: 'ShopCity card preview for Ada Shopper; card number CARD-001; status Active',
+    });
+    expect(cardPreview.querySelector('img')?.getAttribute('src')).toContain(
+      '/brand/supervisor/IMG-20260802-WA0001.jpg',
+    );
+    expect(cardPreview).toHaveTextContent('ADA SHOPPER');
+    expect(cardPreview).toHaveTextContent('CARD-001');
+    expect(screen.getByText('Status: Active')).toBeInTheDocument();
+    expect(confirmationDetails).not.toHaveTextContent(
+      /Earn eligibility|Expiring credit/,
+    );
+    const backButton = screen.getByRole('button', {
+      name: 'Go back to find customer',
+    });
+    expect(backButton).toHaveTextContent('Back');
+    expect(backButton.querySelector('svg')).not.toBeInTheDocument();
+    const stages = document.querySelector('[data-od-id="capture-stages"]');
+    const steps = stages?.querySelectorAll('.cashier-flow-step');
+    const connectors = stages?.querySelectorAll('.cashier-flow-connector');
+    expect(steps?.[0]).toHaveClass('is-complete');
+    expect(steps?.[0]?.querySelector('img')).toBeInTheDocument();
+    expect(steps?.[1]).toHaveClass('is-active');
+    expect(connectors?.[0]).toHaveClass('is-complete');
+    expect(connectors?.[0]?.querySelector('img')).toBeInTheDocument();
+    expect(connectors?.[1]).not.toHaveClass('is-complete');
+  });
+
+  it('copies the verified card serial from Earn confirmation', async () => {
+    const previousClipboard = Object.getOwnPropertyDescriptor(
+      navigator,
+      'clipboard',
+    );
+    const writeText = jest.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, 'clipboard', {
+      configurable: true,
+      value: { writeText },
+    });
+
+    try {
+      jest.mocked(cardsControllerLookupCardV1).mockResolvedValueOnce({
+        status: 200,
+        data: {
+          data: {
+            customer: {
+              id: 'customer-1',
+              fullName: 'Ada Shopper',
+              maskedPhone: '+234280* *** 5799',
+            },
+            serialNumber: 'CARD-001',
+            status: 'ACTIVE',
+            branchId: 'branch-1',
+          },
+        },
+      } as never);
+
+      render(
+        <CashierWorkflowRoute
+          kind="earn"
+          title="Capture purchase"
+          description="Capture a purchase"
+        />,
+      );
+
+      fireEvent.change(screen.getByRole('textbox', { name: 'Lookup' }), {
+        target: { value: 'CARD-001' },
+      });
+      fireEvent.click(screen.getByRole('button', { name: 'Search customer' }));
+      await screen.findByRole('heading', {
+        name: 'Step 2 — Confirm customer',
+      });
+      fireEvent.click(
+        screen.getByRole('button', {
+          name: 'Copy virtual card number CARD-001',
+        }),
+      );
+
+      await waitFor(() => expect(writeText).toHaveBeenCalledWith('CARD-001'));
+      expect(
+        await screen.findByText('Card number copied.'),
+      ).toBeInTheDocument();
+    } finally {
+      if (previousClipboard) {
+        Object.defineProperty(navigator, 'clipboard', previousClipboard);
+      } else {
+        Reflect.deleteProperty(navigator, 'clipboard');
+      }
+    }
+  });
+
+  it('loads ten recent customers without exposing IDs and provides profile actions', async () => {
+    const recentCustomers = Array.from({ length: 10 }, (_, index) => ({
+      id: `customer-${index + 1}`,
+      fullName: `Recent Shopper ${index + 1}`,
+      maskedPhone: `+234801* *** ${String(index + 1).padStart(4, '0')}`,
+      cardStatus: index === 1 ? 'BLOCKED' : index === 2 ? undefined : 'ACTIVE',
+      availableBalanceKobo:
+        index === 1 ? 0 : index === 2 ? undefined : 1200 + index,
+    }));
+    jest.mocked(customersControllerListCustomersV1).mockResolvedValue({
+      status: 200,
+      data: { data: { items: recentCustomers } },
+    } as never);
+
+    render(
+      <CashierWorkflowRoute
+        kind="lookup"
+        title="Cashier lookup"
+        description="Find a customer"
+      />,
+    );
+
+    expect(await screen.findByText('Recent Shopper 10')).toBeInTheDocument();
+    expect(screen.getAllByRole('row')).toHaveLength(11);
+    expect(screen.queryByText('customer-1')).not.toBeInTheDocument();
+    expect(screen.getByText('+234801* *** 0001')).toBeInTheDocument();
+    const rows = screen.getAllByRole('row');
+    expect(rows[1].querySelector('.find-customer-card-status')).toHaveClass(
+      'find-customer-card-status--active',
+    );
+    expect(rows[1].querySelector('.find-customer-balance')).toHaveClass(
+      'find-customer-balance--positive',
+    );
+    expect(rows[2].querySelector('.find-customer-card-status')).toHaveClass(
+      'find-customer-card-status--inactive',
+    );
+    expect(rows[2].querySelector('.find-customer-balance')).toHaveClass(
+      'find-customer-balance--zero',
+    );
+    expect(rows[3].querySelector('.find-customer-card-status')).toHaveClass(
+      'find-customer-card-status--unknown',
+    );
+    expect(rows[3].querySelector('.find-customer-balance')).toHaveClass(
+      'find-customer-balance--unknown',
+    );
+    expect(
+      screen.queryByRole('columnheader', { name: 'Customer ID' }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByRole('link', { name: 'View profile for Recent Shopper 1' }),
+    ).toHaveAttribute('href', '/cashier/customers?id=customer-1');
+    expect(customersControllerListCustomersV1).toHaveBeenCalledWith(
+      { q: '', limit: '10', cursor: '' },
+      expect.any(Object),
+    );
+  });
+
+  it('debounces customer directory search and accepts a local phone query', async () => {
+    jest.mocked(customersControllerListCustomersV1).mockResolvedValue({
+      status: 200,
+      data: {
+        data: {
+          items: [
+            {
+              id: 'customer-phone',
+              fullName: 'Ada Shopper',
+              maskedPhone: '+234801* *** 5678',
+              cardStatus: 'ACTIVE',
+              availableBalanceKobo: 5500,
+            },
+          ],
+        },
+      },
+    } as never);
+
+    render(
+      <CashierWorkflowRoute
+        kind="lookup"
+        title="Cashier lookup"
+        description="Find a customer"
+      />,
+    );
+    fireEvent.change(
+      screen.getByRole('searchbox', { name: 'Customer search' }),
+      {
+        target: { value: '080 1234 5678' },
+      },
+    );
+
+    await waitFor(
+      () =>
+        expect(customersControllerListCustomersV1).toHaveBeenCalledWith(
+          { q: '080 1234 5678', limit: '8', cursor: '' },
+          expect.any(Object),
+        ),
+      { timeout: 1500 },
+    );
+    expect(
+      await screen.findByRole('link', { name: 'View profile for Ada Shopper' }),
+    ).toHaveAttribute('href', '/cashier/customers?id=customer-phone');
+  });
+
+  it('restores lookup focus and clears discovery state on Escape', async () => {
+    render(
+      <CashierWorkflowRoute
+        kind="lookup"
+        title="Find customer"
+        description="Find a customer"
+      />,
+    );
+
+    const search = screen.getByRole('searchbox', { name: 'Customer search' });
+    fireEvent.change(search, { target: { value: 'Ada Shopper' } });
+    fireEvent.keyDown(window, { key: 'Escape' });
+
+    expect(search).toHaveFocus();
+    expect(search).toHaveValue('');
+    expect(
+      screen.getByRole('cell', { name: 'Loading recent customers…' }),
+    ).toBeInTheDocument();
+    expect(
+      document.querySelector('[data-od-id="customer-search-state"]'),
+    ).toHaveAttribute('role', 'status');
+  });
+
+  it('keeps discovery results masked and prevents unverified workflow selection', async () => {
+    jest.mocked(customersControllerListCustomersV1).mockResolvedValue({
+      status: 200,
+      data: {
+        data: {
+          items: [
+            {
+              id: 'customer-name',
+              fullName: 'Ada Shopper',
+              maskedPhone: '+234801* *** 5678',
+              cardStatus: 'ACTIVE',
+              availableBalanceKobo: 5500,
+            },
+          ],
+        },
+      },
+    } as never);
+
+    render(
+      <CashierWorkflowRoute
+        kind="lookup"
+        title="Cashier lookup"
+        description="Find a customer"
+      />,
+    );
+    fireEvent.change(
+      screen.getByRole('searchbox', { name: 'Customer search' }),
+      {
+        target: { value: 'Ada Shopper' },
+      },
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Search' }));
+
+    expect(await screen.findByText('Ada Shopper')).toBeInTheDocument();
+    expect(screen.getByText('+234801* *** 5678')).toBeInTheDocument();
+    expect(screen.getByText('Active card')).toBeInTheDocument();
+    expect(
+      screen.getByText('Scan an active card to continue'),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole('link', { name: 'Capture Purchase' }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('link', { name: 'Redeem Credit' }),
+    ).not.toBeInTheDocument();
+  });
+
+  it('links a verified card result to its customer profile', async () => {
+    render(
+      <CashierWorkflowRoute
+        kind="lookup"
+        title="Cashier lookup"
+        description="Find a customer"
+      />,
+    );
+
+    fireEvent.change(
+      screen.getByRole('searchbox', { name: 'Customer search' }),
+      {
+        target: { value: 'CARD-001' },
+      },
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Search' }));
 
     await waitFor(() => {
       expect(screen.getByText('Ada Shopper')).toBeInTheDocument();
     });
-    expect(screen.getByRole('link', { name: 'Earn' })).toHaveAttribute(
-      'href',
-      '/cashier/earn?card=CARD-001',
-    );
-    expect(screen.getByRole('link', { name: 'Redeem' })).toHaveAttribute(
-      'href',
-      '/cashier/redeem?card=CARD-001',
-    );
+    expect(
+      screen.getByRole('link', { name: 'View profile for Ada Shopper' }),
+    ).toHaveAttribute('href', '/cashier/customers?id=customer-1&card=CARD-001');
     expect(
       screen.queryByRole('heading', { name: 'Policy context' }),
     ).not.toBeInTheDocument();

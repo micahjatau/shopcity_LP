@@ -1,11 +1,14 @@
 # ShopCity brand assets
 
-These SVGs are the initial application-ready brand assets for `apps/web`.
-They are used on login, shell headers, empty states and branded surfaces.
+Brand assets for the ShopCity web application.
 
-- `shopcity-mark-white.svg` — compact navigation and app chrome.
-- `shopcity-lockup-white.svg` — login hero and branded panels.
-- `shopcity-lockup-on-red.svg` — self-contained logo tile on brand red.
-- `shopcity-brand-pattern.svg` — light decorative motif for sparse surfaces.
-
-If official vector artwork becomes available later, replace these assets in place and keep the public paths stable.
+- `Frame 2147224881.svg` — official ShopCity Supermarket lockup used on login and application shell surfaces.
+- `Frame 2147224881.png` — raster export of the official logo.
+- `admin-Sidebar-background.png` and `cashier-Sidebar-background.png` — role-specific application navigation backgrounds.
+- `login-bgrd.jpg` — full-screen login background artwork used directly on the login page.
+- `login-Widget.svg` — full login-card visual reference; contains static mock controls.
+- `login-widget-frame.svg` — card frame extracted from `login-Widget.svg` and used behind the live login controls to avoid duplicate text and inputs.
+- `login background.png` — original high-resolution login mockup reference.
+- `shopcity-card.svg` — sample card artwork with static sample details; keep customer-specific card previews data-driven.
+- `shopcity-mark-white.svg` and `shopcity-lockup-*.svg` — earlier artwork retained for compatibility.
+- `shopcity-brand-pattern.svg` — decorative motif for sparse surfaces.

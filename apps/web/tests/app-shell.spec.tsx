@@ -1,10 +1,17 @@
 import {
+  act,
   fireEvent,
   render,
   screen,
   waitFor,
   within,
 } from '@testing-library/react';
+import { createRef } from 'react';
+import { AppTopbar } from '../components/app-topbar';
+import {
+  setConnectivityState,
+  type ConnectivityState,
+} from '../lib/browser/connectivity';
 import { AppShell } from '../components/app-shell';
 import { invalidatePublicConfigCache } from '../components/session-bootstrap';
 
@@ -38,6 +45,47 @@ jest.mock('next/navigation', () => ({
   }),
 }));
 
+const connectivityLabels: Array<[ConnectivityState, string]> = [
+  ['online', 'Browser online'],
+  ['connection-unstable', 'Connection unstable'],
+  ['offline', 'Browser offline'],
+  ['synchronizing', 'Sync in progress'],
+  ['sync-failed', 'Sync failed'],
+];
+
+describe('AppTopbar connectivity labels', () => {
+  afterEach(() => act(() => setConnectivityState('online')));
+
+  it.each(connectivityLabels)(
+    'labels %s without claiming API health',
+    async (state, label) => {
+      const buttonRef = createRef<HTMLButtonElement>();
+      const topbarProps = {
+        status: 'ready' as const,
+        sessionLabel: 'Cashier',
+        configMessage: '',
+        workspaceLabel: 'Cashier',
+        routeTrailLabel: 'Overview',
+        deviceLabel: null,
+        role: 'CASHIER' as const,
+        onOpenMobileMenu: () => undefined,
+        mobileMenuButtonRef: buttonRef,
+      };
+      render(<AppTopbar {...topbarProps} />);
+      await waitFor(() =>
+        expect(screen.getByRole('status')).toHaveTextContent('Browser online'),
+      );
+
+      act(() => setConnectivityState(state));
+      expect(screen.getByRole('status')).toHaveTextContent(label);
+      expect(screen.getByRole('status').textContent?.trim()).not.toBe(state);
+      expect(screen.getByRole('status')).not.toHaveTextContent(
+        /system|api healthy/i,
+      );
+    },
+  );
+});
+
 describe('AppShell', () => {
   beforeEach(() => {
     mockBootstrapSession.mockReset();
@@ -46,6 +94,7 @@ describe('AppShell', () => {
     mockGetOfflineEarnRecordCount.mockReset();
     mockSubscribeOfflineQueue.mockReset();
     sessionStorage.clear();
+    localStorage.clear();
     invalidatePublicConfigCache();
     mockGetPublicConfig.mockResolvedValue({
       status: 200,
@@ -91,12 +140,27 @@ describe('AppShell', () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByText(/session ready/i)).toBeInTheDocument();
+      expect(screen.getByText('Protected content')).toBeInTheDocument();
       expect(document.title).toMatch(/workspace · overview · shopcity/i);
     });
     expect(mockBootstrapSession).toHaveBeenCalledTimes(1);
     expect(mockGetPublicConfig).toHaveBeenCalledTimes(1);
     expect(screen.getByText('Protected content')).toBeInTheDocument();
+    expect(screen.getByText('Powered by Radar Solutions')).toBeInTheDocument();
+    expect(
+      screen.queryByText(/Lekki Flagship|Africa\/Lagos/),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByRole('combobox', { name: 'Search ShopCity' }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Customers' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
+    expect(screen.getByRole('status')).toHaveTextContent('Browser online');
+    expect(
+      screen.getByRole('button', { name: 'Notifications' }),
+    ).toBeDisabled();
     expect(screen.getByRole('link', { name: /overview/i })).toHaveAttribute(
       'aria-current',
       'page',
@@ -106,8 +170,8 @@ describe('AppShell', () => {
     );
     expect(
       container.querySelector('.shell-context-line--secondary'),
-    ).toHaveTextContent('Workspace · Overview');
-    expect(screen.getByText('Device device-1')).toBeInTheDocument();
+    ).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Logout' })).toBeInTheDocument();
     expect(
       screen.getByRole('link', { name: /skip to content/i }),
     ).toHaveAttribute('href', '#shell-main-content');
@@ -118,6 +182,54 @@ describe('AppShell', () => {
       'title',
       '2 offline transactions waiting to sync',
     );
+  });
+
+  it('adds a Supervisor shell scope for role-specific styling', async () => {
+    mockBootstrapSession.mockResolvedValueOnce({
+      user: {
+        id: 'u-supervisor',
+        username: 'supervisor',
+        role: 'SUPERVISOR',
+        branchId: 'branch-1',
+      },
+      session: { expiresAt: '2030-01-01T00:00:00.000Z' },
+    });
+
+    const { container } = render(
+      <AppShell>
+        <p>Protected content</p>
+      </AppShell>,
+    );
+
+    await waitFor(() => {
+      expect(
+        container.querySelector('.shell-root--supervisor'),
+      ).toBeInTheDocument();
+    });
+    expect(container.querySelector('.shell-root--cashier')).toBeNull();
+  });
+
+  it('keeps the Supervisor styling scope off Admin shells', async () => {
+    mockBootstrapSession.mockResolvedValueOnce({
+      user: {
+        id: 'u-admin',
+        username: 'admin',
+        role: 'ADMIN',
+        branchId: 'branch-1',
+      },
+      session: { expiresAt: '2030-01-01T00:00:00.000Z' },
+    });
+
+    const { container } = render(
+      <AppShell>
+        <p>Admin content</p>
+      </AppShell>,
+    );
+
+    await waitFor(() => {
+      expect(container.querySelector('.shell-root')).toBeInTheDocument();
+    });
+    expect(container.querySelector('.shell-root--supervisor')).toBeNull();
   });
 
   it('persists sidebar collapse state across reloads in the session', async () => {
@@ -139,18 +251,15 @@ describe('AppShell', () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByText(/session ready/i)).toBeInTheDocument();
+      expect(screen.getByText('Protected content')).toBeInTheDocument();
     });
-    expect(
-      screen.getByRole('button', { name: /expand sidebar/i }),
-    ).toBeInTheDocument();
     expect(document.querySelector('.shell-body')).toHaveClass(
       'shell-body--collapsed',
     );
-    expect(screen.getByText('Branch and device')).not.toBeVisible();
+    expect(screen.queryByText('Branch and device')).not.toBeInTheDocument();
   });
 
-  it('persists sidebar collapse toggles to the session store', async () => {
+  it('toggles and persists the accessible sidebar collapse control', async () => {
     mockBootstrapSession.mockResolvedValueOnce({
       user: {
         id: 'u1',
@@ -168,34 +277,35 @@ describe('AppShell', () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByText(/session ready/i)).toBeInTheDocument();
+      expect(screen.getByText('Protected content')).toBeInTheDocument();
     });
 
-    fireEvent.click(screen.getByRole('button', { name: /collapse sidebar/i }));
-    expect(sessionStorage.getItem('shopcity:shell:sidebar-collapsed')).toBe(
+    const collapseButton = screen.getByRole('button', {
+      name: 'Collapse sidebar',
+    });
+    expect(collapseButton).toHaveAttribute('aria-expanded', 'true');
+    expect(document.querySelector('.shell-sidebar-brand-logo')).toHaveAttribute(
+      'src',
+      expect.stringContaining('Frame%202147224881.svg'),
+    );
+    fireEvent.click(collapseButton);
+    expect(
+      screen.getByRole('button', { name: 'Expand sidebar' }),
+    ).toHaveAttribute('aria-expanded', 'false');
+    expect(localStorage.getItem('shopcity:shell:sidebar-collapsed')).toBe(
       'true',
     );
+    expect(document.querySelector('.shell-sidebar-brand-logo')).toHaveAttribute(
+      'src',
+      expect.stringContaining('/brand/supervisor/icon.png'),
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Expand sidebar' }));
     expect(
-      screen.getByRole('button', { name: /expand sidebar/i }),
-    ).toBeInTheDocument();
+      screen.getByRole('button', { name: 'Collapse sidebar' }),
+    ).toHaveAttribute('aria-expanded', 'true');
   });
 
-  it('defaults tablets to the collapsed rail when no preference is stored', async () => {
-    const originalMatchMedia = window.matchMedia;
-    Object.defineProperty(window, 'matchMedia', {
-      writable: true,
-      value: jest.fn().mockImplementation((query: string) => ({
-        matches: query.includes('768px') && query.includes('1199px'),
-        media: query,
-        onchange: null,
-        addEventListener: jest.fn(),
-        removeEventListener: jest.fn(),
-        addListener: jest.fn(),
-        removeListener: jest.fn(),
-        dispatchEvent: jest.fn(),
-      })),
-    });
-
+  it('keeps the expanded layout at tablet width unless the user collapses it', async () => {
     mockBootstrapSession.mockResolvedValueOnce({
       user: {
         id: 'u1',
@@ -213,16 +323,11 @@ describe('AppShell', () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByText(/session ready/i)).toBeInTheDocument();
+      expect(screen.getByText('Protected content')).toBeInTheDocument();
     });
-    expect(document.querySelector('.shell-body')).toHaveClass(
+    expect(document.querySelector('.shell-body')).not.toHaveClass(
       'shell-body--collapsed',
     );
-
-    Object.defineProperty(window, 'matchMedia', {
-      writable: true,
-      value: originalMatchMedia,
-    });
   });
 
   it('keeps the drawer focus trapped and the shell inert while open', async () => {
@@ -243,7 +348,7 @@ describe('AppShell', () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByText(/session ready/i)).toBeInTheDocument();
+      expect(screen.getByText('Protected content')).toBeInTheDocument();
     });
 
     fireEvent.click(screen.getByText('Menu', { selector: 'button' }));
@@ -252,10 +357,17 @@ describe('AppShell', () => {
       true,
     );
 
-    const navLinks = within(drawer).getAllByRole('link');
-    const lastLink = navLinks[navLinks.length - 1];
+    expect(
+      within(drawer).getByRole('link', { name: /help & training/i }),
+    ).toBeInTheDocument();
+    expect(
+      within(drawer).getByRole('button', { name: 'Logout' }),
+    ).toBeInTheDocument();
+    const lastFocusable = within(drawer).getByRole('button', {
+      name: 'Logout',
+    });
     fireEvent.keyDown(window, { key: 'Tab', shiftKey: true });
-    expect(lastLink).toHaveFocus();
+    expect(lastFocusable).toHaveFocus();
 
     fireEvent.click(document.querySelector('.shell-mobile-overlay') as Element);
     await waitFor(() => {
@@ -287,7 +399,7 @@ describe('AppShell', () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByText(/session ready/i)).toBeInTheDocument();
+      expect(screen.getByText('Protected content')).toBeInTheDocument();
     });
     await waitFor(() => {
       expect(
@@ -342,13 +454,20 @@ describe('AppShell', () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByText(/session ready/i)).toBeInTheDocument();
+      expect(screen.getByText('Protected content')).toBeInTheDocument();
     });
 
     fireEvent.click(screen.getByText('Menu', { selector: 'button' }));
+    const drawer = screen.getByRole('dialog', {
+      name: /primary navigation/i,
+    });
+    expect(drawer).toBeInTheDocument();
     expect(
-      screen.getByRole('dialog', { name: /primary navigation/i }),
-    ).toBeInTheDocument();
+      within(drawer).getByText('Powered by Radar Solutions'),
+    ).toBeVisible();
+    expect(
+      within(drawer).queryByText(/Lekki Flagship|Africa\/Lagos/),
+    ).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: /close/i })).toHaveFocus();
 
     fireEvent.click(screen.getByRole('button', { name: /close/i }));
@@ -376,7 +495,7 @@ describe('AppShell', () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByText(/session ready/i)).toBeInTheDocument();
+      expect(screen.getByText('Protected content')).toBeInTheDocument();
     });
 
     fireEvent.click(screen.getByText('Menu', { selector: 'button' }));
@@ -401,7 +520,9 @@ describe('AppShell', () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByText(/sign in required/i)).toBeInTheDocument();
+      expect(
+        screen.getAllByText(/sign in to access cashier/i),
+      ).not.toHaveLength(0);
     });
     expect(screen.queryByText('Protected content')).not.toBeInTheDocument();
     expect(

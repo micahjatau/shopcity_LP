@@ -32,7 +32,7 @@ test('Cashier UI authentication fills device-bound credentials and expects cashi
   await loginRoleInUi(page, 'cashier', config);
 
   expect(filled).toMatchObject({
-    'Tenant / email / username': 'smoke.cashier',
+    'Email Address': 'smoke.cashier',
     Password: 'password',
     'Device ID': 'device-smoke',
     'Device attestation secret': 'attestation-secret',

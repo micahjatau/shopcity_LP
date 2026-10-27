@@ -1,4 +1,9 @@
 import * as Joi from 'joi';
+import {
+  isLocalCashierTestSessionEnabled,
+  isValidTailscaleHttpsOrigin,
+} from './local-cashier-test-session';
+import { isBffSecretValid } from '../common/auth/bff-identity';
 
 const isTest = process.env.NODE_ENV === 'test';
 
@@ -8,10 +13,60 @@ const requiredString = (fallback: string) =>
 const requiredKek = (fallback: string) =>
   isTest ? Joi.string().default(fallback) : Joi.string().min(32).required();
 
+const twilioCredential = (pattern?: RegExp) => {
+  const credential = pattern
+    ? Joi.string().trim().pattern(pattern)
+    : Joi.string().trim().min(1);
+  return credential.empty('').when('SMS_PROVIDER_VENDOR', {
+    is: 'twilio',
+    then: Joi.when('SMS_PROVIDER_MODE', {
+      is: 'real',
+      then: credential.required(),
+      otherwise: Joi.optional(),
+    }),
+    otherwise: Joi.optional(),
+  });
+};
+
+const africaTalkingCredential = (sandbox: boolean) =>
+  Joi.string().when('SMS_PROVIDER_VENDOR', {
+    is: 'africastalking',
+    then: Joi.when('SMS_PROVIDER_MODE', {
+      is: 'real',
+      then: Joi.when('AFRICASTALKING_SANDBOX', {
+        is: sandbox,
+        then: Joi.string().trim().min(1).required(),
+        otherwise: Joi.optional(),
+      }),
+      otherwise: Joi.optional(),
+    }),
+    otherwise: Joi.optional(),
+  });
+
 export const envValidationSchema = Joi.object({
   NODE_ENV: Joi.string()
     .valid('development', 'test', 'production', 'staging')
     .default('development'),
+  VERCEL_ENV: Joi.string()
+    .valid('development', 'preview', 'production')
+    .optional(),
+  VERCEL_TARGET_ENV: Joi.string()
+    .valid('development', 'preview', 'staging', 'production')
+    .optional(),
+  SHOPCITY_DEPLOYMENT_ENV: Joi.string()
+    .valid('local', 'test', 'ci', 'preview', 'staging', 'production')
+    .optional(),
+  SHOPCITY_BFF_SHARED_SECRET: Joi.string()
+    .empty('')
+    .custom((value: string | undefined, helpers) => {
+      if (value === undefined || isBffSecretValid(value)) return value;
+      return helpers.error('any.invalid');
+    })
+    .optional(),
+  PILOT_CASHIER_DEVICE_TOKEN_ONLY: Joi.boolean()
+    .truthy('true')
+    .falsy('false')
+    .default(false),
   PORT: Joi.number().port().default(3000),
   DATABASE_URL: requiredString(
     'postgresql://shopcity:shopcity@127.0.0.1:5432/shopcity_test?schema=public',
@@ -48,6 +103,78 @@ export const envValidationSchema = Joi.object({
     'test-device-attestation-kek-test-device-attestation-kek',
   ),
   DEVICE_ATTESTATION_KEK_VERSION: Joi.number().integer().min(1).default(1),
+  POS_DEVICE_TOKEN_HMAC_KEY_VERSION: Joi.number().integer().min(1).default(1),
+  POS_DEVICE_TOKEN_HMAC_KEY: Joi.string()
+    .pattern(/^[A-Za-z0-9_-]{43}$/)
+    .custom((value: string, helpers) => {
+      const decoded = Buffer.from(value, 'base64url');
+      if (decoded.length !== 32 || decoded.toString('base64url') !== value) {
+        return helpers.error('any.invalid');
+      }
+      return value;
+    })
+    .optional(),
+  WEBAUTHN_RP_ID: Joi.string()
+    .trim()
+    .hostname()
+    .pattern(
+      /^(localhost|127\.0\.0\.1|(?:[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?\.)+[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?)$/,
+    )
+    .when('WEBAUTHN_DEVICE_QUALIFICATION_APPROVED', {
+      is: true,
+      then: Joi.required(),
+      otherwise: Joi.optional(),
+    }),
+  WEBAUTHN_ALLOWED_ORIGINS: Joi.string()
+    .trim()
+    .min(1)
+    .custom((value: unknown, helpers) => {
+      if (typeof value !== 'string') return helpers.error('any.invalid');
+      const origins = value.split(',').map((origin) => origin.trim());
+      if (
+        origins.some((origin) => {
+          try {
+            const url = new URL(origin);
+            const local =
+              url.hostname === 'localhost' || url.hostname === '127.0.0.1';
+            return (
+              url.origin !== origin ||
+              url.username !== '' ||
+              url.password !== '' ||
+              (url.protocol !== 'https:' &&
+                !(local && url.protocol === 'http:'))
+            );
+          } catch {
+            return true;
+          }
+        })
+      ) {
+        return helpers.error('any.invalid');
+      }
+      return value;
+    })
+    .when('WEBAUTHN_DEVICE_QUALIFICATION_APPROVED', {
+      is: true,
+      then: Joi.required(),
+      otherwise: Joi.optional(),
+    }),
+  WEBAUTHN_DEVICE_QUALIFICATION_APPROVED: Joi.boolean()
+    .truthy('true')
+    .falsy('false')
+    .default(false),
+  WEBAUTHN_DEV_ENROLLMENT_ENABLED: Joi.boolean()
+    .truthy('true')
+    .falsy('false')
+    .default(false),
+  WEBAUTHN_PREVIEW_ENROLLMENT_ENABLED: Joi.boolean()
+    .truthy('true')
+    .falsy('false')
+    .default(false),
+  DEV_CASHIER_TEST_SESSION_ENABLED: Joi.boolean()
+    .truthy('true')
+    .falsy('false')
+    .default(false),
+  DEV_CASHIER_TEST_SESSION_TAILSCALE_ORIGIN: Joi.string().trim().optional(),
   SHOPCITY_TIMEZONE: Joi.string().default('Africa/Lagos'),
   RECEIPT_WEEK_START_DAY: Joi.number().integer().min(0).max(6).default(1),
   DEFAULT_EARN_RATE_BPS: Joi.number().integer().min(0).max(10000).default(200),
@@ -159,6 +286,12 @@ export const envValidationSchema = Joi.object({
   OUTBOX_PUBLISH_INTERVAL_MS: Joi.number().integer().min(100).default(5000),
   OUTBOX_RETRY_DELAY_MS: Joi.number().integer().min(1000).default(30000),
   OUTBOX_RECOVERY_THRESHOLD_MS: Joi.number().integer().min(1000).default(60000),
+  SMS_DLR_POLL_INTERVAL_MS: Joi.number()
+    .integer()
+    .min(1000)
+    .max(86400000)
+    .default(300000),
+  SMS_DLR_POLL_BATCH_SIZE: Joi.number().integer().min(1).max(100).default(10),
   CREDIT_EXPIRY_SWEEP_INTERVAL_MS: Joi.number()
     .integer()
     .min(1000)
@@ -178,29 +311,108 @@ export const envValidationSchema = Joi.object({
     .min(1)
     .max(1000)
     .default(100),
+  SMS_PROVIDER_VENDOR: Joi.string()
+    .valid('ebulksms', 'arkesel', 'africastalking', 'twilio')
+    .default('ebulksms'),
   SMS_PROVIDER_MODE: Joi.string()
     .valid('deterministic', 'sandbox', 'real')
     .default('deterministic'),
-  SMS_PROVIDER_URL: Joi.string().uri().when('SMS_PROVIDER_MODE', {
-    is: 'real',
-    then: Joi.required(),
+  SMS_PROVIDER_URL: Joi.string()
+    .uri()
+    .when('SMS_PROVIDER_VENDOR', {
+      is: 'ebulksms',
+      then: Joi.when('SMS_PROVIDER_MODE', {
+        is: 'real',
+        then: Joi.required(),
+        otherwise: Joi.optional(),
+      }),
+      otherwise: Joi.optional(),
+    }),
+  SMS_PROVIDER_USERNAME: Joi.string().when('SMS_PROVIDER_VENDOR', {
+    is: 'ebulksms',
+    then: Joi.when('SMS_PROVIDER_MODE', {
+      is: 'real',
+      then: Joi.string().min(1).required(),
+      otherwise: Joi.optional(),
+    }),
     otherwise: Joi.optional(),
   }),
-  SMS_PROVIDER_USERNAME: Joi.string().when('SMS_PROVIDER_MODE', {
-    is: 'real',
-    then: Joi.string().min(1).required(),
+  SMS_PROVIDER_API_KEY: Joi.string().when('SMS_PROVIDER_VENDOR', {
+    is: 'ebulksms',
+    then: Joi.when('SMS_PROVIDER_MODE', {
+      is: 'real',
+      then: Joi.string().min(1).required(),
+      otherwise: Joi.optional(),
+    }),
     otherwise: Joi.optional(),
   }),
-  SMS_PROVIDER_API_KEY: Joi.string().when('SMS_PROVIDER_MODE', {
-    is: 'real',
-    then: Joi.string().min(1).required(),
+  SMS_PROVIDER_SENDER_ID: Joi.string().when('SMS_PROVIDER_VENDOR', {
+    is: 'ebulksms',
+    then: Joi.when('SMS_PROVIDER_MODE', {
+      is: 'real',
+      then: Joi.string().min(1).required(),
+      otherwise: Joi.optional(),
+    }),
     otherwise: Joi.optional(),
   }),
-  SMS_PROVIDER_SENDER_ID: Joi.string().when('SMS_PROVIDER_MODE', {
-    is: 'real',
-    then: Joi.string().min(1).required(),
+  AFRICASTALKING_SANDBOX: Joi.boolean()
+    .truthy('true')
+    .falsy('false')
+    .default(false),
+  AFRICASTALKING_LIVE_USERNAME: africaTalkingCredential(false),
+  AFRICASTALKING_LIVE_API_KEY: africaTalkingCredential(false),
+  AFRICASTALKING_SANDBOX_API_KEY: africaTalkingCredential(true),
+  AFRICASTALKING_SENDER_ID: Joi.string()
+    .trim()
+    .max(11)
+    .when('SMS_PROVIDER_VENDOR', {
+      is: 'africastalking',
+      then: Joi.when('SMS_PROVIDER_MODE', {
+        is: 'real',
+        then: Joi.when('AFRICASTALKING_SANDBOX', {
+          is: false,
+          then: Joi.string().min(1).required(),
+          otherwise: Joi.optional(),
+        }),
+        otherwise: Joi.optional(),
+      }),
+      otherwise: Joi.optional(),
+    }),
+  TWILIO_ACCOUNT_SID: twilioCredential(/^AC[0-9a-f]{32}$/i),
+  TWILIO_API_KEY: twilioCredential(/^SK[0-9a-f]{32}$/i),
+  TWILIO_API_SECRET: twilioCredential(),
+  TWILIO_FROM_NUMBER: Joi.string()
+    .trim()
+    .pattern(/^\+[1-9]\d{7,14}$/)
+    .empty('')
+    .optional(),
+  TWILIO_MESSAGING_SERVICE_SID: Joi.string()
+    .trim()
+    .pattern(/^MG[0-9a-f]{32}$/i)
+    .empty('')
+    .optional(),
+  ARKESEL_API_KEY: Joi.string().when('SMS_PROVIDER_VENDOR', {
+    is: 'arkesel',
+    then: Joi.when('SMS_PROVIDER_MODE', {
+      is: 'real',
+      then: Joi.string().min(1).required(),
+      otherwise: Joi.optional(),
+    }),
     otherwise: Joi.optional(),
   }),
+  ARKESEL_SENDER_ID: Joi.string().when('SMS_PROVIDER_VENDOR', {
+    is: 'arkesel',
+    then: Joi.when('SMS_PROVIDER_MODE', {
+      is: 'real',
+      then: Joi.string().min(1).required(),
+      otherwise: Joi.optional(),
+    }),
+    otherwise: Joi.optional(),
+  }),
+  ARKESEL_API_URL: Joi.string()
+    .uri({ scheme: ['https'] })
+    .default('https://sms.arkesel.com/api/v2'),
+  ARKESEL_SANDBOX: Joi.boolean().truthy('true').falsy('false').default(false),
   SMS_PROVIDER_TIMEOUT_MS: Joi.number().integer().min(1000).default(10000),
   ALLOW_FAKE_SMS_IN_PRODUCTION: Joi.boolean()
     .truthy('true')
@@ -225,6 +437,8 @@ export const envValidationSchema = Joi.object({
     .valid('fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent')
     .default('info'),
   RELEASE_SHA: Joi.string().default('dev'),
+  VERCEL_GIT_COMMIT_SHA: Joi.string().optional(),
+  GITHUB_SHA: Joi.string().optional(),
   RELEASE_VERSION: Joi.string().default('0.0.0-dev'),
   SENTRY_DSN: Joi.string().uri().optional(),
   REPORT_STALENESS_THRESHOLD_MINUTES: Joi.number()
@@ -239,36 +453,204 @@ export const envValidationSchema = Joi.object({
     .default(30),
   SWAGGER_ENABLED: Joi.boolean().truthy('true').falsy('false').default(false),
   DEFAULT_PUBLIC_TENANT_ID: requiredString(
-    '00000000-0000-0000-0000-000000000001',
+    '00000000-0000-4000-8000-000000000001',
   ),
   DEFAULT_PUBLIC_BRANCH_ID: requiredString(
-    '00000000-0000-0000-0000-000000000002',
+    '00000000-0000-4000-8000-000000000002',
   ),
   CORS_ORIGIN_ALLOWLIST: requiredString(
-    'http://localhost:3000,http://127.0.0.1:3000',
+    'http://localhost:3000,http://127.0.0.1:3000,http://localhost:3100,http://127.0.0.1:3100',
   ),
+  POS_DEVICE_TOKEN_PAIRING_ORIGINS: Joi.string().allow('').default(''),
   SUPABASE_URL: requiredString('http://127.0.0.1:54321'),
   SUPABASE_ANON_KEY: requiredString('test-anon-key'),
   SUPABASE_SERVICE_ROLE_KEY: requiredString('test-service-role-key'),
 })
   .custom((value: unknown, helpers) => {
     const env = value as Record<string, number>;
-    const attestationKek = String(env.DEVICE_ATTESTATION_KEK ?? '');
+    const envFlags = value as Record<string, unknown>;
+    const attestationKek =
+      typeof envFlags.DEVICE_ATTESTATION_KEK === 'string'
+        ? envFlags.DEVICE_ATTESTATION_KEK
+        : '';
     const secretValues = [
-      env.SESSION_SECRET,
-      env.CSRF_SECRET,
-      env.SMS_PROVIDER_USERNAME,
-      env.SMS_PROVIDER_API_KEY,
-      env.SMS_PROVIDER_SENDER_ID,
-    ]
-      .filter((secret) => typeof secret === 'string')
-      .map((secret) => String(secret));
+      envFlags.SESSION_SECRET,
+      envFlags.CSRF_SECRET,
+      envFlags.SMS_PROVIDER_USERNAME,
+      envFlags.SMS_PROVIDER_API_KEY,
+      envFlags.SMS_PROVIDER_SENDER_ID,
+      envFlags.ARKESEL_API_KEY,
+      envFlags.AFRICASTALKING_LIVE_API_KEY,
+      envFlags.AFRICASTALKING_SANDBOX_API_KEY,
+      envFlags.TWILIO_API_SECRET,
+      envFlags.SHOPCITY_BFF_SHARED_SECRET,
+    ].filter((secret): secret is string => typeof secret === 'string');
 
     if (attestationKek.trim().length < 32) {
       return helpers.error('any.invalid');
     }
 
     if (secretValues.includes(attestationKek)) {
+      return helpers.error('any.invalid');
+    }
+
+    const nodeEnv =
+      typeof envFlags.NODE_ENV === 'string' ? envFlags.NODE_ENV : '';
+    const deploymentEnvironment =
+      typeof envFlags.SHOPCITY_DEPLOYMENT_ENV === 'string'
+        ? envFlags.SHOPCITY_DEPLOYMENT_ENV
+        : '';
+    const vercelEnvironment =
+      typeof envFlags.VERCEL_ENV === 'string' ? envFlags.VERCEL_ENV : '';
+    const vercelTargetEnvironment =
+      typeof envFlags.VERCEL_TARGET_ENV === 'string'
+        ? envFlags.VERCEL_TARGET_ENV
+        : '';
+    const deployedRuntime =
+      nodeEnv === 'production' ||
+      nodeEnv === 'staging' ||
+      vercelEnvironment === 'preview' ||
+      vercelEnvironment === 'production' ||
+      ['preview', 'staging', 'production'].includes(deploymentEnvironment);
+    const deploymentIdentityValidationApplies =
+      !isTest ||
+      deploymentEnvironment !== '' ||
+      vercelEnvironment !== '' ||
+      vercelTargetEnvironment !== '' ||
+      envFlags.SHOPCITY_BFF_SHARED_SECRET !== undefined ||
+      envFlags.PILOT_CASHIER_DEVICE_TOKEN_ONLY === true;
+    const deploymentIdentityInvalid =
+      deploymentIdentityValidationApplies &&
+      ((deployedRuntime &&
+        (!['preview', 'staging', 'production'].includes(
+          deploymentEnvironment,
+        ) ||
+          !isBffSecretValid(
+            typeof envFlags.SHOPCITY_BFF_SHARED_SECRET === 'string'
+              ? envFlags.SHOPCITY_BFF_SHARED_SECRET
+              : undefined,
+          ) ||
+          envFlags.PILOT_CASHIER_DEVICE_TOKEN_ONLY !== true)) ||
+        (vercelTargetEnvironment !== '' &&
+          vercelTargetEnvironment !== deploymentEnvironment) ||
+        (vercelEnvironment === 'production' &&
+          deploymentEnvironment !== 'production') ||
+        (vercelEnvironment === 'preview' &&
+          deploymentEnvironment !== 'preview' &&
+          deploymentEnvironment !== 'staging') ||
+        (vercelEnvironment === 'development' &&
+          deploymentEnvironment !== 'local'));
+    const webAuthnOrigins = (
+      typeof envFlags.WEBAUTHN_ALLOWED_ORIGINS === 'string'
+        ? envFlags.WEBAUTHN_ALLOWED_ORIGINS
+        : ''
+    )
+      .split(',')
+      .map((origin) => origin.trim())
+      .filter(Boolean);
+    const rpId =
+      typeof envFlags.WEBAUTHN_RP_ID === 'string'
+        ? envFlags.WEBAUTHN_RP_ID.toLowerCase()
+        : '';
+    const developmentEnrollmentEnabled =
+      envFlags.WEBAUTHN_DEV_ENROLLMENT_ENABLED === true;
+    const previewEnrollmentEnabled =
+      envFlags.WEBAUTHN_PREVIEW_ENROLLMENT_ENABLED === true;
+    const qualificationApproved =
+      envFlags.WEBAUTHN_DEVICE_QUALIFICATION_APPROVED === true;
+    const localCashierTestSessionRequested =
+      envFlags.DEV_CASHIER_TEST_SESSION_ENABLED === true;
+    const twilioRealRequested =
+      envFlags.SMS_PROVIDER_VENDOR === 'twilio' &&
+      envFlags.SMS_PROVIDER_MODE === 'real';
+    const twilioFromConfigured =
+      typeof envFlags.TWILIO_FROM_NUMBER === 'string' &&
+      envFlags.TWILIO_FROM_NUMBER.trim().length > 0;
+    const twilioMessagingServiceConfigured =
+      typeof envFlags.TWILIO_MESSAGING_SERVICE_SID === 'string' &&
+      envFlags.TWILIO_MESSAGING_SERVICE_SID.trim().length > 0;
+    const twilioSenderConfigurationInvalid =
+      twilioRealRequested &&
+      twilioFromConfigured === twilioMessagingServiceConfigured;
+    const arkeselSandboxRequested = envFlags.ARKESEL_SANDBOX === true;
+    const africastalkingSandboxRequested =
+      envFlags.AFRICASTALKING_SANDBOX === true;
+    const africastalkingSandboxInvalid =
+      africastalkingSandboxRequested &&
+      (nodeEnv === 'production' ||
+        envFlags.SMS_PROVIDER_VENDOR !== 'africastalking' ||
+        envFlags.SMS_PROVIDER_MODE !== 'real');
+    const arkeselSandboxInvalid =
+      arkeselSandboxRequested &&
+      (nodeEnv === 'production' ||
+        envFlags.SMS_PROVIDER_VENDOR !== 'arkesel' ||
+        envFlags.SMS_PROVIDER_MODE !== 'real');
+    const localCashierTestSessionEnvironment = {
+      NODE_ENV: nodeEnv,
+      VERCEL_ENV: envFlags.VERCEL_ENV,
+      DATABASE_URL: envFlags.DATABASE_URL,
+      SMS_PROVIDER_MODE: envFlags.SMS_PROVIDER_MODE ?? 'deterministic',
+      DEV_CASHIER_TEST_SESSION_ENABLED: localCashierTestSessionRequested,
+    };
+    const localCashierTestSessionEnabled = isLocalCashierTestSessionEnabled(
+      localCashierTestSessionEnvironment,
+    );
+    const localCashierTestSessionInvalid =
+      localCashierTestSessionRequested && !localCashierTestSessionEnabled;
+    const tailscaleCashierOrigin =
+      envFlags.DEV_CASHIER_TEST_SESSION_TAILSCALE_ORIGIN;
+    const tailscaleCashierOriginInvalid =
+      tailscaleCashierOrigin !== undefined &&
+      (!localCashierTestSessionEnabled ||
+        !isValidTailscaleHttpsOrigin(tailscaleCashierOrigin));
+    const previewOriginInvalid =
+      previewEnrollmentEnabled &&
+      webAuthnOrigins.some((origin) => {
+        try {
+          const parsed = new URL(origin);
+          return parsed.protocol !== 'https:' || parsed.hostname !== rpId;
+        } catch {
+          return true;
+        }
+      });
+    if (
+      deploymentIdentityInvalid ||
+      (developmentEnrollmentEnabled && nodeEnv !== 'development') ||
+      (previewEnrollmentEnabled && vercelEnvironment !== 'preview') ||
+      previewOriginInvalid ||
+      localCashierTestSessionInvalid ||
+      tailscaleCashierOriginInvalid ||
+      africastalkingSandboxInvalid ||
+      arkeselSandboxInvalid ||
+      twilioSenderConfigurationInvalid ||
+      ((developmentEnrollmentEnabled ||
+        previewEnrollmentEnabled ||
+        qualificationApproved) &&
+        (!rpId || webAuthnOrigins.length === 0))
+    ) {
+      return helpers.error('any.invalid');
+    }
+
+    if (
+      webAuthnOrigins.some((origin) => {
+        try {
+          const parsed = new URL(origin);
+          const localHttp =
+            parsed.protocol === 'http:' &&
+            (parsed.hostname === 'localhost' ||
+              parsed.hostname === '127.0.0.1');
+          const rpHostMatch =
+            parsed.hostname === rpId || parsed.hostname.endsWith(`.${rpId}`);
+          return (
+            !rpId ||
+            !rpHostMatch ||
+            (localHttp && nodeEnv !== 'development' && nodeEnv !== 'test')
+          );
+        } catch {
+          return true;
+        }
+      })
+    ) {
       return helpers.error('any.invalid');
     }
 

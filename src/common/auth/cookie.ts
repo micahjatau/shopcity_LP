@@ -61,6 +61,14 @@ export function buildCsrfCookie(
   return parts.join('; ');
 }
 
+export function buildPosDeviceTokenCookie(token: string): string {
+  return `__Host-shopcity_pos_device=${encodeURIComponent(token)}; Path=/; Max-Age=31536000; SameSite=Strict; HttpOnly; Secure`;
+}
+
+export function clearPosDeviceTokenCookie(): string {
+  return '__Host-shopcity_pos_device=; Path=/; Max-Age=0; SameSite=Strict; HttpOnly; Secure';
+}
+
 export function clearCookie(name: string, secure = false): string {
   return `${name}=; Path=/; Max-Age=0; SameSite=Lax; HttpOnly${secure ? '; Secure' : ''}`;
 }

@@ -3,6 +3,7 @@ import { createHmac, randomUUID } from 'node:crypto';
 import {
   CardStatus,
   CustomerStatus,
+  DeviceAuthBindingMode,
   DeviceStatus,
   PrismaClient,
   UserRole,
@@ -228,6 +229,7 @@ describe('receipt capture flows (int)', () => {
         branchId: seedData.branch.id,
         name: 'POS-cashier-two',
         fingerprintHash: 'device-fingerprint-cashier-two',
+        authBindingMode: DeviceAuthBindingMode.HMAC_LEGACY,
         status: DeviceStatus.ACTIVE,
       }),
     });
@@ -342,7 +344,7 @@ describe('receipt capture flows (int)', () => {
         occurredAt: recentOccurredAt(),
       });
 
-      const boundaryStart = new Date('2026-07-21T00:00:00.000Z');
+      const boundaryStart = recentUtcWeekdayStart(2);
 
       await postReceipt(
         {
@@ -404,19 +406,21 @@ describe('receipt capture flows (int)', () => {
     });
 
     try {
+      const sundayStart = recentUtcWeekdayStart(0);
+      const occurredAt = sundayStart.toISOString();
       const { authHeaders, body } = await prepareReceiptFixture({
         customerSuffix: '05a',
         cardSerialNumber: 'SC-1005A',
         deviceName: 'POS-5A',
         fingerprintHash: 'device-fingerprint-5a',
         posReceiptNumber: 'POS-1005A',
-        occurredAt: '2026-07-19T12:00:00.000Z',
+        occurredAt,
       });
 
       await postReceipt(
         {
           ...body,
-          occurredAt: '2026-07-19T12:00:00.000Z',
+          occurredAt,
           overrideReason: 'Zero-based week validation',
         },
         authHeaders,
@@ -430,9 +434,7 @@ describe('receipt capture flows (int)', () => {
         },
       });
 
-      expect(receipt?.receiptWeekStart.toISOString()).toBe(
-        '2026-07-19T00:00:00.000Z',
-      );
+      expect(receipt?.receiptWeekStart.toISOString()).toBe(occurredAt);
     } finally {
       await prisma.branch.update({
         where: { id: seedData.branch.id },
@@ -491,7 +493,7 @@ describe('receipt capture flows (int)', () => {
     }
   }, 120000);
 
-  it('binds the device to the session and rejects spoofed receipt device fields', async () => {
+  it('keeps cashier device binding separate from Admin login locators and rejects spoofed receipt device fields', async () => {
     const { authHeaders, body } = await prepareReceiptFixture({
       customerSuffix: '06',
       cardSerialNumber: 'SC-1006',
@@ -521,12 +523,13 @@ describe('receipt capture flows (int)', () => {
 
     await request(httpServer)
       .post('/api/v1/auth/login')
+      .set('origin', 'http://localhost:3000')
       .set('x-device-id', otherBranchDevice.id)
       .send({
         username: seedData.user.username,
         password: seedData.adminPassword,
       })
-      .expect(400);
+      .expect(200);
 
     await postReceipt(
       {
@@ -550,12 +553,13 @@ describe('receipt capture flows (int)', () => {
 
     await request(httpServer)
       .post('/api/v1/auth/login')
+      .set('origin', 'http://localhost:3000')
       .set('x-device-id', inactiveDevice.id)
       .send({
         username: seedData.user.username,
         password: seedData.adminPassword,
       })
-      .expect(400);
+      .expect(200);
   }, 120000);
 
   it('derives the receipt branch from the transaction snapshot when a device is reassigned after login', async () => {
@@ -616,6 +620,7 @@ describe('receipt capture flows (int)', () => {
         branchId: seedData.branch.id,
         name: 'POS-cashier-two-timecheck',
         fingerprintHash: 'device-fingerprint-cashier-two-timecheck',
+        authBindingMode: DeviceAuthBindingMode.HMAC_LEGACY,
         status: DeviceStatus.ACTIVE,
       }),
     });
@@ -976,6 +981,7 @@ async function prepareReceiptFixture(options: {
       branchId: seedData.branch.id,
       name: options.deviceName,
       fingerprintHash: options.fingerprintHash,
+      authBindingMode: DeviceAuthBindingMode.HMAC_LEGACY,
       status: DeviceStatus.ACTIVE,
     }),
   });
@@ -1013,6 +1019,7 @@ async function loginAs(username: string, deviceId?: string) {
 
   const loginRequest = request(httpServer)
     .post('/api/v1/auth/login')
+    .set('origin', 'http://localhost:3000')
     .set('x-device-id', deviceId ?? '')
     .send({
       username,
@@ -1123,6 +1130,18 @@ function cookieToken(cookiePair: string): string {
 
 function recentOccurredAt(minutesAgo = 1): string {
   return new Date(Date.now() - minutesAgo * 60_000).toISOString();
+}
+
+function recentUtcWeekdayStart(weekday: number): Date {
+  const now = new Date();
+  const daysSinceWeekday = (now.getUTCDay() - weekday + 7) % 7;
+  return new Date(
+    Date.UTC(
+      now.getUTCFullYear(),
+      now.getUTCMonth(),
+      now.getUTCDate() - daysSinceWeekday,
+    ),
+  );
 }
 
 function createSupabaseAdminStub(supabaseAuthId: string) {

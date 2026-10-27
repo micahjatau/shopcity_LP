@@ -13,12 +13,13 @@ const contentSecurityPolicy = [
   "object-src 'none'",
   "base-uri 'self'",
   "form-action 'self'",
-  "frame-ancestors 'self' https://opendesign.micahn8n.name.ng",
+  ...(isProduction ? ["frame-ancestors 'none'"] : []),
   ...(isProduction ? ['upgrade-insecure-requests'] : []),
 ].join('; ');
 
 const nextConfig = {
   reactStrictMode: true,
+  distDir: process.env.SHOPCITY_WEB_DIST_DIR ?? '.next',
   outputFileTracingRoot: path.join(process.cwd(), '../..'),
   async headers() {
     return [

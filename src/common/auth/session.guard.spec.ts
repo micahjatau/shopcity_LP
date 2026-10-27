@@ -1,5 +1,123 @@
-import { UserRole, UserStatus } from '@prisma/client';
-import { isSessionDeviceEligible, isSessionIdleExpired } from './session.guard';
+import { SessionPurpose, UserRole, UserStatus } from '@prisma/client';
+import {
+  isSessionDeviceEligible,
+  isSessionIdleExpired,
+  loadAuthContext,
+} from './session.guard';
+
+describe('loadAuthContext WebAuthn session binding', () => {
+  it('resolves a local unpaired cashier smoke session only with the local-only gate', async () => {
+    const session = {
+      id: 'session-id',
+      userId: 'user-id',
+      deviceId: 'local-device-id',
+      deviceCredentialId: null,
+      purpose: SessionPurpose.SMOKE,
+      status: 'ACTIVE',
+      expiresAt: new Date(Date.now() + 60_000),
+      lastUsedAt: null,
+      user: {
+        ...activeUser(),
+        tenant: { status: 'ACTIVE' },
+        branch: { status: 'ACTIVE' },
+      },
+      device: {
+        tenantId: 'tenant-id',
+        branchId: 'branch-id',
+        status: 'ACTIVE',
+        authBindingMode: 'UNPAIRED',
+        branch: { status: 'ACTIVE' },
+      },
+      deviceCredential: null,
+    };
+    const findUnique = jest.fn().mockResolvedValue(session);
+    const configValues: Record<string, unknown> = {
+      SESSION_SECRET: 'secret',
+      NODE_ENV: 'development',
+      DATABASE_URL:
+        'postgresql://shopcity:shopcity@127.0.0.1:5432/shopcity?schema=public',
+      SMS_PROVIDER_MODE: 'deterministic',
+      DEV_CASHIER_TEST_SESSION_ENABLED: true,
+      WEBAUTHN_RP_ID: 'localhost',
+    };
+    const config = { get: (key: string) => configValues[key] };
+    const request = { headers: { authorization: 'Bearer session-token' } };
+
+    await expect(
+      loadAuthContext(
+        request as never,
+        { session: { findUnique } } as never,
+        config as never,
+      ),
+    ).resolves.toMatchObject({
+      session: { id: 'session-id', purpose: SessionPurpose.SMOKE },
+      user: { id: 'user-id', role: UserRole.CASHIER },
+    });
+
+    configValues.VERCEL_ENV = 'preview';
+    await expect(
+      loadAuthContext(
+        request as never,
+        { session: { findUnique } } as never,
+        config as never,
+      ),
+    ).resolves.toBeNull();
+  });
+
+  it('loads the direct credential relation and rejects a revoked credential', async () => {
+    const findUnique = jest.fn().mockResolvedValue({
+      id: 'session-id',
+      userId: 'user-id',
+      deviceId: 'device-id',
+      deviceCredentialId: 'credential-id',
+      purpose: SessionPurpose.USER,
+      status: 'ACTIVE',
+      expiresAt: new Date(Date.now() + 60_000),
+      lastUsedAt: null,
+      user: {
+        ...activeUser(),
+        tenant: { status: 'ACTIVE' },
+        branch: { status: 'ACTIVE' },
+      },
+      device: {
+        tenantId: 'tenant-id',
+        branchId: 'branch-id',
+        status: 'ACTIVE',
+        authBindingMode: 'WEBAUTHN',
+        branch: { status: 'ACTIVE' },
+      },
+      deviceCredential: {
+        id: 'credential-id',
+        tenantId: 'tenant-id',
+        deviceId: 'device-id',
+        status: 'REVOKED',
+        authenticatorAttachment: 'platform',
+        backupEligible: false,
+        backedUp: false,
+        attestationTrustResult: 'TRUSTED',
+        rpId: 'pos.example.test',
+      },
+    });
+    const request = { headers: { authorization: 'Bearer session-token' } };
+    const config = {
+      get: (key: string) =>
+        key === 'SESSION_SECRET' ? 'secret' : 'pos.example.test',
+    };
+
+    await expect(
+      loadAuthContext(
+        request as never,
+        { session: { findUnique } } as never,
+        config as never,
+      ),
+    ).resolves.toBeNull();
+    const findCalls = findUnique.mock.calls as unknown as Array<
+      [{ include: { deviceCredential: { select: Record<string, boolean> } } }]
+    >;
+    expect(findCalls[0][0].include.deviceCredential.select.id).toBe(true);
+    expect(findCalls[0][0].include.deviceCredential.select.status).toBe(true);
+  });
+});
 
 describe('isSessionIdleExpired', () => {
   const config = {
@@ -53,6 +171,7 @@ describe('isSessionDeviceEligible', () => {
     expect(
       isSessionDeviceEligible({
         deviceId: 'device-id',
+        purpose: SessionPurpose.USER,
         user: activeUser(),
         device: {
           tenantId: 'tenant-id',
@@ -64,10 +183,26 @@ describe('isSessionDeviceEligible', () => {
     ).toBe(false);
   });
 
+  it('accepts an unpaired device only for an explicitly enabled local smoke cashier session', () => {
+    const localTest = webauthnSession({
+      purpose: SessionPurpose.SMOKE,
+      deviceCredentialId: null,
+      deviceCredential: null,
+      device: { authBindingMode: 'UNPAIRED' },
+    });
+
+    expect(isSessionDeviceEligible(localTest, undefined, true)).toBe(true);
+    expect(isSessionDeviceEligible(localTest)).toBe(false);
+
+    localTest.purpose = SessionPurpose.USER;
+    expect(isSessionDeviceEligible(localTest, undefined, true)).toBe(false);
+  });
+
   it('rejects a linked device moved away from the user branch', () => {
     expect(
       isSessionDeviceEligible({
         deviceId: 'device-id',
+        purpose: SessionPurpose.USER,
         user: activeUser(),
         device: {
           tenantId: 'tenant-id',
@@ -83,6 +218,7 @@ describe('isSessionDeviceEligible', () => {
     expect(
       isSessionDeviceEligible({
         deviceId: 'device-id',
+        purpose: SessionPurpose.USER,
         user: activeUser(),
         device: {
           tenantId: 'other-tenant-id',
@@ -93,7 +229,200 @@ describe('isSessionDeviceEligible', () => {
       }),
     ).toBe(false);
   });
+
+  it('rejects device-less CASHIER USER sessions and unpaired cashier devices', () => {
+    expect(
+      isSessionDeviceEligible({
+        deviceId: null,
+        deviceCredentialId: null,
+        purpose: SessionPurpose.USER,
+        user: activeUser(),
+      }),
+    ).toBe(false);
+
+    const unpaired = webauthnSession();
+    unpaired.device.authBindingMode = 'UNPAIRED';
+    unpaired.deviceCredentialId = null;
+    unpaired.deviceCredential = null;
+    expect(isSessionDeviceEligible(unpaired, 'pos.example.test')).toBe(false);
+
+    unpaired.device.authBindingMode = 'UNRECOGNIZED';
+    expect(isSessionDeviceEligible(unpaired, 'pos.example.test')).toBe(false);
+  });
+
+  it('accepts a CASHIER USER HMAC_LEGACY session only without credential binding', () => {
+    const legacy = webauthnSession();
+    legacy.device.authBindingMode = 'HMAC_LEGACY';
+    legacy.deviceCredentialId = null;
+    legacy.deviceCredential = null;
+    expect(isSessionDeviceEligible(legacy, 'pos.example.test')).toBe(true);
+  });
+
+  it('requires a device for cashier smoke sessions but preserves non-cashier device-less smoke sessions', () => {
+    const cashierSmoke = webauthnSession();
+    cashierSmoke.purpose = SessionPurpose.SMOKE;
+    cashierSmoke.device.authBindingMode = 'HMAC_LEGACY';
+    cashierSmoke.deviceCredentialId = null;
+    cashierSmoke.deviceCredential = null;
+    expect(isSessionDeviceEligible(cashierSmoke)).toBe(true);
+
+    const webauthnSmoke = webauthnSession();
+    webauthnSmoke.purpose = SessionPurpose.SMOKE;
+    webauthnSmoke.deviceCredentialId = null;
+    webauthnSmoke.deviceCredential = null;
+    expect(isSessionDeviceEligible(webauthnSmoke, 'pos.example.test')).toBe(
+      false,
+    );
+
+    expect(
+      isSessionDeviceEligible({
+        deviceId: null,
+        deviceCredentialId: null,
+        purpose: SessionPurpose.SMOKE,
+        user: activeUser(),
+      }),
+    ).toBe(false);
+    expect(
+      isSessionDeviceEligible({
+        deviceId: null,
+        deviceCredentialId: null,
+        purpose: SessionPurpose.SMOKE,
+        user: { ...activeUser(), role: UserRole.ADMIN },
+      }),
+    ).toBe(true);
+  });
+
+  it('accepts only the exact active trusted platform credential for a WebAuthn cashier device session', () => {
+    expect(isSessionDeviceEligible(webauthnSession(), 'pos.example.test')).toBe(
+      true,
+    );
+  });
+
+  it.each([
+    ['missing credential id', { deviceCredentialId: null }],
+    ['missing relation', { deviceCredential: null }],
+    ['revoked credential', { deviceCredential: { status: 'REVOKED' } }],
+    ['mismatched credential id', { deviceCredential: { id: 'other-id' } }],
+    [
+      'wrong credential tenant',
+      { deviceCredential: { tenantId: 'other-tenant' } },
+    ],
+    [
+      'wrong credential device',
+      { deviceCredential: { deviceId: 'other-device' } },
+    ],
+    [
+      'untrusted credential',
+      { deviceCredential: { attestationTrustResult: 'NOT_EVALUATED' } },
+    ],
+    [
+      'cross-platform credential',
+      { deviceCredential: { authenticatorAttachment: 'cross-platform' } },
+    ],
+    [
+      'backup eligible credential',
+      { deviceCredential: { backupEligible: true } },
+    ],
+    ['backed-up credential', { deviceCredential: { backedUp: true } }],
+    ['RP mismatch', { deviceCredential: { rpId: 'other.example.test' } }],
+  ])('rejects a WebAuthn session with %s', (_name, overrides) => {
+    expect(
+      isSessionDeviceEligible(webauthnSession(overrides), 'pos.example.test'),
+    ).toBe(false);
+  });
+
+  it('rejects WebAuthn device sessions for non-cashiers', () => {
+    const session = webauthnSession();
+    session.user.role = UserRole.ADMIN;
+    expect(isSessionDeviceEligible(session, 'pos.example.test')).toBe(false);
+  });
+
+  it('rejects credential IDs on non-WebAuthn modes and without a device', () => {
+    const legacy = webauthnSession();
+    legacy.device.authBindingMode = 'HMAC_LEGACY';
+    expect(isSessionDeviceEligible(legacy, 'pos.example.test')).toBe(false);
+
+    expect(
+      isSessionDeviceEligible({
+        deviceId: null,
+        deviceCredentialId: 'credential-id',
+        purpose: SessionPurpose.USER,
+        user: activeUser(),
+      }),
+    ).toBe(false);
+  });
+
+  it('allows existing HMAC and device-less smoke sessions without credential binding', () => {
+    const legacy = webauthnSession();
+    legacy.device.authBindingMode = 'HMAC_LEGACY';
+    legacy.deviceCredentialId = null;
+    legacy.deviceCredential = null;
+    legacy.purpose = SessionPurpose.SMOKE;
+    expect(isSessionDeviceEligible(legacy)).toBe(true);
+    expect(
+      isSessionDeviceEligible({
+        deviceId: null,
+        deviceCredentialId: null,
+        purpose: SessionPurpose.SMOKE,
+        user: { ...activeUser(), role: UserRole.ADMIN },
+      }),
+    ).toBe(true);
+  });
 });
+
+type SessionEligibilityInput = Parameters<typeof isSessionDeviceEligible>[0];
+type WebAuthnSessionFixture = SessionEligibilityInput & {
+  device: NonNullable<SessionEligibilityInput['device']>;
+};
+
+function webauthnSession(
+  overrides: {
+    deviceId?: string | null;
+    deviceCredentialId?: string | null;
+    purpose?: SessionEligibilityInput['purpose'];
+    user?: Partial<SessionEligibilityInput['user']>;
+    device?: Partial<NonNullable<SessionEligibilityInput['device']>>;
+    deviceCredential?: Partial<
+      NonNullable<SessionEligibilityInput['deviceCredential']>
+    > | null;
+  } = {},
+): WebAuthnSessionFixture {
+  const credential = {
+    id: 'credential-id',
+    tenantId: 'tenant-id',
+    deviceId: 'device-id',
+    status: 'ACTIVE',
+    authenticatorAttachment: 'platform',
+    backupEligible: false,
+    backedUp: false,
+    attestationTrustResult: 'TRUSTED',
+    rpId: 'pos.example.test',
+  };
+  return {
+    deviceId:
+      overrides.deviceId === undefined ? 'device-id' : overrides.deviceId,
+    deviceCredentialId:
+      overrides.deviceCredentialId === undefined
+        ? 'credential-id'
+        : overrides.deviceCredentialId,
+    purpose: overrides.purpose ?? SessionPurpose.USER,
+    user: { ...activeUser(), ...overrides.user },
+    device: {
+      tenantId: 'tenant-id',
+      status: 'ACTIVE',
+      branchId: 'branch-id',
+      authBindingMode: 'WEBAUTHN',
+      branch: { status: 'ACTIVE' },
+      ...overrides.device,
+    },
+    deviceCredential:
+      overrides.deviceCredential === undefined
+        ? credential
+        : overrides.deviceCredential === null
+          ? null
+          : { ...credential, ...overrides.deviceCredential },
+  };
+}
 
 function activeUser() {
   return {

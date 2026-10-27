@@ -1,5 +1,5 @@
 import { execSync } from 'node:child_process';
-import { createHmac, randomUUID } from 'node:crypto';
+import { createHmac, randomBytes, randomUUID } from 'node:crypto';
 import {
   PrismaClient,
   BranchStatus,
@@ -11,6 +11,7 @@ import {
   LedgerEntryType,
   ReceiptCaptureStatus,
   ReceiptReviewStatus,
+  DeviceAuthBindingMode,
   DeviceStatus,
   TenantStatus,
   SessionStatus,
@@ -19,6 +20,8 @@ import {
 import { PostgreSqlContainer } from '@testcontainers/postgresql';
 import request from 'supertest';
 import { seedFoundation } from '../prisma/seed';
+import { hashDeviceToken } from '../src/common/auth/device-token';
+import type { CardsControllerLookupManagementCardV1200Data } from '../client/shopcity-client';
 import {
   createRedisTestEnvironment,
   type RedisTestEnvironment,
@@ -54,6 +57,8 @@ describe('auth and readiness flows (int)', () => {
   let httpServer: Parameters<typeof request>[0];
   let seedData: Awaited<ReturnType<typeof seedFoundation>>;
   let cashierUser: Awaited<ReturnType<typeof createStaffUser>>;
+  let cashierLoginDevice: { id: string; fingerprintHash: string };
+  let supervisorUser: Awaited<ReturnType<typeof createStaffUser>>;
 
   beforeAll(async () => {
     pgContainer = await new PostgreSqlContainer('postgres:16-alpine').start();
@@ -76,6 +81,9 @@ describe('auth and readiness flows (int)', () => {
     process.env.SUPABASE_URL = 'http://127.0.0.1:54321';
     process.env.SUPABASE_ANON_KEY = 'test-anon-key';
     process.env.SUPABASE_SERVICE_ROLE_KEY = 'test-service-role-key';
+    process.env.POS_DEVICE_TOKEN_HMAC_KEY =
+      randomBytes(32).toString('base64url');
+    process.env.POS_DEVICE_TOKEN_HMAC_KEY_VERSION = '1';
 
     jest.resetModules();
     const supabaseModule = jest.requireActual<
@@ -104,6 +112,31 @@ describe('auth and readiness flows (int)', () => {
       'cashier.read-model@shopcity.local',
       'cashier-read-model-supabase-user',
     );
+    const cashierDevice = await prisma.device.create({
+      data: createAttestedDeviceData({
+        tenantId: seedData.tenant.id,
+        branchId: seedData.branch.id,
+        name: 'POS-cashier-read-model',
+        fingerprintHash: 'cashier-read-model-device-secret',
+        authBindingMode: DeviceAuthBindingMode.HMAC_LEGACY,
+        status: DeviceStatus.ACTIVE,
+      }),
+    });
+    if (!cashierDevice.fingerprintHash) {
+      throw new Error('Cashier login fixture requires an HMAC device secret');
+    }
+    cashierLoginDevice = {
+      id: cashierDevice.id,
+      fingerprintHash: cashierDevice.fingerprintHash,
+    };
+    supervisorUser = await createStaffUser(
+      prisma,
+      seedData.tenant.id,
+      seedData.branch.id,
+      UserRole.SUPERVISOR,
+      'supervisor.cards@shopcity.local',
+      'supervisor-cards-supabase-user',
+    );
 
     app = await createAppFn({ enableDocs: false });
     await (
@@ -125,7 +158,9 @@ describe('auth and readiness flows (int)', () => {
               id:
                 email === cashierUser.username
                   ? cashierUser.supabaseAuthId
-                  : seedData.user.supabaseAuthId,
+                  : email === supervisorUser.username
+                    ? supervisorUser.supabaseAuthId
+                    : seedData.user.supabaseAuthId,
             },
             session: null,
           },
@@ -148,6 +183,7 @@ describe('auth and readiness flows (int)', () => {
   it('logs in, rotates, rejects stale sessions, and logs out over HTTP', async () => {
     const loginResponse = await request(httpServer)
       .post('/api/v1/auth/login')
+      .set('origin', 'http://localhost:3000')
       .send({
         username: seedData.user.username,
         password: seedData.adminPassword,
@@ -245,9 +281,266 @@ describe('auth and readiness flows (int)', () => {
       .expect(401);
   }, 120000);
 
+  it('pairs a target browser, authenticates a cashier from its token cookie, then atomically resets sessions', async () => {
+    const device = await prisma.device.create({
+      data: {
+        tenantId: seedData.tenant.id,
+        branchId: seedData.branch.id,
+        name: 'POS-device-token-e2e',
+        fingerprintHash: null,
+        authBindingMode: DeviceAuthBindingMode.UNPAIRED,
+        attestationSecretCiphertext: null,
+        attestationSecretVersion: 0,
+        attestationSecretRotatedAt: null,
+      },
+    });
+    const adminLogin = await request(httpServer)
+      .post('/api/v1/auth/login')
+      .set('origin', 'http://localhost:3000')
+      .send({
+        username: seedData.user.username,
+        password: seedData.adminPassword,
+      })
+      .expect(200);
+    const adminSessionCookie = cookieValue(
+      adminLogin.headers['set-cookie'],
+      'shopcity_session',
+    );
+    const adminCsrfCookie = cookieValue(
+      adminLogin.headers['set-cookie'],
+      'shopcity_csrf',
+    );
+    const adminCookieHeader = `${adminSessionCookie}; ${adminCsrfCookie}`;
+    const adminCsrfToken = cookieToken(adminCsrfCookie);
+
+    const pairing = await request(httpServer)
+      .post(`/api/v1/devices/${device.id}/token/pair`)
+      .set('origin', 'http://localhost:3000')
+      .set('cookie', adminCookieHeader)
+      .set('x-csrf-token', adminCsrfToken)
+      .expect(200);
+    const tokenCookieHeader = pairing.headers['set-cookie'] as string[];
+    const rawTokenCookie = cookieValue(
+      tokenCookieHeader,
+      '__Host-shopcity_pos_device',
+    );
+    const rawDeviceToken = cookieToken(rawTokenCookie);
+    const tokenCookieDetails = tokenCookieHeader.find((cookie) =>
+      cookie.startsWith('__Host-shopcity_pos_device='),
+    );
+    expect(tokenCookieDetails).toContain('Secure');
+    expect(tokenCookieDetails).toContain('HttpOnly');
+    expect(tokenCookieDetails).toContain('SameSite=Strict');
+    expect(tokenCookieDetails).toContain('Max-Age=31536000');
+    expect(JSON.stringify(pairing.body)).not.toContain(rawDeviceToken);
+
+    const key = process.env.POS_DEVICE_TOKEN_HMAC_KEY!;
+    const credential = await prisma.deviceTokenCredential.findFirstOrThrow({
+      where: { tenantId: seedData.tenant.id, deviceId: device.id },
+    });
+    expect(credential.tokenHash).toBe(hashDeviceToken(rawDeviceToken, key));
+    expect(credential.tokenHash).not.toBe(rawDeviceToken);
+    expect(credential.keyVersion).toBe(1);
+
+    const cashierLogin = await request(httpServer)
+      .post('/api/v1/auth/login')
+      .set('origin', 'http://localhost:3000')
+      .set('x-device-id', device.id)
+      .set('cookie', rawTokenCookie)
+      .send({ username: cashierUser.username, password: 'password' })
+      .expect(200);
+    const cashierLoginBody = cashierLogin.body as AuthLoginResponseBody;
+    expect(cashierLoginBody.data.session.deviceId).toBe(device.id);
+    const cashierSessionCookie = cookieValue(
+      cashierLogin.headers['set-cookie'],
+      'shopcity_session',
+    );
+    const cashierCsrfCookie = cookieValue(
+      cashierLogin.headers['set-cookie'],
+      'shopcity_csrf',
+    );
+    const cashierSession = await prisma.session.findFirstOrThrow({
+      where: {
+        userId: cashierUser.id,
+        deviceId: device.id,
+        status: SessionStatus.ACTIVE,
+      },
+    });
+    expect(cashierSession.deviceId).toBe(device.id);
+
+    const refreshResponse = await request(httpServer)
+      .post('/api/v1/auth/refresh')
+      .set('origin', 'http://localhost:3000')
+      .set(
+        'cookie',
+        `${cashierSessionCookie}; ${cashierCsrfCookie}; ${rawTokenCookie}`,
+      )
+      .set('x-csrf-token', cookieToken(cashierCsrfCookie))
+      .expect(200);
+    const refreshSetCookies = refreshResponse.headers['set-cookie'] as string[];
+    expect(
+      refreshSetCookies.some((cookie) =>
+        cookie.startsWith('__Host-shopcity_pos_device='),
+      ),
+    ).toBe(false);
+    const refreshedSession = await prisma.session.findFirstOrThrow({
+      where: {
+        userId: cashierUser.id,
+        deviceId: device.id,
+        status: SessionStatus.ACTIVE,
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+    expect(
+      await prisma.session.findUniqueOrThrow({
+        where: { id: cashierSession.id },
+      }),
+    ).toMatchObject({ status: SessionStatus.REVOKED });
+
+    const reset = await request(httpServer)
+      .post(`/api/v1/devices/${device.id}/token/reset`)
+      .set('origin', 'http://localhost:3000')
+      .set('cookie', `${adminCookieHeader}; ${rawTokenCookie}`)
+      .set('x-csrf-token', adminCsrfToken)
+      .expect(200);
+    const resetCookie = (reset.headers['set-cookie'] as string[]).find(
+      (cookie) => cookie.startsWith('__Host-shopcity_pos_device='),
+    );
+    expect(resetCookie).toContain('Max-Age=0');
+    expect(
+      await prisma.deviceTokenCredential.findUniqueOrThrow({
+        where: { id: credential.id },
+      }),
+    ).toMatchObject({ status: 'REVOKED' });
+    expect(
+      await prisma.session.findUniqueOrThrow({
+        where: { id: refreshedSession.id },
+      }),
+    ).toMatchObject({ status: SessionStatus.REVOKED });
+    await request(httpServer)
+      .get('/api/v1/auth/me')
+      .set('cookie', cashierSessionCookie)
+      .expect(401);
+  }, 120000);
+
+  it('preserves browser A when browser A resets device B', async () => {
+    const deviceA = await prisma.device.create({
+      data: {
+        tenantId: seedData.tenant.id,
+        branchId: seedData.branch.id,
+        name: 'POS-device-token-browser-a',
+        fingerprintHash: null,
+        authBindingMode: DeviceAuthBindingMode.UNPAIRED,
+        attestationSecretCiphertext: null,
+        attestationSecretVersion: 0,
+        attestationSecretRotatedAt: null,
+      },
+    });
+    const deviceB = await prisma.device.create({
+      data: {
+        tenantId: seedData.tenant.id,
+        branchId: seedData.branch.id,
+        name: 'POS-device-token-browser-b',
+        fingerprintHash: null,
+        authBindingMode: DeviceAuthBindingMode.UNPAIRED,
+        attestationSecretCiphertext: null,
+        attestationSecretVersion: 0,
+        attestationSecretRotatedAt: null,
+      },
+    });
+    const adminLogin = await request(httpServer)
+      .post('/api/v1/auth/login')
+      .set('origin', 'http://localhost:3000')
+      .send({
+        username: seedData.user.username,
+        password: seedData.adminPassword,
+      })
+      .expect(200);
+    const adminSessionCookie = cookieValue(
+      adminLogin.headers['set-cookie'],
+      'shopcity_session',
+    );
+    const adminCsrfCookie = cookieValue(
+      adminLogin.headers['set-cookie'],
+      'shopcity_csrf',
+    );
+    const adminCookieHeader = `${adminSessionCookie}; ${adminCsrfCookie}`;
+    const adminCsrfToken = cookieToken(adminCsrfCookie);
+    const pairDevice = async (deviceId: string) =>
+      request(httpServer)
+        .post(`/api/v1/devices/${deviceId}/token/pair`)
+        .set('origin', 'http://localhost:3000')
+        .set('cookie', adminCookieHeader)
+        .set('x-csrf-token', adminCsrfToken)
+        .expect(200);
+    const pairingA = await pairDevice(deviceA.id);
+    const tokenCookieA = cookieValue(
+      pairingA.headers['set-cookie'],
+      '__Host-shopcity_pos_device',
+    );
+    const pairingB = await pairDevice(deviceB.id);
+    const tokenCookieB = cookieValue(
+      pairingB.headers['set-cookie'],
+      '__Host-shopcity_pos_device',
+    );
+
+    const cashierLoginA = await request(httpServer)
+      .post('/api/v1/auth/login')
+      .set('origin', 'http://localhost:3000')
+      .set('x-device-id', deviceA.id)
+      .set('cookie', tokenCookieA)
+      .send({ username: cashierUser.username, password: 'password' })
+      .expect(200);
+    const cashierSessionCookieA = cookieValue(
+      cashierLoginA.headers['set-cookie'],
+      'shopcity_session',
+    );
+
+    const resetB = await request(httpServer)
+      .post(`/api/v1/devices/${deviceB.id}/token/reset`)
+      .set('origin', 'http://localhost:3000')
+      .set('cookie', `${adminCookieHeader}; ${tokenCookieA}`)
+      .set('x-csrf-token', adminCsrfToken)
+      .expect(200);
+    expect(
+      ((resetB.headers['set-cookie'] as string[] | undefined) ?? []).some(
+        (cookie) => cookie.startsWith('__Host-shopcity_pos_device='),
+      ),
+    ).toBe(false);
+    expect(
+      await prisma.deviceTokenCredential.findFirstOrThrow({
+        where: { deviceId: deviceA.id },
+      }),
+    ).toMatchObject({ status: 'ACTIVE' });
+    expect(
+      await prisma.deviceTokenCredential.findFirstOrThrow({
+        where: { deviceId: deviceB.id },
+      }),
+    ).toMatchObject({ status: 'REVOKED' });
+    await request(httpServer)
+      .get('/api/v1/auth/me')
+      .set('cookie', `${cashierSessionCookieA}; ${tokenCookieA}`)
+      .expect(200);
+    await request(httpServer)
+      .post('/api/v1/auth/login')
+      .set('origin', 'http://localhost:3000')
+      .set('x-device-id', deviceA.id)
+      .set('cookie', tokenCookieA)
+      .send({ username: cashierUser.username, password: 'password' })
+      .expect(200);
+    await request(httpServer)
+      .post('/api/v1/auth/login')
+      .set('origin', 'http://localhost:3000')
+      .set('x-device-id', deviceB.id)
+      .set('cookie', tokenCookieB)
+      .send({ username: cashierUser.username, password: 'password' })
+      .expect(401);
+  }, 120000);
+
   it('returns truthful reversal and receiptless transaction boundaries over HTTP', async () => {
     const loginResponse = await request(httpServer)
       .post('/api/v1/auth/login')
+      .set('origin', 'http://localhost:3000')
       .send({
         username: seedData.user.username,
         password: seedData.adminPassword,
@@ -323,6 +616,7 @@ describe('auth and readiness flows (int)', () => {
   it('replays concurrent same-key adjustment requests with the same response', async () => {
     const loginResponse = await request(httpServer)
       .post('/api/v1/auth/login')
+      .set('origin', 'http://localhost:3000')
       .send({
         username: seedData.user.username,
         password: seedData.adminPassword,
@@ -377,6 +671,7 @@ describe('auth and readiness flows (int)', () => {
   it('replays concurrent same-key reversal requests with the same response', async () => {
     const loginResponse = await request(httpServer)
       .post('/api/v1/auth/login')
+      .set('origin', 'http://localhost:3000')
       .send({
         username: seedData.user.username,
         password: seedData.adminPassword,
@@ -436,6 +731,7 @@ describe('auth and readiness flows (int)', () => {
 
     const loginResponse = await request(httpServer)
       .post('/api/v1/auth/login')
+      .set('origin', 'http://localhost:3000')
       .set('x-device-id', device.id)
       .set(
         'x-device-attestation',
@@ -458,7 +754,7 @@ describe('auth and readiness flows (int)', () => {
     expect(session).toBeTruthy();
   }, 120000);
 
-  it('rejects login when the device attestation is missing or invalid', async () => {
+  it('ignores an incidental device locator for Admin login but rejects invalid explicit proof', async () => {
     const device = await prisma.device.create({
       data: createAttestedDeviceData({
         tenantId: seedData.tenant.id,
@@ -471,15 +767,17 @@ describe('auth and readiness flows (int)', () => {
 
     await request(httpServer)
       .post('/api/v1/auth/login')
+      .set('origin', 'http://localhost:3000')
       .set('x-device-id', device.id)
       .send({
         username: seedData.user.username,
         password: seedData.adminPassword,
       })
-      .expect(400);
+      .expect(200);
 
     await request(httpServer)
       .post('/api/v1/auth/login')
+      .set('origin', 'http://localhost:3000')
       .set('x-device-id', device.id)
       .set(
         'x-device-attestation',
@@ -495,6 +793,7 @@ describe('auth and readiness flows (int)', () => {
   it('allows bearer-authenticated unsafe requests without CSRF', async () => {
     const loginResponse = await request(httpServer)
       .post('/api/v1/auth/login')
+      .set('origin', 'http://localhost:3000')
       .send({
         username: seedData.user.username,
         password: seedData.adminPassword,
@@ -515,6 +814,7 @@ describe('auth and readiness flows (int)', () => {
   it('writes ip, account, and pair buckets for login throttling', async () => {
     await request(httpServer)
       .post('/api/v1/auth/login')
+      .set('origin', 'http://localhost:3000')
       .send({
         username: seedData.user.username,
         password: seedData.adminPassword,
@@ -561,11 +861,14 @@ describe('auth and readiness flows (int)', () => {
       customerId: fixture.customer.id,
       fullName: fixture.customer.fullName,
       maskedPhone: maskPhone(fixture.customer.phoneE164),
+      email: 'rea***@shopcity.local',
+      birthdayMonth: null,
+      cardNumber: fixture.card.barcodeValue,
       cardStatus: CardStatus.ACTIVE,
       availableBalanceKobo: 1_500,
     });
     expect(listItem).not.toHaveProperty('phoneE164');
-    expect(listItem).not.toHaveProperty('email');
+    expect(listItem.email).not.toBe(fixture.customer.email);
     expect(listItem).not.toHaveProperty('creditLots');
 
     const detailResponse = await request(httpServer)
@@ -576,7 +879,8 @@ describe('auth and readiness flows (int)', () => {
     const detail = (detailResponse.body as CustomerDetailResponseBody).data;
     expect(detail.availableBalanceKobo).toBe(1_500);
     expect(detail).not.toHaveProperty('phoneE164');
-    expect(detail).not.toHaveProperty('email');
+    expect(detail.email).toBe('rea***@shopcity.local');
+    expect(detail.email).not.toBe(fixture.customer.email);
     expect(detail).not.toHaveProperty('creditLots');
   }, 120000);
 
@@ -666,6 +970,330 @@ describe('auth and readiness flows (int)', () => {
     expect(body.data.customer).not.toHaveProperty('creditLots');
   }, 120000);
 
+  it('exposes the tenant-scoped management card lookup only to supervisors and admins', async () => {
+    const fixture = await createCustomerReadFixture(
+      prisma,
+      seedData,
+      'management-card-http',
+    );
+    const adminCookie = await loginSessionCookie(seedData.user.username);
+    const supervisorCookie = await loginSessionCookie(supervisorUser.username);
+    const cashierCookie = await loginSessionCookie(cashierUser.username);
+    const original = await prisma.card.findUniqueOrThrow({
+      where: { id: fixture.card.id },
+    });
+    const oldLookup = await request(httpServer)
+      .get(`/api/v1/cards/lookup/${fixture.card.barcodeValue}`)
+      .set('Cookie', cashierCookie)
+      .expect(200);
+    const oldLookupBody = oldLookup.body as CardLookupResponseBody;
+    expect(oldLookupBody.data.customer.availableBalanceKobo).toBe(1_500);
+
+    for (const status of [
+      CardStatus.ACTIVE,
+      CardStatus.BLOCKED,
+      CardStatus.REPLACED,
+    ]) {
+      await prisma.card.update({
+        where: { id: fixture.card.id },
+        data: { status },
+      });
+      const response = await request(httpServer)
+        .get(
+          `/api/v1/cards/management/lookup/${fixture.card.barcodeValue.toLowerCase()}`,
+        )
+        .set('Cookie', supervisorCookie)
+        .expect(200);
+
+      const data = (response.body as ManagementCardLookupResponseBody).data;
+      expect(data).toEqual({
+        id: fixture.card.id,
+        serialNumber: fixture.card.barcodeValue,
+        status,
+        issuedAt: original.issuedAt.toISOString(),
+        blockedAt: null,
+        replacedAt: null,
+        replacedByCardId: null,
+        customer: {
+          id: fixture.customer.id,
+          fullName: fixture.customer.fullName,
+          status: fixture.customer.status,
+        },
+      });
+      expect(Object.keys(data).sort()).toEqual(
+        [
+          'id',
+          'serialNumber',
+          'status',
+          'issuedAt',
+          'blockedAt',
+          'replacedAt',
+          'replacedByCardId',
+          'customer',
+        ].sort(),
+      );
+      expect(Object.keys(data.customer).sort()).toEqual(
+        ['id', 'fullName', 'status'].sort(),
+      );
+      expect(JSON.stringify(data)).not.toMatch(
+        /phone|email|balance|audit|tenant|actor/i,
+      );
+    }
+
+    await request(httpServer)
+      .get(`/api/v1/cards/management/lookup/${fixture.card.barcodeValue}`)
+      .set('Cookie', adminCookie)
+      .expect(200);
+    await request(httpServer)
+      .get(`/api/v1/cards/management/lookup/${fixture.card.barcodeValue}`)
+      .set('Cookie', cashierCookie)
+      .expect(403);
+
+    await request(httpServer)
+      .get('/api/v1/cards/management/lookup/does-not-exist')
+      .set('Cookie', adminCookie)
+      .expect(404);
+
+    const tenantB = await prisma.tenant.create({
+      data: { name: 'Management Lookup Tenant B', status: TenantStatus.ACTIVE },
+    });
+    const branchB = await prisma.branch.create({
+      data: {
+        tenantId: tenantB.id,
+        name: 'Management Lookup Branch B',
+        timezone: 'Africa/Lagos',
+        receiptWeekStartDay: 1,
+        status: BranchStatus.ACTIVE,
+      },
+    });
+    const customerB = await prisma.customer.create({
+      data: {
+        tenantId: tenantB.id,
+        branchId: branchB.id,
+        fullName: 'Tenant B Management Customer',
+        phoneE164: '+2348012345099',
+        isStaff: false,
+        status: CustomerStatus.ACTIVE,
+      },
+    });
+    const cardB = await prisma.card.create({
+      data: {
+        tenantId: tenantB.id,
+        customerId: customerB.id,
+        barcodeValue: 'CARD-TENANT-B-MANAGEMENT',
+        status: CardStatus.ACTIVE,
+      },
+    });
+
+    const crossTenantResponse = await request(httpServer)
+      .get(`/api/v1/cards/management/lookup/${cardB.barcodeValue}`)
+      .set('Cookie', supervisorCookie)
+      .expect(404);
+    expect(JSON.stringify(crossTenantResponse.body)).not.toContain(
+      customerB.fullName,
+    );
+    expect(crossTenantResponse.body).not.toHaveProperty('data');
+    await expect(
+      prisma.card.findUniqueOrThrow({ where: { id: cardB.id } }),
+    ).resolves.toMatchObject({
+      id: cardB.id,
+      tenantId: tenantB.id,
+      customerId: customerB.id,
+      barcodeValue: cardB.barcodeValue,
+      status: CardStatus.ACTIVE,
+    });
+
+    const unchanged = await prisma.card.findUniqueOrThrow({
+      where: { id: fixture.card.id },
+    });
+    expect(unchanged).toMatchObject({
+      status: CardStatus.REPLACED,
+      issuedAt: original.issuedAt,
+      blockedAt: null,
+      replacedAt: null,
+    });
+  }, 120000);
+
+  it('lists tenant-scoped issued cards in all lifecycle states with bounded filtered cursors', async () => {
+    const fixture = await createCustomerReadFixture(
+      prisma,
+      seedData,
+      'issued-card-directory-http',
+    );
+    const scopedSearch = `q=${encodeURIComponent(fixture.customer.fullName)}`;
+    const adminCookie = await loginSessionCookie(seedData.user.username);
+    const supervisorCookie = await loginSessionCookie(supervisorUser.username);
+    const cashierCookie = await loginSessionCookie(cashierUser.username);
+    const activeIssuedAt = new Date('2025-01-01T00:00:00.000Z');
+    const blockedIssuedAt = new Date('2025-02-01T00:00:00.000Z');
+    await prisma.card.update({
+      where: { id: fixture.card.id },
+      data: { issuedAt: activeIssuedAt },
+    });
+    const blocked = await prisma.card.create({
+      data: {
+        tenantId: seedData.tenant.id,
+        customerId: fixture.customer.id,
+        barcodeValue: 'CARD-DIRECTORY-BLOCKED',
+        status: CardStatus.BLOCKED,
+        issuedAt: blockedIssuedAt,
+      },
+    });
+    const replaced = await prisma.card.create({
+      data: {
+        tenantId: seedData.tenant.id,
+        customerId: fixture.customer.id,
+        barcodeValue: 'CARD-DIRECTORY-REPLACED',
+        status: CardStatus.REPLACED,
+        issuedAt: new Date('2025-03-01T00:00:00.000Z'),
+      },
+    });
+
+    const firstResponse = await request(httpServer)
+      .get(`/api/v1/cards/management/issued?${scopedSearch}&limit=1`)
+      .set('Cookie', supervisorCookie)
+      .expect(200);
+    const firstPage = (
+      firstResponse.body as unknown as {
+        data: {
+          items: Array<Record<string, unknown>>;
+          nextCursor: string | null;
+          hasMore: boolean;
+        };
+      }
+    ).data;
+    expect(firstPage.items).toEqual([
+      {
+        cardNumber: replaced.barcodeValue,
+        status: CardStatus.REPLACED,
+        issuedAt: new Date('2025-03-01T00:00:00.000Z').toISOString(),
+        customer: {
+          id: fixture.customer.id,
+          fullName: fixture.customer.fullName,
+        },
+      },
+    ]);
+    expect(Object.keys(firstPage.items[0]).sort()).toEqual(
+      ['cardNumber', 'status', 'issuedAt', 'customer'].sort(),
+    );
+    expect(JSON.stringify(firstPage)).not.toMatch(
+      /phone|email|balance|tenant|actor|audit/i,
+    );
+    expect(firstPage.hasMore).toBe(true);
+    expect(firstPage.nextCursor).toBeTruthy();
+    await request(httpServer)
+      .get('/api/v1/cards/management/issued?tenantId=not-authenticated-tenant')
+      .set('Cookie', supervisorCookie)
+      .expect(400);
+
+    const secondResponse = await request(httpServer)
+      .get(
+        `/api/v1/cards/management/issued?${scopedSearch}&limit=1&cursor=${encodeURIComponent(firstPage.nextCursor!)}`,
+      )
+      .set('Cookie', adminCookie)
+      .expect(200);
+    const secondPage = (
+      secondResponse.body as unknown as {
+        data: {
+          items: Array<Record<string, unknown>>;
+          nextCursor: string | null;
+          hasMore: boolean;
+        };
+      }
+    ).data;
+    expect(secondPage.items).toEqual([
+      {
+        cardNumber: blocked.barcodeValue,
+        status: CardStatus.BLOCKED,
+        issuedAt: blockedIssuedAt.toISOString(),
+        customer: {
+          id: fixture.customer.id,
+          fullName: fixture.customer.fullName,
+        },
+      },
+    ]);
+    expect(secondPage.hasMore).toBe(true);
+    expect(secondPage.nextCursor).toBeTruthy();
+
+    const thirdResponse = await request(httpServer)
+      .get(
+        `/api/v1/cards/management/issued?${scopedSearch}&limit=1&cursor=${encodeURIComponent(secondPage.nextCursor!)}`,
+      )
+      .set('Cookie', supervisorCookie)
+      .expect(200);
+    const thirdPage = (
+      thirdResponse.body as unknown as {
+        data: { items: Array<Record<string, unknown>>; hasMore: boolean };
+      }
+    ).data;
+    expect(thirdPage.items).toEqual([
+      {
+        cardNumber: fixture.card.barcodeValue,
+        status: CardStatus.ACTIVE,
+        issuedAt: activeIssuedAt.toISOString(),
+        customer: {
+          id: fixture.customer.id,
+          fullName: fixture.customer.fullName,
+        },
+      },
+    ]);
+    expect(thirdPage.hasMore).toBe(false);
+
+    const filteredResponse = await request(httpServer)
+      .get(
+        '/api/v1/cards/management/issued?q=CARD-DIRECTORY-REPLACED&status=REPLACED&issuedFrom=2025-03-01&issuedTo=2025-03-01',
+      )
+      .set('Cookie', supervisorCookie)
+      .expect(200);
+    expect(
+      (
+        filteredResponse.body as {
+          data: { items: Array<{ cardNumber: string }> };
+        }
+      ).data.items.map(({ cardNumber }) => cardNumber),
+    ).toEqual([replaced.barcodeValue]);
+
+    await request(httpServer)
+      .get(
+        '/api/v1/cards/management/issued?issuedFrom=2025-04-01&issuedTo=2025-03-01',
+      )
+      .set('Cookie', supervisorCookie)
+      .expect(400);
+    await request(httpServer)
+      .get('/api/v1/cards/management/issued?status=UNKNOWN')
+      .set('Cookie', supervisorCookie)
+      .expect(400);
+
+    await request(httpServer)
+      .get('/api/v1/cards/management/issued')
+      .set('Cookie', cashierCookie)
+      .expect(403);
+  }, 120000);
+
+  it('limits management card lookup with the cards.lookup policy', async () => {
+    const fixture = await createCustomerReadFixture(
+      prisma,
+      seedData,
+      'management-card-throttle',
+    );
+    const adminCookie = await loginSessionCookie(seedData.user.username);
+
+    for (let attempt = 0; attempt < 30; attempt += 1) {
+      await request(httpServer)
+        .get(`/api/v1/cards/management/lookup/${fixture.card.barcodeValue}`)
+        .set('Cookie', adminCookie)
+        .expect(200);
+    }
+    const limited = await request(httpServer)
+      .get(`/api/v1/cards/management/lookup/${fixture.card.barcodeValue}`)
+      .set('Cookie', adminCookie)
+      .expect(429);
+    const limitedBody = limited.body as {
+      error: { code: string };
+    };
+    expect(limitedBody.error.code).toBe('RATE_LIMITED');
+  }, 120000);
+
   it('returns 201 for confirmed redemption and 202 for pending approval redemption', async () => {
     const fixture = await createCustomerReadFixture(
       prisma,
@@ -686,6 +1314,7 @@ describe('auth and readiness flows (int)', () => {
         tenantId: seedData.tenant.id,
         branchId: seedData.branch.id,
         name: 'POS-redeem-http',
+        authBindingMode: DeviceAuthBindingMode.HMAC_LEGACY,
         fingerprintHash: 'device-fingerprint-redeem-http',
         status: DeviceStatus.ACTIVE,
       }),
@@ -765,6 +1394,7 @@ describe('auth and readiness flows (int)', () => {
   it('rejects protected requests when the tenant or branch is inactive', async () => {
     const loginResponse = await request(httpServer)
       .post('/api/v1/auth/login')
+      .set('origin', 'http://localhost:3000')
       .send({ username: seedData.username, password: seedData.adminPassword })
       .expect(200);
 
@@ -861,8 +1491,21 @@ describe('auth and readiness flows (int)', () => {
   }, 120000);
 
   async function loginSessionCookie(username: string): Promise<string> {
-    const response = await request(httpServer)
+    const loginRequest = request(httpServer)
       .post('/api/v1/auth/login')
+      .set('origin', 'http://localhost:3000');
+    if (username === cashierUser.username) {
+      loginRequest
+        .set('x-device-id', cashierLoginDevice.id)
+        .set(
+          'x-device-attestation',
+          buildDeviceAttestation(
+            cashierLoginDevice.id,
+            cashierLoginDevice.fingerprintHash,
+          ),
+        );
+    }
+    const response = await loginRequest
       .send({ username, password: seedData.adminPassword })
       .expect(200);
 
@@ -875,6 +1518,7 @@ describe('auth and readiness flows (int)', () => {
   ): Promise<string> {
     const response = await request(httpServer)
       .post('/api/v1/auth/login')
+      .set('origin', 'http://localhost:3000')
       .set('x-device-id', deviceId)
       .set(
         'x-device-attestation',
@@ -903,6 +1547,7 @@ type AuthLoginResponseBody = {
     };
     session: {
       expiresAt: string;
+      deviceId: string | null;
     };
   };
 };
@@ -948,6 +1593,23 @@ type CustomerListResponseBody = {
 
 type CustomerDetailResponseBody = {
   data: Record<string, unknown> & { availableBalanceKobo?: number };
+};
+
+type ManagementCardLookupResponseBody = {
+  data: CardsControllerLookupManagementCardV1200Data & {
+    id: string;
+    serialNumber: string;
+    status: CardStatus;
+    issuedAt: string;
+    blockedAt: string | null;
+    replacedAt: string | null;
+    replacedByCardId: string | null;
+    customer: {
+      id: string;
+      fullName: string;
+      status: CustomerStatus;
+    };
+  };
 };
 
 type CardLookupResponseBody = {

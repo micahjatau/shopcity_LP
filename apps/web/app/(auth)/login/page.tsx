@@ -1,85 +1,61 @@
 import Image from 'next/image';
 import Link from 'next/link';
+import { preload } from 'react-dom';
 import { LoginForm } from '../../../components/auth/login-form';
 
 export default function LoginPage() {
-  return (
-    <main
-      style={{
-        display: 'grid',
-        gridTemplateColumns: 'minmax(0, 420px) 1fr',
-        gap: 'var(--sc-spacing-6)',
-        alignItems: 'stretch',
-      }}
-    >
-      <article
-        style={{
-          borderRadius: 'var(--sc-radius-xl)',
-          overflow: 'hidden',
-          background:
-            'linear-gradient(135deg, var(--sc-color-brand-700), var(--sc-color-brand-500))',
-          color: 'var(--sc-color-neutral-0)',
-          padding: 'var(--sc-spacing-8)',
-          display: 'grid',
-          gap: 'var(--sc-spacing-5)',
-        }}
-      >
-        <Image
-          src="/brand/shopcity-lockup-white.svg"
-          alt="ShopCity Supermarket"
-          width={280}
-          height={84}
-          priority
-        />
-        <h1
-          style={{
-            margin: 0,
-            fontSize: 'var(--sc-font-size-h1)',
-            lineHeight: 'var(--sc-font-lineHeight-h1)',
-          }}
-        >
-          Sign in to the ShopCity retail operations shell.
-        </h1>
-        <p style={{ margin: 0, maxWidth: 420 }}>
-          Sign in with a backend-authenticated ShopCity session to reach role-
-          scoped cashier, supervisor and admin workflows.
-        </p>
-        <Link
-          href="/"
-          style={{
-            alignSelf: 'start',
-            background: 'rgba(255,255,255,0.14)',
-            border: '1px solid rgba(255,255,255,0.24)',
-            color: 'var(--sc-color-neutral-0)',
-            borderRadius: 'var(--sc-radius-full)',
-            padding: '12px 18px',
-          }}
-        >
-          Back to overview
-        </Link>
-      </article>
+  preload('/brand/login-bgrd.webp', {
+    as: 'image',
+    fetchPriority: 'high',
+  });
 
-      <article
-        style={{
-          borderRadius: 'var(--sc-radius-xl)',
-          background: 'var(--sc-color-neutral-0)',
-          padding: 'var(--sc-spacing-8)',
-          border: '1px solid var(--sc-color-semantic-border)',
-          boxShadow: 'var(--sc-shadow-level1)',
-          display: 'grid',
-          gap: 'var(--sc-spacing-4)',
-          alignContent: 'start',
-        }}
-      >
-        <h2 style={{ margin: 0 }}>Session bootstrap</h2>
-        <p
-          style={{ margin: 0, color: 'var(--sc-color-semantic-textSecondary)' }}
-        >
-          The form calls the backend current-user and login contracts, then
-          routes the session into the correct shell.
-        </p>
-        <LoginForm />
-      </article>
+  return (
+    <main className="login-page" data-od-id="login-page">
+      <div className="login-page__deep-edge" aria-hidden="true" />
+      <div
+        className="login-page__band login-page__band--one"
+        aria-hidden="true"
+      />
+      <div
+        className="login-page__band login-page__band--two"
+        aria-hidden="true"
+      />
+      <div className="login-page__shell">
+        <header className="login-page__header" data-od-id="login-header">
+          <Link
+            className="login-page__brand"
+            href="/"
+            aria-label="ShopCity Supermarket home"
+            data-od-id="brand-link"
+          >
+            <Image
+              className="login-page__brand-logo"
+              src="/brand/Frame%202147224881.svg"
+              alt="ShopCity Supermarket"
+              width={132}
+              height={35}
+              priority
+            />
+          </Link>
+          <span className="login-page__rule" aria-hidden="true" />
+        </header>
+
+        <div className="login-page__main">
+          <section
+            className="login-page__card"
+            aria-labelledby="login-title"
+            data-od-id="staff-sign-in"
+          >
+            <h1 id="login-title" data-od-id="login-heading">
+              Staff sign in
+            </h1>
+            <p className="login-page__intro">
+              Sign in with your ShopCity staff credentials.
+            </p>
+            <LoginForm />
+          </section>
+        </div>
+      </div>
     </main>
   );
 }

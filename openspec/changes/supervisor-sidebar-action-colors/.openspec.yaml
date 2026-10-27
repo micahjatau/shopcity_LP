@@ -1,0 +1,4 @@
+schema: spec-driven
+created: 2026-10-21
+goal: Use the Supervisor sidebar's solid brand color for primary actions and
+  selected tabs without changing other roles or inactive/secondary states.

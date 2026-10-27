@@ -19,7 +19,7 @@ const eslintConfig = [
     },
   },
   {
-    ignores: ['.next/**', 'out/**', 'dist/**'],
+    ignores: ['.next/**', '.next-*/**', 'out/**', 'dist/**'],
   },
 ];
 

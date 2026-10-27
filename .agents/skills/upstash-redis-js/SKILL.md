@@ -1,6 +1,10 @@
 ---
 name: upstash-redis-js
-description: Work with the Upstash Redis TypeScript/JavaScript SDK for serverless Redis operations. Use for caching, session storage, rate limiting, leaderboards, full-text search (querying, filtering, aggregating) with Upstash Redis Search (different from regular FT.SEARCH), and all Redis data structures. Supports automatic serialization/deserialization of JavaScript types. Upstash Redis Search also available via @upstash/search-redis and @upstash/search-ioredis adapters for TCP clients.
+description: Use the @upstash/redis TypeScript SDK for serverless Redis in Next.js, Vercel, Cloudflare Workers, and Node.js. Covers caching with TTL, sessions, key-value storage, counters, leaderboards, queues, streams, JSON, pipelines, transactions, Lua, read replicas, vector search, and full-text search. Also use when migrating from ioredis/node-redis, integrating @upstash/ratelimit, or building AI agent memory and chat persistence with Upstash AgentKit.
+license: MIT
+metadata:
+  author: Upstash
+  homepage: https://upstash.com
 ---
 
 # Upstash Redis SDK - Complete Skills Guide
@@ -54,6 +58,8 @@ Redis data types with auto-serialization examples:
 - **sorted-sets.md** - ZADD, ZRANGE, ZRANK, leaderboard patterns
 - **json.md** - JSON.SET, JSON.GET, JSONPath queries for nested objects
 - **streams.md** - XADD, XREAD, XGROUP, consumer groups
+- **arrays.md** - ARSET, ARINSERT, ARSCAN, ARGREP, AROP, ring buffers with ARRING on sparse index-addressed arrays
+- **vector-indexes.md** - VECTOR.CREATE, VECTOR.ADD, VECTOR.QUERY nearest-neighbour search inside Redis via redis.vector
 
 ### Advanced Features (advanced-features/)
 
@@ -91,7 +97,7 @@ Full-text search, filtering, and aggregation extension for Redis:
 - **overview.md** - Schema definition, field types, pitfalls, package overview
 - **commands/querying.md** - Query and count with filters, pagination, sorting, highlighting
 - **commands/aggregating.md** - Metric aggregations ($avg, $sum, $stats), bucket aggregations ($terms, $range, $histogram, $facet)
-- **commands/index-management.md** - Create, describe, drop indexes, waitIndexing
+- **commands/index-management.md** - Create, describe, drop indexes (including stream indexes over XADD entries), waitIndexing
 - **commands/aliases.md** - Index aliases for zero-downtime reindexing
 - **adapters.md** - Using search with node-redis and ioredis via @upstash/search-redis and @upstash/search-ioredis
 
@@ -178,6 +184,16 @@ await redis.ttl('key');
 4. **Set appropriate TTLs** to manage memory
 5. **Use pipelines** for multiple operations
 6. **Namespace your keys** (e.g., `user:123`, `session:abc`)
+
+## AI agents: use AgentKit
+
+For agent state on Redis — memory, chat history, RAG search tools, tool caching, rate limiting, chat persistence, resumable streams, locks — use [Upstash AgentKit](https://github.com/upstash/agentkit) instead of hand-rolling it on `@upstash/redis`. Pick the adapter for the framework and follow its docs page:
+
+| Framework     | Package                                                    | Docs                                                     |
+| ------------- | ---------------------------------------------------------- | -------------------------------------------------------- |
+| Vercel AI SDK | `@upstash/agentkit-ai-sdk`                                 | https://upstash.com/docs/redis/sdks/agentkit/ai-sdk      |
+| TanStack AI   | `@upstash/agentkit-tanstack-ai`                            | https://upstash.com/docs/redis/sdks/agentkit/tanstack-ai |
+| Vercel Eve    | `@upstash/agentkit-eve`, `@upstash/agentkit-eve-extension` | https://upstash.com/docs/redis/sdks/agentkit/eve         |
 
 ## Resources
 

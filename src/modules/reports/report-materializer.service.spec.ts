@@ -64,6 +64,33 @@ describe('ReportMaterializerService', () => {
     });
   });
 
+  it('writes a current outstanding-balance snapshot on quiet business dates', async () => {
+    const tx = reportTxStub();
+    const stateUpsert = jest.fn().mockResolvedValue(undefined);
+    const prisma = prismaStub(tx, stateUpsert);
+    const service = new ReportMaterializerService(prisma, configService());
+    const asOf = new Date('2026-08-12T12:00:00.000Z');
+
+    await service.materializeTenant('tenant-1', {
+      materializedAt: asOf,
+      asOf,
+    });
+
+    const rows =
+      tx.reportDailyFinancialSummary.createMany.mock.calls[0]?.[0].data;
+    const currentBranchRow = rows.find(
+      (row) =>
+        row.scopeKey === 'branch-1' &&
+        row.reportDate.toISOString().startsWith('2026-08-12'),
+    );
+    expect(currentBranchRow).toMatchObject({
+      transactionCount: 0,
+      loyaltyPurchaseValueKobo: 0n,
+      creditIssuedKobo: 0n,
+      outstandingLiabilityKobo: 1000n,
+    });
+  });
+
   it('reconstructs outstanding and expired liability from expiry evidence across as-of boundaries', async () => {
     const tx = reportTxStub();
     const stateUpsert = jest.fn().mockResolvedValue(undefined);

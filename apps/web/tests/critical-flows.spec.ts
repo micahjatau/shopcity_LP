@@ -7,22 +7,24 @@ test.describe('ShopCity flow coverage', () => {
     await page.goto('/login');
 
     await expect(
-      page.getByRole('heading', {
-        name: /sign in to the shopcity retail operations shell/i,
-      }),
+      page.getByRole('heading', { name: /staff sign in/i }),
     ).toBeVisible();
-    await expect(page.getByLabel('Tenant / email / username')).toBeVisible();
-    await expect(page.getByLabel('Password')).toBeVisible();
+    await expect(page.getByLabel('Email Address')).toBeVisible();
+    await expect(
+      page.getByRole('textbox', { name: /^Password$/i }),
+    ).toBeVisible();
     await expect(page.getByRole('button', { name: /sign in/i })).toBeVisible();
 
     await page.keyboard.press('Tab');
     await expect(
-      page.getByRole('link', { name: /back to overview/i }),
+      page.getByRole('link', { name: /shopcity supermarket home/i }),
     ).toBeFocused();
     await page.keyboard.press('Tab');
-    await expect(page.getByLabel('Tenant / email / username')).toBeFocused();
+    await expect(page.getByLabel('Email Address')).toBeFocused();
     await page.keyboard.press('Tab');
-    await expect(page.getByLabel('Password')).toBeFocused();
+    await expect(
+      page.getByRole('textbox', { name: /^Password$/i }),
+    ).toBeFocused();
   });
 
   test('@critical covers lookup and earn outcomes', async ({ page }) => {

@@ -5,12 +5,39 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { OutboxEventStatus, SmsMessageStatus, UserRole } from '@prisma/client';
+import { resolveReleaseSha } from '../../config/release';
+import {
+  LedgerEntryType,
+  OutboxEventStatus,
+  SmsMessageStatus,
+  UserRole,
+} from '@prisma/client';
 import { PrismaService } from '../../database/prisma.service';
 import type { AuthContext } from '../../common/auth/session.types';
 import { branchDayWindow } from '../../jobs/branch-day-window';
 
 const DEFAULT_REPORT_TIME_ZONE = 'Africa/Lagos';
+
+function branchMonthWindow(reference: Date, timeZone: string) {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone,
+    year: 'numeric',
+    month: '2-digit',
+  }).formatToParts(reference);
+  const year = Number(parts.find((part) => part.type === 'year')?.value ?? '0');
+  const month = Number(
+    parts.find((part) => part.type === 'month')?.value ?? '0',
+  );
+  const monthStart = branchDayWindow(
+    new Date(Date.UTC(year, month - 1, 15)),
+    timeZone,
+  ).windowStart;
+  const nextMonthStart = branchDayWindow(
+    new Date(Date.UTC(year, month, 15)),
+    timeZone,
+  ).windowStart;
+  return { windowStart: monthStart, windowEnd: nextMonthStart };
+}
 
 type ReportScope = 'TENANT' | 'BRANCH';
 
@@ -149,31 +176,81 @@ export class ReportsService {
   ): Promise<ReportCollection<Record<string, unknown>>> {
     const sort = normalizeCustomerPerformanceSort(query.sort);
     const limit = normalizeReportLimit(query.limit);
-    return this.listRows(tenantId, context, query, async (scope, dateFilter) =>
-      this.prisma.reportCustomerSnapshot.findMany({
-        where: {
-          tenantId,
-          scope: scope.scope,
-          scopeKey: scope.scopeKey,
-          ...(dateFilter ? { reportDate: dateFilter } : {}),
-        },
-        orderBy: customerPerformanceOrderBy(sort),
-        take: limit,
-      }),
+    const result = await this.listRows(
+      tenantId,
+      context,
+      query,
+      async (scope, dateFilter) =>
+        this.prisma.reportCustomerSnapshot.findMany({
+          where: {
+            tenantId,
+            scope: scope.scope,
+            scopeKey: scope.scopeKey,
+            ...(dateFilter ? { reportDate: dateFilter } : {}),
+          },
+          orderBy: customerPerformanceOrderBy(sort),
+          take: limit,
+        }),
     );
+    const customerIds = [
+      ...new Set(
+        result.items.flatMap((item) =>
+          typeof item.customerId === 'string' ? [item.customerId] : [],
+        ),
+      ),
+    ];
+    if (customerIds.length === 0) return result;
+
+    const customers = await this.prisma.customer.findMany({
+      where: {
+        tenantId,
+        id: { in: customerIds },
+        ...(result.scope === 'BRANCH' && result.branchId
+          ? { branchId: result.branchId }
+          : {}),
+      },
+      select: { id: true, fullName: true },
+    });
+    const customerNames = new Map(
+      customers.map((customer) => [customer.id, customer.fullName.trim()]),
+    );
+
+    return {
+      ...result,
+      items: result.items.map((item) => {
+        const customerName =
+          typeof item.customerId === 'string'
+            ? customerNames.get(item.customerId)
+            : undefined;
+        return { ...item, customerName: customerName || null };
+      }),
+    };
   }
 
   async listCashierToday(
     tenantId: string,
     context: AuthContext,
+    customerId?: string,
+    limit = 10,
+    page = 1,
   ): Promise<{
     branchId: string;
     timezone: string;
+    monthlyEarnKobo: number | null;
+    page: number;
+    limit: number;
+    totalCount: number;
     items: Array<{
       id: string;
+      transactionId: string | null;
       occurredAt: string;
       operation: 'EARN' | 'REDEEM';
+      customerName: string;
+      purchaseAmountKobo: number | null;
       loyaltyAmountKobo: number | null;
+      redeemedAmountKobo: number | null;
+      netPaidAmountKobo: number | null;
+      earnedAmountKobo: number | null;
       receiptNumber: string;
       status: string;
     }>;
@@ -199,60 +276,132 @@ export class ReportsService {
       new Date(),
       branch.timezone ?? DEFAULT_REPORT_TIME_ZONE,
     );
-    const receipts = await this.prisma.receipt.findMany({
-      where: {
-        tenantId,
-        branchId: branch.id,
-        capturedByTenantId: tenantId,
-        capturedBy: context.user.id,
-        occurredAt: { gte: windowStart, lt: windowEnd },
-      },
-      orderBy: { occurredAt: 'desc' },
-      take: 10,
-      include: {
-        redemption: {
-          select: {
-            requestedAmountKobo: true,
-            confirmedAmountKobo: true,
-            status: true,
+    const monthWindow = branchMonthWindow(
+      new Date(),
+      branch.timezone ?? DEFAULT_REPORT_TIME_ZONE,
+    );
+    const pageLimit = Math.min(Math.max(Math.floor(limit), 1), 10);
+    const currentPage = Math.min(Math.max(Math.floor(page), 1), 1_000_000);
+    const where = {
+      tenantId,
+      branchId: branch.id,
+      capturedByTenantId: tenantId,
+      capturedBy: context.user.id,
+      ...(customerId ? { customerId } : {}),
+      occurredAt: { gte: windowStart, lt: windowEnd },
+    };
+    const monthlyEarnPromise = customerId
+      ? this.prisma.loyaltyLedgerEntry
+          ?.aggregate({
+            where: {
+              tenantId,
+              customerId,
+              customer: { is: { branchId: branch.id } },
+              type: 'EARN',
+              direction: 'CREDIT',
+              status: 'CONFIRMED',
+              effectiveAt: {
+                gte: monthWindow.windowStart,
+                lt: monthWindow.windowEnd,
+              },
+            },
+            _sum: { amountKobo: true },
+          })
+          .catch(() => null)
+      : Promise.resolve(null);
+    const [receipts, totalCount, monthlyEarn] = await Promise.all([
+      this.prisma.receipt.findMany({
+        where,
+        orderBy: [{ occurredAt: 'desc' }, { id: 'desc' }],
+        skip: (currentPage - 1) * pageLimit,
+        take: pageLimit,
+        include: {
+          redemption: {
+            select: {
+              requestedAmountKobo: true,
+              confirmedAmountKobo: true,
+              status: true,
+            },
           },
-        },
-        ledgerEntries: {
-          select: {
-            type: true,
-            amountKobo: true,
-            status: true,
+          ledgerEntries: {
+            where: {
+              type: { in: [LedgerEntryType.EARN, LedgerEntryType.REDEEM] },
+            },
+            select: {
+              id: true,
+              type: true,
+              amountKobo: true,
+              status: true,
+            },
+            orderBy: { effectiveAt: 'desc' },
+            take: 2,
           },
-          orderBy: { effectiveAt: 'desc' },
-          take: 1,
+          customer: { select: { fullName: true } },
         },
-      },
-    });
+      }),
+      this.prisma.receipt.count({ where }),
+      monthlyEarnPromise,
+    ]);
 
+    const monthlyEarnKobo = monthlyEarn?._sum.amountKobo;
     return {
       branchId: branch.id,
       timezone: branch.timezone ?? DEFAULT_REPORT_TIME_ZONE,
+      page: currentPage,
+      limit: pageLimit,
+      totalCount,
+      monthlyEarnKobo:
+        typeof monthlyEarnKobo === 'bigint' && monthlyEarnKobo >= 0n
+          ? Number(monthlyEarnKobo)
+          : null,
       items: receipts.map((receipt) => {
         const redemption = receipt.redemption;
-        const ledger = receipt.ledgerEntries[0];
+        const redeemLedger = receipt.ledgerEntries.find(
+          (entry) => entry.type === 'REDEEM',
+        );
+        const earnLedger = receipt.ledgerEntries.find(
+          (entry) => entry.type === 'EARN',
+        );
         const isRedeem = Boolean(redemption);
+        const purchaseAmountKobo = Number(receipt.purchaseAmountKobo);
+        const redeemedAmountKobo =
+          redemption?.status === 'CONFIRMED' &&
+          redemption.confirmedAmountKobo !== null
+            ? Number(redemption.confirmedAmountKobo)
+            : null;
+        const earnedAmountKobo =
+          earnLedger?.status === 'CONFIRMED'
+            ? Number(earnLedger.amountKobo)
+            : null;
         return {
           id: receipt.id,
+          transactionId: redeemLedger?.id ?? earnLedger?.id ?? null,
           occurredAt: receipt.occurredAt.toISOString(),
           operation: isRedeem ? 'REDEEM' : 'EARN',
+          customerName: receipt.customer.fullName,
+          purchaseAmountKobo:
+            Number.isSafeInteger(purchaseAmountKobo) && purchaseAmountKobo >= 0
+              ? purchaseAmountKobo
+              : null,
           loyaltyAmountKobo: isRedeem
             ? Number(
                 redemption?.confirmedAmountKobo ??
                   redemption?.requestedAmountKobo ??
                   0n,
               )
-            : ledger
-              ? Number(ledger.amountKobo)
-              : null,
+            : earnedAmountKobo,
+          redeemedAmountKobo,
+          netPaidAmountKobo:
+            redeemedAmountKobo === null
+              ? null
+              : purchaseAmountKobo - redeemedAmountKobo,
+          earnedAmountKobo,
           receiptNumber: receipt.posReceiptNumber,
           status: isRedeem
-            ? (redemption?.status ?? receipt.reviewStatus)
-            : (ledger?.status ?? receipt.reviewStatus),
+            ? (redemption?.status ??
+              redeemLedger?.status ??
+              receipt.reviewStatus)
+            : (earnLedger?.status ?? receipt.reviewStatus),
         };
       }),
     };
@@ -263,17 +412,54 @@ export class ReportsService {
     context: AuthContext,
     query: ReportQuery = {},
   ): Promise<ReportCollection<Record<string, unknown>>> {
-    return this.listRows(tenantId, context, query, async (scope, dateFilter) =>
-      this.prisma.reportCashierDailySummary.findMany({
-        where: {
-          tenantId,
-          scope: scope.scope,
-          scopeKey: scope.scopeKey,
-          ...(dateFilter ? { reportDate: dateFilter } : {}),
-        },
-        orderBy: [{ reportDate: 'desc' }, { cashierId: 'asc' }],
-      }),
+    const result = await this.listRows(
+      tenantId,
+      context,
+      query,
+      async (scope, dateFilter) =>
+        this.prisma.reportCashierDailySummary.findMany({
+          where: {
+            tenantId,
+            scope: scope.scope,
+            scopeKey: scope.scopeKey,
+            ...(dateFilter ? { reportDate: dateFilter } : {}),
+          },
+          orderBy: [{ reportDate: 'desc' }, { cashierId: 'asc' }],
+        }),
     );
+    const cashierIds = [
+      ...new Set(
+        result.items.flatMap((item) =>
+          typeof item.cashierId === 'string' ? [item.cashierId] : [],
+        ),
+      ),
+    ];
+    if (cashierIds.length === 0) return result;
+
+    const cashiers = await this.prisma.user.findMany({
+      where: {
+        tenantId,
+        id: { in: cashierIds },
+        ...(result.scope === 'BRANCH' && result.branchId
+          ? { branchId: result.branchId }
+          : {}),
+      },
+      select: { id: true, username: true },
+    });
+    const cashierEmails = new Map(
+      cashiers.map((cashier) => [cashier.id, cashier.username.trim()]),
+    );
+
+    return {
+      ...result,
+      items: result.items.map((item) => {
+        const cashierEmail =
+          typeof item.cashierId === 'string'
+            ? cashierEmails.get(item.cashierId)
+            : undefined;
+        return { ...item, cashierEmail: cashierEmail || null };
+      }),
+    };
   }
 
   async listRedemptionSummary(
@@ -631,7 +817,13 @@ export class ReportsService {
       release: {
         version:
           this.configService.get<string>('RELEASE_VERSION') ?? '0.0.0-dev',
-        sha: this.configService.get<string>('RELEASE_SHA') ?? 'dev',
+        sha: resolveReleaseSha({
+          VERCEL_GIT_COMMIT_SHA: this.configService.get<string>(
+            'VERCEL_GIT_COMMIT_SHA',
+          ),
+          GITHUB_SHA: this.configService.get<string>('GITHUB_SHA'),
+          RELEASE_SHA: this.configService.get<string>('RELEASE_SHA'),
+        }),
         sentryConfigured: Boolean(this.configService.get<string>('SENTRY_DSN')),
       },
       generatedAt: now.toISOString(),

@@ -4,6 +4,7 @@ import {
   ConflictException,
   ForbiddenException,
   Injectable,
+  NotFoundException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { IdempotencyRecordStatus, UserRole } from '@prisma/client';
@@ -98,6 +99,60 @@ export class ReportExportService {
     idempotencyKey?: string,
   ): Promise<void> {
     this.ensureRefreshAccess(context);
+    await this.enqueueRefresh(
+      tenantId,
+      context,
+      report,
+      query,
+      idempotencyKey,
+      'reports.refresh',
+    );
+  }
+
+  async refreshSupervisorDashboard(
+    tenantId: string,
+    context: AuthContext,
+    idempotencyKey?: string,
+  ): Promise<void> {
+    if (context.user.role !== UserRole.SUPERVISOR) {
+      throw new ForbiddenException('Supervisor report refresh is restricted');
+    }
+    const branchId = context.user.branchId;
+    if (!branchId) {
+      throw new ForbiddenException('Report refresh requires a branch scope');
+    }
+    const branch = await this.prisma.branch.findFirst({
+      where: { id: branchId, tenantId },
+      select: { id: true },
+    });
+    if (!branch) {
+      throw new NotFoundException('Supervisor report branch not found');
+    }
+
+    await this.enqueueRefresh(
+      tenantId,
+      context,
+      'executive-summary',
+      { branchId: branch.id },
+      idempotencyKey,
+      'reports.supervisor-dashboard.refresh',
+    );
+  }
+
+  private ensureRefreshAccess(context: AuthContext) {
+    if (context.user.role !== UserRole.ADMIN) {
+      throw new ForbiddenException('Report refresh is admin-only');
+    }
+  }
+
+  private async enqueueRefresh(
+    tenantId: string,
+    context: AuthContext,
+    report: ReportExportName,
+    query: Pick<ReportExportQuery, 'branchId' | 'timezone'>,
+    idempotencyKey: string | undefined,
+    endpoint: string,
+  ): Promise<void> {
     const normalizedKey = idempotencyKey?.trim() ?? '';
     if (!normalizedKey) {
       throw new BadRequestException('Idempotency-Key header is required');
@@ -112,7 +167,7 @@ export class ReportExportService {
         tenantId_actorId_endpoint_idempotencyKey: {
           tenantId,
           actorId: context.user.id,
-          endpoint: 'reports.refresh',
+          endpoint,
           idempotencyKey: normalizedKey,
         },
       },
@@ -162,7 +217,7 @@ export class ReportExportService {
         data: {
           tenantId,
           actorId: context.user.id,
-          endpoint: 'reports.refresh',
+          endpoint,
           idempotencyKey: normalizedKey,
           requestHash,
           status: IdempotencyRecordStatus.COMPLETED,
@@ -171,12 +226,6 @@ export class ReportExportService {
         },
       });
     });
-  }
-
-  private ensureRefreshAccess(context: AuthContext) {
-    if (context.user.role !== UserRole.ADMIN) {
-      throw new ForbiddenException('Report refresh is admin-only');
-    }
   }
 
   private async loadReport(

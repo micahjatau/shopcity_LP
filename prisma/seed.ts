@@ -75,11 +75,13 @@ export async function seedFoundation(
 ): Promise<SeedFoundationResult> {
   const tenantId =
     process.env.DEFAULT_PUBLIC_TENANT_ID ??
-    '00000000-0000-0000-0000-000000000001';
+    '00000000-0000-4000-8000-000000000001';
+  const configuredBranchId = process.env.DEFAULT_PUBLIC_BRANCH_ID;
   const branchId =
-    process.env.DEFAULT_PUBLIC_BRANCH_ID ??
-    '00000000-0000-0000-0000-000000000002';
-  const adminUserId = '00000000-0000-0000-0000-000000000003';
+    configuredBranchId === '00000000-0000-0000-0000-000000000002'
+      ? '00000000-0000-4000-8000-000000000002'
+      : (configuredBranchId ?? '00000000-0000-4000-8000-000000000002');
+  const adminUserId = '00000000-0000-4000-8000-000000000003';
   const username = options.adminUsername ?? 'admin@shopcity.local';
   const adminPassword = resolveBootstrapPassword(options.adminPassword);
   const supabaseAdminClient =
@@ -95,12 +97,12 @@ export async function seedFoundation(
   ];
   const demoStaffSeeds = [
     {
-      id: '00000000-0000-0000-0000-000000000004',
+      id: '00000000-0000-4000-8000-000000000004',
       username: 'cashier@shopcity.local',
       role: UserRole.CASHIER,
     },
     {
-      id: '00000000-0000-0000-0000-000000000005',
+      id: '00000000-0000-4000-8000-000000000005',
       username: 'supervisor@shopcity.local',
       role: UserRole.SUPERVISOR,
     },

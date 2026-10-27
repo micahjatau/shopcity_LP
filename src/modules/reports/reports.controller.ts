@@ -22,6 +22,7 @@ import {
 import type { FastifyReply } from 'fastify';
 import { UserRole } from '@prisma/client';
 import { CurrentSession } from '../../common/auth/current-user.decorator';
+import { SkipResponseEnvelope } from '../../common/interceptors/skip-response-envelope.decorator';
 import { Roles } from '../../common/auth/roles.decorator';
 import type { AuthContext } from '../../common/auth/session.types';
 import {
@@ -49,10 +50,22 @@ const reportCollectionSchema = {
 
 const cashierTodaySchema = {
   type: 'object',
-  required: ['branchId', 'timezone', 'items'],
+  required: [
+    'branchId',
+    'timezone',
+    'monthlyEarnKobo',
+    'page',
+    'limit',
+    'totalCount',
+    'items',
+  ],
   properties: {
     branchId: { type: 'string', format: 'uuid' },
     timezone: { type: 'string' },
+    monthlyEarnKobo: { type: 'integer', nullable: true },
+    page: { type: 'integer', minimum: 1 },
+    limit: { type: 'integer', minimum: 1, maximum: 10 },
+    totalCount: { type: 'integer', minimum: 0 },
     items: {
       type: 'array',
       maxItems: 10,
@@ -60,17 +73,29 @@ const cashierTodaySchema = {
         type: 'object',
         required: [
           'id',
+          'transactionId',
           'occurredAt',
           'operation',
+          'customerName',
+          'purchaseAmountKobo',
           'loyaltyAmountKobo',
+          'redeemedAmountKobo',
+          'netPaidAmountKobo',
+          'earnedAmountKobo',
           'receiptNumber',
           'status',
         ],
         properties: {
           id: { type: 'string', format: 'uuid' },
+          transactionId: { type: 'string', format: 'uuid', nullable: true },
           occurredAt: { type: 'string', format: 'date-time' },
           operation: { type: 'string', enum: ['EARN', 'REDEEM'] },
+          customerName: { type: 'string' },
+          purchaseAmountKobo: { type: 'integer', nullable: true },
           loyaltyAmountKobo: { type: 'integer', nullable: true },
+          redeemedAmountKobo: { type: 'integer', nullable: true },
+          netPaidAmountKobo: { type: 'integer', nullable: true },
+          earnedAmountKobo: { type: 'integer', nullable: true },
           receiptNumber: { type: 'string' },
           status: { type: 'string' },
         },
@@ -294,13 +319,50 @@ export class ReportsController {
   @Get('cashier-today')
   @Version('1')
   @Roles(UserRole.CASHIER)
+  @ApiQuery({
+    name: 'customerId',
+    required: false,
+    type: String,
+    description: 'Optional stable customer ID filter within the cashier scope',
+  })
+  @ApiQuery({
+    name: 'page',
+    required: false,
+    type: Number,
+    description: 'One-based page number within today’s cashier activity',
+  })
+  @ApiQuery({
+    name: 'limit',
+    required: false,
+    type: Number,
+    description: 'Maximum number of rows per page, capped at 10',
+  })
   @apiSuccessEnvelopeResponse({
     description: "Today's cashier transaction summary",
     dataSchema: cashierTodaySchema,
   })
   @ApiOperation({ summary: "List today's cashier transactions" })
-  listCashierToday(@CurrentSession() context: AuthContext) {
-    return this.reportsService.listCashierToday(context.user.tenantId, context);
+  listCashierToday(
+    @CurrentSession() context: AuthContext,
+    @Query('customerId') customerId?: string,
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+  ) {
+    const parsedPage = Number.parseInt(page ?? '', 10);
+    const boundedPage = Number.isSafeInteger(parsedPage)
+      ? Math.min(Math.max(parsedPage, 1), 1_000_000)
+      : 1;
+    const parsedLimit = Number.parseInt(limit ?? '', 10);
+    const boundedLimit = Number.isFinite(parsedLimit)
+      ? Math.min(Math.max(parsedLimit, 1), 10)
+      : 10;
+    return this.reportsService.listCashierToday(
+      context.user.tenantId,
+      context,
+      customerId?.trim() || undefined,
+      boundedLimit,
+      boundedPage,
+    );
   }
 
   @Get('cashier-activity')
@@ -485,6 +547,7 @@ export class ReportsController {
   }
 
   @Get(':report/export')
+  @SkipResponseEnvelope()
   @Version('1')
   @Roles(UserRole.SUPERVISOR, UserRole.ADMIN)
   @Throttle({
@@ -595,6 +658,32 @@ export class ReportsController {
         branchId,
         timezone,
       },
+      idempotencyKey,
+    );
+    return { status: 'accepted' };
+  }
+
+  @Post('dashboard/supervisor/refresh')
+  @Version('1')
+  @HttpCode(202)
+  @Roles(UserRole.SUPERVISOR)
+  @Throttle({
+    bucket: 'reports.supervisor-dashboard-refresh',
+    limit: 3,
+    windowMs: 60_000,
+  })
+  @ApiHeader({ name: 'Idempotency-Key', required: true })
+  @ApiAcceptedResponse({ description: 'Branch report refresh scheduled' })
+  @ApiOperation({
+    summary: 'Schedule a branch-scoped Supervisor dashboard refresh',
+  })
+  async refreshSupervisorDashboard(
+    @CurrentSession() context: AuthContext,
+    @Headers('idempotency-key') idempotencyKey?: string,
+  ) {
+    await this.reportExportService.refreshSupervisorDashboard(
+      context.user.tenantId,
+      context,
       idempotencyKey,
     );
     return { status: 'accepted' };

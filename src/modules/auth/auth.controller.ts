@@ -8,11 +8,20 @@ import {
   Res,
   Version,
 } from '@nestjs/common';
-import { ApiHeader, ApiOperation, ApiTags } from '@nestjs/swagger';
-import type { FastifyReply } from 'fastify';
-import { AuthService } from './auth.service';
 import {
+  ApiExcludeEndpoint,
+  ApiHeader,
+  ApiOperation,
+  ApiTags,
+} from '@nestjs/swagger';
+import type { FastifyReply } from 'fastify';
+import { createHash } from 'node:crypto';
+import { AuthService } from './auth.service';
+import { DEVICE_TOKEN_COOKIE_NAME } from '../../common/auth/device-token';
+import {
+  CashierLoginCompleteDto,
   LoginDto,
+  LocalCashierTestSessionDto,
   SmokeSessionBootstrapDto,
   authResponseSchema,
 } from './auth.dto';
@@ -25,15 +34,34 @@ import {
 } from '../../config/app.constants';
 import { CurrentSession } from '../../common/auth/current-user.decorator';
 import type { AuthContext } from '../../common/auth/session.types';
+import type { AuthenticatedRequest } from '../../common/auth/session.types';
 import {
   clearCookie,
   buildCookie,
   buildCsrfCookie,
+  parseCookies,
 } from '../../common/auth/cookie';
 import {
   apiErrorEnvelopeResponses,
   apiSuccessEnvelopeResponse,
 } from '../../common/openapi-envelope';
+
+export function buildCashierLoginCompletionThrottleKey(
+  request: AuthenticatedRequest,
+): string {
+  const body = request.body;
+  const attemptToken =
+    body && typeof body === 'object' && !Array.isArray(body)
+      ? (body as { attemptToken?: unknown }).attemptToken
+      : undefined;
+  const validToken =
+    typeof attemptToken === 'string' &&
+    /^[A-Za-z0-9_-]{43}$/.test(attemptToken);
+  const tokenHash = validToken
+    ? createHash('sha256').update(attemptToken).digest('hex')
+    : 'invalid-attempt';
+  return `cashier-login-complete:${request.ip || 'unknown'}:${tokenHash}`;
+}
 
 @ApiTags('auth')
 @Controller('auth')
@@ -71,25 +99,86 @@ export class AuthController {
   })
   @ApiHeader({ name: 'x-device-id', required: false })
   @ApiHeader({ name: 'x-device-attestation', required: false })
+  @ApiHeader({ name: 'origin', required: false })
+  @ApiHeader({ name: 'referer', required: false })
+  @ApiHeader({
+    name: 'cookie',
+    required: false,
+    description:
+      'Browser-managed __Host-shopcity_pos_device cookie for DEVICE_TOKEN cashier login',
+  })
   @Version('1')
   @HttpCode(200)
   @apiSuccessEnvelopeResponse({
     description: 'Authenticated session created',
     dataSchema: authResponseSchema(),
   })
+  @apiSuccessEnvelopeResponse({
+    description: 'Cashier password accepted; WebAuthn assertion required',
+    status: 202,
+    dataSchema: {
+      type: 'object',
+      required: ['code', 'attemptToken', 'options'],
+      properties: {
+        code: { type: 'string', enum: ['DEVICE_ASSERTION_REQUIRED'] },
+        attemptToken: { type: 'string', minLength: 43, maxLength: 43 },
+        options: { type: 'object', additionalProperties: true },
+      },
+      additionalProperties: false,
+    },
+  })
+  @apiErrorEnvelopeResponses({
+    unauthorized: {
+      deviceAuthFailed: {
+        statusCode: 401,
+        code: 'DEVICE_AUTH_FAILED',
+        message: 'Device authentication failed',
+      },
+    },
+    tooManyRequests: {
+      rateLimited: {
+        statusCode: 429,
+        code: 'RATE_LIMITED',
+        message: 'Too many requests',
+      },
+    },
+  })
   @ApiOperation({ summary: 'Create authenticated session' })
   async login(
     @Body() dto: LoginDto,
     @Headers('x-device-id') deviceId: string | undefined,
     @Headers('x-device-attestation') deviceAttestation: string | undefined,
+    @Headers('cookie') cookieHeader: string | undefined,
+    @Headers('origin') origin: string | undefined,
+    @Headers('referer') referer: string | undefined,
+    @Headers('x-shopcity-bff-token') bffCredential: string | undefined,
+    @Headers('x-shopcity-deployment-environment')
+    bffDeploymentEnvironment: string | undefined,
     @Res({ passthrough: true }) reply: FastifyReply,
   ) {
-    const issued = await this.authService.login(
+    this.authService.assertPublicLoginOrigin(
+      origin,
+      referer,
+      bffCredential,
+      bffDeploymentEnvironment,
+    );
+    const deviceToken = parseCookies(cookieHeader)[DEVICE_TOKEN_COOKIE_NAME];
+    const result = await this.authService.login(
       dto.username,
       dto.password,
       deviceId,
       deviceAttestation,
+      deviceToken,
     );
+    if (!('sessionToken' in result)) {
+      reply.code(202);
+      return {
+        code: result.code,
+        attemptToken: result.attemptToken,
+        options: result.options,
+      };
+    }
+    const issued = result;
     const maxAge = Math.max(
       0,
       Math.floor(
@@ -104,6 +193,72 @@ export class AuthController {
       maxAge,
     );
 
+    return this.authService.toResponse(issued.context);
+  }
+
+  @Post('cashier-login/complete')
+  @PublicRoute()
+  @Throttle({
+    bucket: 'auth.cashier_login.complete',
+    limit: 5,
+    windowMs: 15 * 60 * 1000,
+    keyFactory: buildCashierLoginCompletionThrottleKey,
+  })
+  @Version('1')
+  @HttpCode(200)
+  @apiSuccessEnvelopeResponse({
+    description:
+      'Authenticated cashier session created after WebAuthn assertion',
+    dataSchema: authResponseSchema(),
+  })
+  @apiErrorEnvelopeResponses({
+    unauthorized: {
+      deviceAuthFailed: {
+        statusCode: 401,
+        code: 'DEVICE_AUTH_FAILED',
+        message: 'Device authentication failed',
+      },
+    },
+    tooManyRequests: {
+      rateLimited: {
+        statusCode: 429,
+        code: 'RATE_LIMITED',
+        message: 'Too many requests',
+      },
+    },
+  })
+  @ApiOperation({ summary: 'Complete cashier WebAuthn login' })
+  async completeCashierLogin(
+    @Body() dto: CashierLoginCompleteDto,
+    @Headers('origin') origin: string | undefined,
+    @Headers('referer') referer: string | undefined,
+    @Headers('x-shopcity-bff-token') bffCredential: string | undefined,
+    @Headers('x-shopcity-deployment-environment')
+    bffDeploymentEnvironment: string | undefined,
+    @Res({ passthrough: true }) reply: FastifyReply,
+  ) {
+    this.authService.assertPublicLoginOrigin(
+      origin,
+      referer,
+      bffCredential,
+      bffDeploymentEnvironment,
+    );
+    const issued = await this.authService.completeCashierLogin(
+      dto.attemptToken,
+      dto.assertion,
+    );
+    const maxAge = Math.max(
+      0,
+      Math.floor(
+        (issued.context.session.expiresAt.getTime() - Date.now()) / 1000,
+      ),
+    );
+    this.setSessionCookies(
+      reply,
+      issued.sessionToken,
+      issued.csrfToken,
+      maxAge,
+    );
     return this.authService.toResponse(issued.context);
   }
 
@@ -154,6 +309,43 @@ export class AuthController {
       issued.sessionToken,
       issued.csrfToken,
       maxAge,
+    );
+
+    return this.authService.toResponse(issued.context);
+  }
+
+  @Post('dev/cashier-test-session')
+  @PublicRoute()
+  @Throttle({
+    bucket: 'auth.dev_cashier_test_session',
+    limit: 3,
+    windowMs: 15 * 60 * 1000,
+  })
+  @Version('1')
+  @HttpCode(200)
+  @ApiExcludeEndpoint()
+  async localCashierTestSession(
+    @Body() dto: LocalCashierTestSessionDto,
+    @Headers('origin') origin: string | undefined,
+    @Res({ passthrough: true }) reply: FastifyReply,
+  ) {
+    const issued = await this.authService.createLocalCashierTestSession(
+      dto.username,
+      origin,
+    );
+    const maxAge = Math.max(
+      0,
+      Math.floor(
+        (issued.context.session.expiresAt.getTime() - Date.now()) / 1000,
+      ),
+    );
+
+    this.setSessionCookies(
+      reply,
+      issued.sessionToken,
+      issued.csrfToken,
+      maxAge,
+      origin?.startsWith('https://') === true,
     );
 
     return this.authService.toResponse(issued.context);
@@ -222,20 +414,11 @@ export class AuthController {
     sessionToken: string,
     csrfToken: string,
     maxAge: number,
+    secure = process.env.NODE_ENV === 'production',
   ): void {
     reply.header('Set-Cookie', [
-      buildCookie(
-        SESSION_COOKIE_NAME,
-        sessionToken,
-        maxAge,
-        process.env.NODE_ENV === 'production',
-      ),
-      buildCsrfCookie(
-        CSRF_COOKIE_NAME,
-        csrfToken,
-        maxAge,
-        process.env.NODE_ENV === 'production',
-      ),
+      buildCookie(SESSION_COOKIE_NAME, sessionToken, maxAge, secure),
+      buildCsrfCookie(CSRF_COOKIE_NAME, csrfToken, maxAge, secure),
     ]);
   }
 }

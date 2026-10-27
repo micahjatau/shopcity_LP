@@ -1,4 +1,8 @@
-import { BadRequestException, ForbiddenException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  NotFoundException,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { createHash } from 'node:crypto';
 import { UserRole } from '@prisma/client';
@@ -147,6 +151,82 @@ describe('ReportExportService', () => {
     expect(prisma.outboxEventCreate).not.toHaveBeenCalled();
   });
 
+  it('queues a Supervisor dashboard refresh for only the session branch', async () => {
+    const audit = auditServiceStub();
+    const prisma = prismaStub();
+    const service = new ReportExportService(
+      reportsServiceStub().service,
+      audit.service,
+      prisma.service,
+      configService(),
+    );
+
+    await service.refreshSupervisorDashboard(
+      'tenant-1',
+      supervisorContext(),
+      'supervisor-key-1',
+    );
+
+    expect(prisma.branchFindFirst).toHaveBeenCalledWith({
+      where: { id: 'branch-1', tenantId: 'tenant-1' },
+      select: { id: true },
+    });
+    expect(prisma.outboxEventCreate.mock.calls[0]?.[0].data).toMatchObject({
+      aggregateId: 'executive-summary',
+      payload: { report: 'executive-summary', branchId: 'branch-1' },
+    });
+    expect(
+      prisma.idempotencyRecord.create.mock.calls[0]?.[0].data,
+    ).toMatchObject({
+      endpoint: 'reports.supervisor-dashboard.refresh',
+      actorId: 'supervisor-1',
+    });
+    expect(audit.record.mock.calls[0]?.[1]).toMatchObject({
+      action: 'REPORT_REFRESH_REQUESTED',
+      metadata: { report: 'executive-summary', branchId: 'branch-1' },
+    });
+  });
+
+  it('rejects Admins using the Supervisor-only dashboard refresh service', async () => {
+    const prisma = prismaStub();
+    const service = new ReportExportService(
+      reportsServiceStub().service,
+      auditServiceStub().service,
+      prisma.service,
+      configService(),
+    );
+
+    await expect(
+      service.refreshSupervisorDashboard(
+        'tenant-1',
+        adminContext(),
+        'admin-key-1',
+      ),
+    ).rejects.toBeInstanceOf(ForbiddenException);
+    expect(prisma.branchFindFirst).not.toHaveBeenCalled();
+    expect(prisma.outboxEventCreate).not.toHaveBeenCalled();
+  });
+
+  it('rejects Supervisor refresh when the session branch is unavailable', async () => {
+    const prisma = prismaStub();
+    prisma.branchFindFirst.mockResolvedValue(null);
+    const service = new ReportExportService(
+      reportsServiceStub().service,
+      auditServiceStub().service,
+      prisma.service,
+      configService(),
+    );
+
+    await expect(
+      service.refreshSupervisorDashboard(
+        'tenant-1',
+        supervisorContext(),
+        'supervisor-key-1',
+      ),
+    ).rejects.toBeInstanceOf(NotFoundException);
+    expect(prisma.outboxEventCreate).not.toHaveBeenCalled();
+  });
+
   it('rejects non-admin refresh requests', async () => {
     const service = new ReportExportService(
       reportsServiceStub().service,
@@ -248,10 +328,14 @@ function prismaStub() {
   outboxEventCreate.mockResolvedValue({});
   const idempotencyRecord = {
     findUnique: jest.fn().mockResolvedValue(null),
-    create: jest.fn().mockResolvedValue({}),
+    create: jest
+      .fn<Promise<unknown>, [{ data: Record<string, unknown> }]>()
+      .mockResolvedValue({}),
   };
+  const branchFindFirst = jest.fn().mockResolvedValue({ id: 'branch-1' });
 
   const service = {
+    branch: { findFirst: branchFindFirst },
     idempotencyRecord,
     outboxEvent: {
       create: outboxEventCreate,
@@ -268,6 +352,7 @@ function prismaStub() {
     service,
     outboxEventCreate,
     idempotencyRecord,
+    branchFindFirst,
   };
 }
 

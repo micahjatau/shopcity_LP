@@ -25,6 +25,9 @@ export type RedemptionConfirmedSmsPayload = {
   phoneE164: string;
   template: 'redemption-confirmed';
   redeemedKobo: string;
+  netPaidKobo?: string;
+  earnedKobo?: string;
+  earnTransactionId?: string | null;
   remainingBalanceKobo: string;
 };
 
@@ -122,6 +125,9 @@ export function buildRedemptionConfirmedSmsPayload(input: {
   customerId: string;
   phoneE164: string;
   redeemedKobo: bigint;
+  netPaidKobo?: bigint;
+  earnedKobo?: bigint;
+  earnTransactionId?: string | null;
   remainingBalanceKobo: bigint;
 }): RedemptionConfirmedSmsPayload {
   return {
@@ -133,6 +139,15 @@ export function buildRedemptionConfirmedSmsPayload(input: {
     phoneE164: input.phoneE164,
     template: 'redemption-confirmed',
     redeemedKobo: input.redeemedKobo.toString(),
+    ...(input.netPaidKobo !== undefined
+      ? { netPaidKobo: input.netPaidKobo.toString() }
+      : {}),
+    ...(input.earnedKobo !== undefined
+      ? { earnedKobo: input.earnedKobo.toString() }
+      : {}),
+    ...(input.earnTransactionId !== undefined
+      ? { earnTransactionId: input.earnTransactionId }
+      : {}),
     remainingBalanceKobo: input.remainingBalanceKobo.toString(),
   };
 }
@@ -276,6 +291,12 @@ function renderRedemptionConfirmed(input: {
     'remainingBalanceKobo',
   );
 
+  const netPaidKobo = readPayloadString(input.payload, 'netPaidKobo');
+  const earnedKobo = readPayloadString(input.payload, 'earnedKobo');
+  if (netPaidKobo !== undefined && earnedKobo !== undefined) {
+    return `ShopCity: Receipt ${input.receiptId ?? 'unknown'} redeemed ${formatKoboAsNaira(BigInt(redeemedKobo))}; paid ${formatKoboAsNaira(BigInt(netPaidKobo))} and earned ${formatKoboAsNaira(BigInt(earnedKobo))}. Available credit ${formatKoboAsNaira(BigInt(remainingBalanceKobo))}.`;
+  }
+
   return `ShopCity: Redeemed ${formatKoboAsNaira(BigInt(redeemedKobo))} from receipt ${input.receiptId ?? 'unknown'}. Remaining balance ${formatKoboAsNaira(BigInt(remainingBalanceKobo))}.`;
 }
 
@@ -298,6 +319,22 @@ function assertRedemptionConfirmedPayload(
     throw new SmsPayloadError(
       'redemption-confirmed payload is missing required fields',
     );
+  }
+
+  const hasNetPaid = payload.netPaidKobo !== undefined;
+  const hasEarned = payload.earnedKobo !== undefined;
+  if (hasNetPaid !== hasEarned) {
+    throw new SmsPayloadError(
+      'redemption-confirmed settlement amounts must be supplied together',
+    );
+  }
+  if (hasNetPaid) {
+    requirePayloadAmount(payload, 'netPaidKobo');
+    requirePayloadAmount(payload, 'earnedKobo');
+    const earnTransactionId = payload.earnTransactionId;
+    if (earnTransactionId !== undefined && earnTransactionId !== null) {
+      requirePayloadString(payload, 'earnTransactionId');
+    }
   }
 }
 

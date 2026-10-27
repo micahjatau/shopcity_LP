@@ -98,6 +98,10 @@ describe('report materialization (int)', () => {
     const initialMaterializedAt = new Date(now - 2 * 60 * 60 * 1000);
     const finalMaterializedAt = new Date(now + 60 * 60 * 1000);
     const expectedReportDate = toReportDateUtc(occurredAt, 'Africa/Lagos');
+    const expectedAsOfReportDate = toReportDateUtc(
+      finalMaterializedAt.toISOString(),
+      'Africa/Lagos',
+    );
     const earn = await loyaltyService.earn(
       tenant.id,
       makeContext(
@@ -146,7 +150,17 @@ describe('report materialization (int)', () => {
       where: { tenantId: tenant.id, scope: 'TENANT', scopeKey: tenant.id },
     });
 
-    expect(summaryBefore).toHaveLength(0);
+    expect(summaryBefore).toHaveLength(1);
+    expect(summaryBefore[0]).toMatchObject({
+      reportDate: toReportDateUtc(
+        initialMaterializedAt.toISOString(),
+        'Africa/Lagos',
+      ),
+      transactionCount: 0,
+      loyaltyPurchaseValueKobo: BigInt(0),
+      creditIssuedKobo: BigInt(0),
+      outstandingLiabilityKobo: BigInt(0),
+    });
     expect(customerSnapshotBefore).toHaveLength(0);
     expect(liabilityRowsBefore).toHaveLength(0);
     expect(smsRowsBefore).toHaveLength(0);
@@ -185,8 +199,18 @@ describe('report materialization (int)', () => {
         }),
       ]);
 
-    expect(summary).toHaveLength(1);
-    expect(summary[0]).toMatchObject({
+    const expectedReportDates = new Set([
+      expectedReportDate.toISOString(),
+      expectedAsOfReportDate.toISOString(),
+    ]);
+    expect(summary).toHaveLength(expectedReportDates.size);
+    const activitySummary = summary.find(
+      (row) => row.reportDate.getTime() === expectedReportDate.getTime(),
+    );
+    const currentSnapshot = summary.find(
+      (row) => row.reportDate.getTime() === expectedAsOfReportDate.getTime(),
+    );
+    expect(activitySummary).toMatchObject({
       reportDate: expectedReportDate,
       registeredCustomers: 1,
       activeCustomers: 1,
@@ -196,6 +220,17 @@ describe('report materialization (int)', () => {
       creditRedeemedKobo: BigInt(0),
       outstandingLiabilityKobo: BigInt(20_000),
     });
+    expect(currentSnapshot).toMatchObject({
+      reportDate: expectedAsOfReportDate,
+      outstandingLiabilityKobo: BigInt(20_000),
+    });
+    if (expectedAsOfReportDate.getTime() !== expectedReportDate.getTime()) {
+      expect(currentSnapshot).toMatchObject({
+        transactionCount: 0,
+        loyaltyPurchaseValueKobo: BigInt(0),
+        creditIssuedKobo: BigInt(0),
+      });
+    }
 
     expect(customerSnapshot).toHaveLength(1);
     expect(customerSnapshot[0]).toMatchObject({
@@ -227,7 +262,7 @@ describe('report materialization (int)', () => {
       await prisma.reportDailyFinancialSummary.count({
         where: { tenantId: tenant.id, scope: 'TENANT', scopeKey: tenant.id },
       }),
-    ).toBe(1);
+    ).toBe(expectedReportDates.size);
     expect(
       await prisma.reportCustomerSnapshot.count({
         where: {

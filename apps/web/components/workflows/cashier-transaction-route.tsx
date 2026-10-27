@@ -1,64 +1,31 @@
 'use client';
 
+import { Search, ScanLine } from 'lucide-react';
+import Image from 'next/image';
 import Link from 'next/link';
-import type { FormEvent, ReactNode } from 'react';
-import { useEffect, useMemo, useState } from 'react';
-import { useSessionBootstrapState } from '../session-bootstrap';
-import { ScannerContextScope } from '../scanner-context-scope';
-import { Alert, Button, Input, Separator } from '../ui';
-import { Money, StatusBadge } from '../shopcity';
+import { Fragment, type FormEvent } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
-  WorkflowSection,
-  EarnTransactionForm,
-  RedeemTransactionForm,
-} from './index';
-import {
-  cardsControllerLookupCardV1,
   customersControllerGetCustomerV1,
-  loyaltyControllerGetCustomerLedgerV1,
+  customersControllerListCustomersV1,
 } from '../../lib/api/generated-client';
 import { createApiRequest } from '../../lib/api/request';
+import { useSessionBootstrapState } from '../session-bootstrap';
+import { ScannerContextScope } from '../scanner-context-scope';
+import { Button, Input } from '../ui';
+import { CashierFlowPanel, CashierPageHeader, Money } from '../shopcity';
+import { EarnTransactionForm, RedeemTransactionForm } from './index';
+import {
+  useCashierLookupController,
+  type CashierDiscoveryRecord,
+  type CashierLookupRecord,
+} from './use-cashier-lookup-controller';
+import { VerifiedCardLookupStep } from './verified-card-lookup-step';
+import { RecentCashierCaptures } from './recent-cashier-captures';
+import { RecentCashierRedemptions } from './recent-cashier-redemptions';
+import { SupervisorVirtualCardPreview } from './supervisor-virtual-card-preview';
 
-type CashierLookupRecord = {
-  customer?: {
-    id?: string;
-    customerId?: string;
-    fullName?: string;
-    maskedPhone?: string;
-    isStaff?: boolean;
-    earningEligible?: boolean;
-    eligibilityReason?: string | null;
-  };
-  customerId?: string;
-  customerName?: string;
-  serialNumber?: string;
-  cardSerialNumber?: string;
-  status?: string;
-  cardStatus?: string;
-  availableBalanceKobo?: number;
-  balanceKobo?: number;
-  expiringCreditKobo?: number;
-  branchId?: string;
-};
-
-type CashierCustomerRecord = {
-  fullName?: string;
-  name?: string;
-  status?: string;
-  balanceKobo?: number;
-  availableBalanceKobo?: number;
-};
-
-type CashierLedgerItem = {
-  id?: string;
-  type?: string;
-  transactionType?: string;
-  amountKobo?: number;
-};
-
-type CashierLedgerRecord = {
-  items?: CashierLedgerItem[];
-};
+/* eslint-disable jsx-a11y/no-noninteractive-tabindex -- the progress track is horizontally scrollable on narrow screens. */
 
 type CashierPolicyConfig = {
   tenant?: { id?: string; name?: string };
@@ -91,172 +58,89 @@ export function CashierWorkflowRoute({
   description,
   initialCardSerial,
 }: Readonly<CashierWorkflowRouteProps>) {
-  const [lookupValue, setLookupValue] = useState(initialCardSerial ?? '');
-  const [lookupMessage, setLookupMessage] = useState(
-    initialCardSerial
-      ? 'Card context loaded from the route. Lookup to refresh if needed.'
-      : 'Scan or type a card serial.',
-  );
-  const [lookupRecord, setLookupRecord] = useState<CashierLookupRecord | null>(
-    null,
-  );
-  const [lookupPending, setLookupPending] = useState(false);
-  const [customerRecord, setCustomerRecord] =
-    useState<CashierCustomerRecord | null>(null);
-  const [ledgerRecord, setLedgerRecord] = useState<CashierLedgerRecord | null>(
-    null,
-  );
+  const {
+    lookupValue,
+    lookupMessage,
+    lookupRecord,
+    lookupPending,
+    discoveryMatches,
+    selectedCardSerial,
+    setLookupValue,
+    clearLookup,
+    lookup: handleLookup,
+  } = useCashierLookupController(initialCardSerial);
   const {
     userId,
     deviceId,
+    sessionLabel,
     publicConfig,
     configMessage: policyMessage,
   } = useSessionBootstrapState();
   const policyConfig = publicConfig as CashierPolicyConfig | null;
-
-  const customerId = useMemo(
-    () => lookupRecord?.customer?.id ?? lookupRecord?.customerId ?? null,
-    [lookupRecord],
-  );
+  const [flowStep, setFlowStep] = useState(0);
+  const [earnConfirmed, setEarnConfirmed] = useState(false);
+  const [lookupEmailSummary, setLookupEmailSummary] = useState<{
+    customerId: string;
+    email: string | null;
+    availableBalanceKobo: number | null;
+  } | null>(null);
+  const lookupCustomerId =
+    lookupRecord?.customer?.customerId ??
+    lookupRecord?.customer?.id ??
+    lookupRecord?.customerId;
 
   useEffect(() => {
-    let ignore = false;
-
-    async function loadCustomer() {
-      if (kind === 'lookup' || !customerId) {
-        setCustomerRecord(null);
-        setLedgerRecord(null);
-        return;
-      }
-
-      try {
-        const response = await customersControllerGetCustomerV1(
-          customerId,
-          createApiRequest({ csrf: true }),
-        );
-        if (!ignore && response.status === 200) {
-          setCustomerRecord(response.data.data);
-        }
-      } catch {
-        if (!ignore) setCustomerRecord(null);
-      }
-
-      try {
-        const response = await loyaltyControllerGetCustomerLedgerV1(
-          customerId,
-          { limit: '5', cursor: '' },
-          createApiRequest({ csrf: true }),
-        );
-        if (!ignore && response.status === 200) {
-          setLedgerRecord(response.data.data);
-        }
-      } catch {
-        if (!ignore) setLedgerRecord(null);
-      }
+    if (!lookupCustomerId) {
+      setLookupEmailSummary(null);
+      return;
     }
 
-    void loadCustomer();
+    let active = true;
+    setLookupEmailSummary(null);
+    void customersControllerGetCustomerV1(
+      lookupCustomerId,
+      createApiRequest({ csrf: true }),
+    )
+      .then((response) => {
+        if (!active) return;
+        const customer = response.status === 200 ? response.data.data : null;
+        const customerMatches = customer?.customerId === lookupCustomerId;
+        setLookupEmailSummary({
+          customerId: lookupCustomerId,
+          email: customerMatches ? (customer.email ?? null) : null,
+          availableBalanceKobo:
+            customerMatches && typeof customer.availableBalanceKobo === 'number'
+              ? customer.availableBalanceKobo
+              : null,
+        });
+      })
+      .catch(() => {
+        if (active)
+          setLookupEmailSummary({
+            customerId: lookupCustomerId,
+            email: null,
+            availableBalanceKobo: null,
+          });
+      });
 
     return () => {
-      ignore = true;
+      active = false;
     };
-  }, [customerId, kind]);
+  }, [lookupCustomerId]);
 
-  useEffect(() => {
-    if (!initialCardSerial || lookupRecord) {
-      return;
-    }
-
-    setLookupValue(initialCardSerial);
-    void handleLookup(initialCardSerial);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [initialCardSerial, lookupRecord]);
-
-  async function handleLookup(
-    eventOrValue: FormEvent<HTMLFormElement> | string,
-  ) {
-    if (typeof eventOrValue !== 'string') {
-      eventOrValue.preventDefault();
-    }
-
-    const query =
-      typeof eventOrValue === 'string'
-        ? eventOrValue.trim()
-        : lookupValue.trim();
-    if (!query) {
-      setLookupMessage('Enter a card serial number first.');
-      setLookupRecord(null);
-      return;
-    }
-
-    if (typeof navigator !== 'undefined' && !navigator.onLine) {
-      setLookupRecord(null);
-      setLookupMessage('Lookup unavailable offline. Reconnect to try again.');
-      return;
-    }
-
-    setLookupMessage('Looking up customer and card context…');
-    setLookupPending(true);
-    try {
-      const response = await cardsControllerLookupCardV1(
-        query,
-        createApiRequest({ csrf: true }),
-      );
-
-      if (response.status === 200) {
-        const record = response.data.data;
-        setLookupRecord(record);
-        setLookupMessage(
-          'Lookup resolved. The workflow can now use this context.',
-        );
-        return;
-      }
-
-      setLookupRecord(null);
-      setLookupMessage(`Lookup unavailable (${response.status}).`);
-    } catch {
-      setLookupRecord(null);
-      setLookupMessage('Lookup could not be completed.');
-    } finally {
-      setLookupPending(false);
-    }
-  }
-
-  const lookupSummary: Array<[string, ReactNode]> = lookupRecord
-    ? [
-        [
-          'Customer',
-          lookupRecord.customer?.fullName ?? lookupRecord.customerName ?? '—',
-        ],
-        ['Phone', lookupRecord.customer?.maskedPhone ?? '—'],
-        ['Card status', lookupRecord.status ?? lookupRecord.cardStatus ?? '—'],
-        [
-          'Earn eligibility',
-          lookupRecord.customer?.earningEligible === false
-            ? 'Staff account — not eligible'
-            : lookupRecord.customer?.earningEligible === true
-              ? 'Eligible'
-              : 'Not provided',
-        ],
-        [
-          'Available balance',
-          typeof lookupRecord.availableBalanceKobo === 'number' ? (
-            <Money amountKobo={lookupRecord.availableBalanceKobo} />
-          ) : (
-            '—'
-          ),
-        ],
-        [
-          'Expiring credit',
-          typeof lookupRecord.expiringCreditKobo === 'number' ? (
-            <Money amountKobo={lookupRecord.expiringCreditKobo} />
-          ) : (
-            '—'
-          ),
-        ],
-      ]
-    : [];
-
+  const cardStatus = lookupRecord?.status ?? lookupRecord?.cardStatus ?? '';
+  const email =
+    lookupCustomerId && lookupEmailSummary?.customerId === lookupCustomerId
+      ? (lookupEmailSummary?.email ?? 'Not provided')
+      : lookupCustomerId
+        ? 'Loading…'
+        : 'Not provided';
+  const walletBalanceKobo =
+    lookupRecord?.availableBalanceKobo ??
+    lookupRecord?.balanceKobo ??
+    (lookupCustomerId && lookupEmailSummary?.customerId === lookupCustomerId
+      ? lookupEmailSummary?.availableBalanceKobo
+      : null);
   const policyContext = policyConfig?.policies ?? null;
   const branchContext = policyConfig?.branch ?? null;
   const branchReceiptWeekStartDay =
@@ -281,315 +165,827 @@ export function CashierWorkflowRoute({
         branchId: lookupRecord.branchId ?? branchContext?.id,
       }
     : undefined;
-  const showTransactionForm = kind !== 'lookup';
-  const selectedCardSerial =
-    lookupRecord?.serialNumber ??
-    lookupRecord?.cardSerialNumber ??
-    lookupValue.trim();
-
+  const currentFlowStep =
+    kind === 'earn'
+      ? !lookupRecord
+        ? 0
+        : !earnConfirmed
+          ? 1
+          : flowStep
+      : kind === 'redeem'
+        ? !lookupRecord
+          ? 0
+          : flowStep
+        : 0;
+  const flowSteps =
+    kind === 'earn'
+      ? ['Find Customer', 'Confirm Customer', 'Receipt Details', 'Review']
+      : [
+          'Find Customer',
+          'Basket Total',
+          'Redemption amount',
+          'Confirm Redemption',
+        ];
+  const usesCaptureProgress = kind === 'earn' || kind === 'redeem';
   const routeHeader = (
-    <header className="cashier-route-header">
-      <h1 style={{ margin: 0 }}>{title}</h1>
-      <p className="cashier-route-description">{description}</p>
-    </header>
+    <CashierPageHeader
+      className="cashier-route-header"
+      dataOdId={
+        kind === 'lookup'
+          ? 'find-customer-heading'
+          : kind === 'earn'
+            ? 'capture-purchase-heading'
+            : 'redeem-heading'
+      }
+      title={title}
+      description={description}
+    />
   );
 
   return (
-    <section style={{ display: 'grid', gap: 'var(--sc-spacing-5)' }}>
+    <section
+      className={`cashier-route-page cashier-route-page--${kind}`}
+      data-od-id={kind === 'earn' ? 'capture-purchase-page' : `${kind}-page`}
+    >
       <ScannerContextScope context="lookup" />
       {routeHeader}
-      <WorkflowSection
-        title={kind === 'lookup' ? 'Find a customer' : 'Find customer context'}
-        description={
-          kind === 'lookup'
-            ? 'Scan or enter a card serial, then continue with the smallest task that matches the customer need.'
-            : 'Look up the card first. The transaction form unlocks when the server confirms the customer context.'
-        }
-      >
-        <div className="cashier-workspace-grid">
-          <article className="cashier-card" aria-label="Lookup and status">
-            <h2 style={{ marginTop: 0 }}>Lookup and status</h2>
-            <form
-              onSubmit={(event) => void handleLookup(event)}
-              style={{ display: 'grid', gap: 'var(--sc-spacing-3)' }}
-            >
-              <Input
-                placeholder="Scan card serial number"
-                aria-label="Lookup"
-                value={lookupValue}
-                onChange={(event) => setLookupValue(event.target.value)}
-              />
-              <Button type="submit" disabled={lookupPending}>
-                {lookupPending ? 'Looking up…' : 'Lookup'}
-              </Button>
-            </form>
-            <Alert tone="info" title="Session-aware workflow">
-              {lookupMessage}
-            </Alert>
-            {lookupRecord ? (
-              <div style={{ display: 'grid', gap: 'var(--sc-spacing-3)' }}>
-                {lookupSummary.map(([label, value]) => (
-                  <div key={label} className="cashier-stat-row">
-                    <span>{label}</span>
-                    <span>{value}</span>
-                  </div>
-                ))}
-                <div className="cashier-tag-row">
-                  {kind === 'lookup' && selectedCardSerial ? (
-                    <>
-                      <Link
-                        href={`/cashier/earn?card=${encodeURIComponent(selectedCardSerial)}`}
+      {kind !== 'lookup' ? (
+        <div
+          role="region"
+          className={`cashier-flow-steps ${
+            usesCaptureProgress ? 'cashier-flow-steps--capture' : ''
+          }`}
+          aria-label={`${title} steps`}
+          tabIndex={usesCaptureProgress ? 0 : undefined}
+          data-od-id={kind === 'earn' ? 'capture-stages' : 'redeem-stages'}
+        >
+          {usesCaptureProgress ? (
+            <div className="cashier-flow-steps__track">
+              {flowSteps.map((step, index) => (
+                <Fragment key={step}>
+                  <span
+                    className={`cashier-flow-step ${
+                      index === currentFlowStep ? 'is-active' : ''
+                    } ${index < currentFlowStep ? 'is-complete' : ''}`}
+                    aria-current={
+                      index === currentFlowStep ? 'step' : undefined
+                    }
+                  >
+                    {index < currentFlowStep ? (
+                      <span
+                        className="cashier-flow-step__icon"
+                        aria-hidden="true"
                       >
-                        Earn
-                      </Link>
-                      <Link
-                        href={`/cashier/redeem?card=${encodeURIComponent(selectedCardSerial)}`}
-                      >
-                        Redeem
-                      </Link>
-                    </>
-                  ) : null}
-                  <StatusBadge
-                    label={lookupRecord.status ?? 'LOOKUP'}
-                    tone="success"
-                  />
-                  {lookupRecord.customer?.id || lookupRecord.customerId ? (
-                    <Link
-                      href={`/cashier/customers${lookupRecord.customer?.id || lookupRecord.customerId ? `?id=${lookupRecord.customer?.id ?? lookupRecord.customerId}` : ''}`}
+                        <Image
+                          src="/brand/cashier/cashier-capture-step-check.svg"
+                          alt=""
+                          width={13}
+                          height={13}
+                        />
+                      </span>
+                    ) : null}
+                    <span>{step}</span>
+                  </span>
+                  {index < flowSteps.length - 1 ? (
+                    <span
+                      aria-hidden="true"
+                      className={`cashier-flow-connector ${
+                        index < currentFlowStep ? 'is-complete' : ''
+                      }`}
                     >
-                      View customer
-                    </Link>
+                      <Image
+                        src={`/brand/cashier/cashier-capture-step-connector-${
+                          index < currentFlowStep ? 'active' : 'inactive'
+                        }.svg`}
+                        alt=""
+                        width={24}
+                        height={1}
+                      />
+                    </span>
                   ) : null}
-                </div>
-              </div>
-            ) : null}
-          </article>
-
-          {kind !== 'lookup' ? (
-            <article className="cashier-card" aria-label="Policy context">
-              <h2 style={{ marginTop: 0 }}>Policy context</h2>
-              <p className="cashier-muted">{policyMessage}</p>
-              {policyContext ? (
-                <div className="cashier-stat-list">
-                  {kind === 'earn' ? (
-                    <>
-                      <div className="cashier-stat-row">
-                        <span>Active earn rate</span>
-                        <strong>
-                          {(policyContext.defaultEarnRateBps ?? 0) / 100}%
-                        </strong>
-                      </div>
-                      <div className="cashier-stat-row">
-                        <span>Purchase review threshold</span>
-                        {typeof policyContext.purchaseFlagThresholdKobo ===
-                        'number' ? (
-                          <Money
-                            amountKobo={policyContext.purchaseFlagThresholdKobo}
-                          />
-                        ) : (
-                          'Not configured'
-                        )}
-                      </div>
-                    </>
-                  ) : (
-                    <>
-                      <div className="cashier-stat-row">
-                        <span>Minimum redemption</span>
-                        {typeof policyContext.minRedemptionKobo === 'number' ? (
-                          <Money amountKobo={policyContext.minRedemptionKobo} />
-                        ) : (
-                          'Not configured'
-                        )}
-                      </div>
-                      <div className="cashier-stat-row">
-                        <span>Basket limit</span>
-                        <strong>
-                          {policyContext.maxRedemptionBasketPercent ??
-                            'Not configured'}
-                          {typeof policyContext.maxRedemptionBasketPercent ===
-                          'number'
-                            ? '%'
-                            : ''}
-                        </strong>
-                      </div>
-                      {policyContext.offlineRedemptionDisabled ? (
-                        <Alert
-                          tone="warning"
-                          title="Offline redemption disabled"
-                        >
-                          Redemption requires a live server response.
-                        </Alert>
-                      ) : null}
-                    </>
-                  )}
-                </div>
-              ) : (
-                <Alert tone="warning" title="Policy unavailable">
-                  Active policy guidance is unavailable; the server remains
-                  authoritative for this transaction.
-                </Alert>
-              )}
-            </article>
-          ) : null}
+                </Fragment>
+              ))}
+            </div>
+          ) : (
+            flowSteps.map((step, index) => (
+              <span
+                className={`cashier-flow-step ${
+                  index === currentFlowStep ? 'is-active' : ''
+                } ${index < currentFlowStep ? 'is-complete' : ''}`}
+                aria-current={index === currentFlowStep ? 'step' : undefined}
+                key={step}
+              >
+                <b aria-hidden="true">
+                  {index < currentFlowStep ? '✓' : index + 1}
+                </b>
+                <span>{step}</span>
+              </span>
+            ))
+          )}
         </div>
-      </WorkflowSection>
-
-      {showTransactionForm ? (
-        <article className="cashier-card" aria-label={`${kind} transaction`}>
-          <h2 style={{ marginTop: 0 }}>
-            {kind === 'earn' ? 'Earn transaction' : 'Redeem transaction'}
-          </h2>
-          {kind === 'earn' ? (
-            <EarnTransactionForm
-              lookupContext={lookupContext}
-              policyContext={policyContext}
-              cashierId={userId}
-              deviceId={deviceId}
-              branchId={policyConfig?.branch?.id ?? null}
-              branchTimezone={branchContext?.timezone ?? null}
-              receiptWeekStartDay={branchReceiptWeekStartDay}
-            />
+      ) : null}
+      {kind === 'lookup' ? (
+        <FindCustomerView
+          lookupValue={lookupValue}
+          lookupMessage={lookupMessage}
+          lookupPending={lookupPending}
+          lookupRecord={lookupRecord}
+          discoveryMatches={discoveryMatches}
+          onLookup={(eventOrValue) => void handleLookup(eventOrValue)}
+          onQueryChange={setLookupValue}
+          selectedCardSerial={selectedCardSerial}
+          onClearLookup={clearLookup}
+        />
+      ) : kind === 'earn' ? (
+        <CashierFlowPanel
+          flow="earn"
+          state={`step-${Math.min(currentFlowStep + 1, flowSteps.length)}`}
+          className="cashier-flow-panel cashier-earn-workflow-panel"
+          dataOdId="capture-flow"
+        >
+          {!lookupRecord ? (
+            <>
+              <VerifiedCardLookupStep
+                lookupValue={lookupValue}
+                lookupMessage={lookupMessage}
+                lookupPending={lookupPending}
+                policyMessage={policyMessage}
+                onLookup={(event) => void handleLookup(event)}
+                onQueryChange={setLookupValue}
+                captureLayout
+              />
+              <RecentCashierCaptures />
+            </>
+          ) : !earnConfirmed ? (
+            <div
+              className="cashier-stage-content cashier-confirm-stage"
+              data-od-id="capture-confirm-customer"
+              aria-label="Confirm customer"
+            >
+              <div className="cashier-stage-heading">
+                <h2 className="cashier-stage-heading-title">
+                  Step 2 — Confirm customer
+                </h2>
+                <p className="cashier-stage-heading-description">
+                  Read the name back to the customer before continuing.
+                </p>
+                <Image
+                  src="/brand/cashier/cashier-confirmation-divider.svg"
+                  alt=""
+                  aria-hidden="true"
+                  width={664}
+                  height={1}
+                  className="cashier-capture-confirm__divider"
+                />
+              </div>
+              <CaptureCustomerConfirmationCard
+                customerName={
+                  lookupContext?.customerName ??
+                  lookupRecord.customer?.fullName ??
+                  lookupRecord.customerName
+                }
+                maskedPhone={lookupRecord.customer?.maskedPhone}
+                maskedEmail={email}
+                cardStatus={cardStatus}
+                walletBalanceKobo={walletBalanceKobo}
+                cardSerialNumber={
+                  lookupContext?.cardSerialNumber ?? lookupRecord.serialNumber
+                }
+              />
+              <div className="cashier-stage-actions">
+                <Button
+                  type="button"
+                  variant="secondary"
+                  aria-label="Go back to find customer"
+                  className="cashier-capture-confirm__back sc-button--cashier-confirm-action sc-button--cashier-confirm-back"
+                  onClick={() => {
+                    clearLookup();
+                    setEarnConfirmed(false);
+                  }}
+                >
+                  Back
+                </Button>
+                <Button
+                  type="button"
+                  className="cashier-capture-confirm__proceed sc-button--cashier-confirm-action sc-button--cashier-confirm-proceed"
+                  onClick={() => setEarnConfirmed(true)}
+                >
+                  Proceed
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <div
+              className="cashier-flow-panel-form"
+              data-od-id="capture-flow-form"
+            >
+              <EarnTransactionForm
+                lookupContext={lookupContext}
+                currentWalletBalanceKobo={walletBalanceKobo ?? null}
+                policyContext={policyContext}
+                cashierId={userId}
+                cashierDisplayName={
+                  sessionLabel?.split(' · ').slice(1).join(' · ').trim() ||
+                  'Cashier'
+                }
+                deviceId={deviceId}
+                branchId={policyConfig?.branch?.id ?? null}
+                branchTimezone={branchContext?.timezone ?? null}
+                receiptWeekStartDay={branchReceiptWeekStartDay}
+                onFlowStepChange={setFlowStep}
+                onBackToCustomerConfirmation={() => setEarnConfirmed(false)}
+              />
+            </div>
+          )}
+        </CashierFlowPanel>
+      ) : (
+        <CashierFlowPanel
+          flow="redeem"
+          state={`step-${Math.min(currentFlowStep + 1, flowSteps.length)}`}
+          className="cashier-flow-panel cashier-redeem-flow-panel"
+          dataOdId="redeem-flow"
+        >
+          {!lookupRecord ? (
+            <>
+              <VerifiedCardLookupStep
+                lookupValue={lookupValue}
+                lookupMessage={lookupMessage}
+                lookupPending={lookupPending}
+                policyMessage={policyMessage}
+                onLookup={(event) => void handleLookup(event)}
+                onQueryChange={setLookupValue}
+                captureLayout
+              />
+              <RecentCashierRedemptions />
+            </>
           ) : (
             <RedeemTransactionForm
-              lookupContext={lookupContext}
+              lookupContext={
+                lookupContext
+                  ? {
+                      ...lookupContext,
+                      maskedPhone: lookupRecord.customer?.maskedPhone,
+                      maskedEmail: email === 'Loading…' ? undefined : email,
+                      cardStatus,
+                      availableBalanceKobo: walletBalanceKobo,
+                    }
+                  : undefined
+              }
               policyContext={policyContext}
               cashierId={userId}
+              cashierDisplayName={
+                sessionLabel?.split(' · ').slice(1).join(' · ').trim() ||
+                'Cashier'
+              }
               branchId={policyConfig?.branch?.id ?? null}
+              onFlowStepChange={setFlowStep}
+              onBackToLookup={() => {
+                clearLookup();
+                setFlowStep(0);
+              }}
             />
           )}
-        </article>
-      ) : null}
-
-      {kind !== 'lookup' ? (
-        <div className="cashier-workspace-grid cashier-support-grid">
-          <article className="cashier-card" aria-label="Customer detail">
-            <h2 style={{ marginTop: 0 }}>Customer detail</h2>
-            {customerRecord ? (
-              <div style={{ display: 'grid', gap: 'var(--sc-spacing-3)' }}>
-                <div className="cashier-stat-row">
-                  <span>Name</span>
-                  <strong>
-                    {customerRecord.fullName ?? customerRecord.name ?? '—'}
-                  </strong>
-                </div>
-                <div className="cashier-stat-row">
-                  <span>Status</span>
-                  <StatusBadge
-                    label={customerRecord.status ?? 'UNKNOWN'}
-                    tone="info"
-                  />
-                </div>
-                <div className="cashier-stat-row">
-                  <span>Balance</span>
-                  <Money
-                    amountKobo={
-                      customerRecord.balanceKobo ??
-                      customerRecord.availableBalanceKobo ??
-                      0
-                    }
-                  />
-                </div>
-                <Separator />
-                <div style={{ display: 'grid', gap: 'var(--sc-spacing-2)' }}>
-                  <strong>Recent ledger</strong>
-                  {Array.isArray(ledgerRecord?.items) &&
-                  ledgerRecord.items.length > 0 ? (
-                    ledgerRecord.items.slice(0, 4).map((item) => {
-                      const ledgerKey = String(
-                        item.id ?? item.type ?? item.transactionType ?? 'Entry',
-                      );
-                      return (
-                        <div key={ledgerKey} className="cashier-stat-row">
-                          <span>
-                            {item.type ?? item.transactionType ?? 'Entry'}
-                          </span>
-                          <span>
-                            {item.amountKobo ? (
-                              <Money amountKobo={item.amountKobo} />
-                            ) : (
-                              '—'
-                            )}
-                          </span>
-                        </div>
-                      );
-                    })
-                  ) : (
-                    <p className="cashier-muted">
-                      Ledger history will appear once the customer is loaded.
-                    </p>
-                  )}
-                </div>
-              </div>
-            ) : (
-              <Alert tone="warning" title="No customer selected">
-                Lookup a card first to load customer balance and history.
-              </Alert>
-            )}
-          </article>
-
-          <aside
-            className="cashier-card cashier-support-note"
-            aria-label="Sync queue"
-          >
-            <h2 style={{ marginTop: 0 }}>Need to sync?</h2>
-            <p className="cashier-muted">
-              Queue state stays in the shell header. Open the operations page
-              when a batch needs review.
-            </p>
-            <Link href="/cashier/sync">Open sync queue</Link>
-          </aside>
-        </div>
-      ) : null}
-
-      <style>{`
-        .cashier-route-header {
-          display: grid;
-          gap: var(--sc-spacing-2);
-        }
-
-        .cashier-route-description,
-        .cashier-muted {
-          color: var(--sc-color-semantic-textSecondary);
-          margin: 0;
-        }
-
-        .cashier-tag-row {
-          display: flex;
-          gap: var(--sc-spacing-2);
-          flex-wrap: wrap;
-        }
-
-        .cashier-workspace-grid {
-          display: grid;
-          gap: var(--sc-spacing-4);
-          grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-        }
-
-        .cashier-support-note {
-          display: grid;
-          gap: var(--sc-spacing-3);
-        }
-
-        .cashier-card {
-          background: var(--sc-color-neutral-0);
-          border: 1px solid var(--sc-color-semantic-border);
-          border-radius: var(--sc-radius-lg);
-          padding: var(--sc-spacing-5);
-          box-shadow: var(--sc-shadow-level1);
-        }
-
-        .cashier-stat-list {
-          display: grid;
-          gap: var(--sc-spacing-3);
-        }
-
-        .cashier-stat-row {
-          display: flex;
-          justify-content: space-between;
-          gap: var(--sc-spacing-3);
-          align-items: center;
-        }
-      `}</style>
+        </CashierFlowPanel>
+      )}
     </section>
+  );
+}
+
+function getCaptureCardStatus(status: string) {
+  const normalized = status.trim().toUpperCase();
+  if (normalized === 'ACTIVE')
+    return { label: 'Active', tone: 'active' as const };
+  if (normalized === 'BLOCKED')
+    return { label: 'Blocked', tone: 'blocked' as const };
+  if (normalized === 'LOST') return { label: 'Lost', tone: 'lost' as const };
+  if (normalized === 'REPLACED')
+    return { label: 'Replaced', tone: 'inactive' as const };
+  if (normalized === 'INACTIVE')
+    return { label: 'Inactive', tone: 'inactive' as const };
+  return {
+    label: status || 'Not provided',
+    tone: 'inactive' as const,
+  };
+}
+
+function CaptureCustomerConfirmationCard({
+  customerName,
+  maskedPhone,
+  maskedEmail,
+  cardStatus,
+  walletBalanceKobo,
+  cardSerialNumber,
+}: Readonly<{
+  customerName?: string;
+  maskedPhone?: string;
+  maskedEmail: string;
+  cardStatus: string;
+  walletBalanceKobo?: number | null;
+  cardSerialNumber?: string;
+}>) {
+  const [copyMessage, setCopyMessage] = useState('');
+  const displayName = customerName?.trim() || 'Not provided';
+  const cardStatusDisplay = getCaptureCardStatus(cardStatus);
+  const serialNumber = cardSerialNumber?.trim() || 'Not provided';
+  const canCopySerial = serialNumber !== 'Not provided';
+  const isEmailLoading = maskedEmail === 'Loading…';
+
+  async function copySerialNumber() {
+    if (!canCopySerial) return;
+    try {
+      await navigator.clipboard.writeText(serialNumber);
+      setCopyMessage('Card number copied.');
+    } catch {
+      setCopyMessage('Could not copy card number. Select the value manually.');
+    }
+  }
+
+  return (
+    <div
+      className="cashier-capture-confirm-layout"
+      role="group"
+      aria-label="Verified customer details"
+    >
+      <div className="cashier-capture-confirm__identity">
+        <dl className="cashier-capture-confirm__details">
+          <div className="cashier-capture-confirm__field--customer">
+            <dt>Customer</dt>
+            <dd className={displayName === 'Not provided' ? 'is-missing' : ''}>
+              {displayName}
+            </dd>
+          </div>
+          <div>
+            <dt>Email</dt>
+            <dd
+              className={`cashier-capture-confirm__email ${maskedEmail === 'Not provided' ? 'is-missing' : ''}`}
+              aria-busy={isEmailLoading}
+            >
+              {isEmailLoading ? (
+                <span
+                  className="cashier-capture-confirm__email-skeleton"
+                  role="status"
+                  aria-label="Loading customer email"
+                />
+              ) : (
+                maskedEmail || 'Not provided'
+              )}
+            </dd>
+          </div>
+          <div>
+            <dt>Phone number</dt>
+            <dd
+              className={`cashier-capture-confirm__phone ${maskedPhone ? '' : 'is-missing'}`}
+            >
+              {maskedPhone || 'Not provided'}
+            </dd>
+          </div>
+          <div className="cashier-capture-confirm__serial">
+            <dt>Virtual Card Number</dt>
+            <dd>
+              <span className={canCopySerial ? '' : 'is-missing'}>
+                {serialNumber}
+              </span>
+              {canCopySerial ? (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="compact"
+                  className="cashier-capture-confirm__copy"
+                  aria-label={`Copy virtual card number ${serialNumber}`}
+                  title="Copy virtual card number"
+                  onClick={() => void copySerialNumber()}
+                >
+                  <Image
+                    src="/brand/cashier/cashier-confirmation-copy.svg"
+                    alt=""
+                    aria-hidden="true"
+                    width={16}
+                    height={16}
+                  />
+                </Button>
+              ) : null}
+              <span className="sr-only" aria-live="polite">
+                {copyMessage}
+              </span>
+            </dd>
+          </div>
+          <div className="cashier-capture-confirm__wallet">
+            <dt>Wallet Balance</dt>
+            <dd
+              className={`cashier-capture-confirm__wallet-value ${typeof walletBalanceKobo === 'number' ? '' : 'is-missing'}`}
+            >
+              {typeof walletBalanceKobo === 'number' ? (
+                <Money amountKobo={walletBalanceKobo} />
+              ) : (
+                'Not provided'
+              )}
+            </dd>
+          </div>
+        </dl>
+      </div>
+      <div className="cashier-capture-card-preview">
+        <SupervisorVirtualCardPreview
+          confirmation
+          customerName={displayName}
+          serialNumber={serialNumber}
+          status={cardStatusDisplay.label}
+        />
+        <p className="cashier-capture-card-preview__status">
+          Status: {cardStatusDisplay.label}
+        </p>
+      </div>
+    </div>
+  );
+}
+
+function FindCustomerView({
+  lookupValue,
+  lookupMessage,
+  lookupPending,
+  lookupRecord,
+  discoveryMatches,
+  onLookup,
+  onQueryChange,
+  selectedCardSerial,
+  onClearLookup,
+}: Readonly<{
+  lookupValue: string;
+  lookupMessage: string;
+  lookupPending: boolean;
+  lookupRecord: CashierLookupRecord | null;
+  discoveryMatches: CashierDiscoveryRecord[];
+  onLookup: (eventOrValue: FormEvent<HTMLFormElement> | string) => void;
+  onQueryChange: (value: string) => void;
+  selectedCardSerial: string;
+  onClearLookup: () => void;
+}>) {
+  const queryInputRef = useRef<HTMLInputElement | null>(null);
+  const lookupHandlerRef = useRef(onLookup);
+  const previousLookupValue = useRef(lookupValue);
+  const searchTimerRef = useRef<number | null>(null);
+  const triggeredSearchRef = useRef('');
+  const scrollRegionProps = { tabIndex: 0 };
+  const [recentCustomers, setRecentCustomers] = useState<
+    CashierDiscoveryRecord[]
+  >([]);
+  const [recentPending, setRecentPending] = useState(true);
+  const [recentError, setRecentError] = useState('');
+  const [directoryPending, setDirectoryPending] = useState(false);
+
+  useEffect(() => {
+    lookupHandlerRef.current = onLookup;
+  }, [onLookup]);
+
+  useEffect(() => {
+    let active = true;
+
+    async function loadRecentCustomers() {
+      try {
+        const response = await customersControllerListCustomersV1(
+          { q: '', limit: '10', cursor: '' },
+          createApiRequest({ csrf: true }),
+        );
+        if (!active) return;
+        if (response.status !== 200) {
+          setRecentError(`Recent customers unavailable (${response.status}).`);
+          return;
+        }
+        const data = response.data.data;
+        const items = Array.isArray(data) ? data : data.items;
+        setRecentCustomers((items ?? []) as CashierDiscoveryRecord[]);
+      } catch {
+        if (active) setRecentError('Recent customers unavailable.');
+      } finally {
+        if (active) setRecentPending(false);
+      }
+    }
+
+    void loadRecentCustomers();
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (lookupValue === previousLookupValue.current) return;
+    previousLookupValue.current = lookupValue;
+    const term = lookupValue.trim();
+    if (term.length < 2) {
+      triggeredSearchRef.current = '';
+      setDirectoryPending(false);
+      return;
+    }
+
+    setDirectoryPending(true);
+    const timer = window.setTimeout(() => {
+      searchTimerRef.current = null;
+      triggeredSearchRef.current = term;
+      lookupHandlerRef.current(term);
+    }, 280);
+    searchTimerRef.current = timer;
+
+    return () => {
+      window.clearTimeout(timer);
+      if (searchTimerRef.current === timer) searchTimerRef.current = null;
+    };
+  }, [lookupValue]);
+
+  useEffect(() => {
+    if (
+      triggeredSearchRef.current &&
+      triggeredSearchRef.current === lookupValue.trim() &&
+      !lookupPending
+    ) {
+      setDirectoryPending(false);
+      triggeredSearchRef.current = '';
+    }
+  }, [lookupPending, lookupValue]);
+
+  useEffect(() => {
+    function restoreLookupFocus(event: KeyboardEvent) {
+      if (
+        event.key !== 'Escape' ||
+        (!lookupValue && !lookupRecord && discoveryMatches.length === 0)
+      ) {
+        return;
+      }
+      event.preventDefault();
+      onClearLookup();
+      queryInputRef.current?.focus();
+    }
+
+    window.addEventListener('keydown', restoreLookupFocus);
+    return () => window.removeEventListener('keydown', restoreLookupFocus);
+  }, [discoveryMatches.length, lookupRecord, lookupValue, onClearLookup]);
+
+  function submitSearch(event: FormEvent<HTMLFormElement>) {
+    if (searchTimerRef.current !== null) {
+      window.clearTimeout(searchTimerRef.current);
+      searchTimerRef.current = null;
+    }
+    const term = lookupValue.trim();
+    const offline = typeof navigator !== 'undefined' && !navigator.onLine;
+    if (term.length >= 2) {
+      triggeredSearchRef.current = offline ? '' : term;
+      setDirectoryPending(!offline);
+    }
+    lookupHandlerRef.current(event);
+  }
+
+  const verifiedCustomer: CashierDiscoveryRecord | null = lookupRecord
+    ? {
+        customerId:
+          lookupRecord.customerId ??
+          lookupRecord.customer?.customerId ??
+          lookupRecord.customer?.id,
+        fullName: lookupRecord.customer?.fullName ?? lookupRecord.customerName,
+        maskedPhone: lookupRecord.customer?.maskedPhone,
+        cardStatus: lookupRecord.cardStatus ?? lookupRecord.status,
+        availableBalanceKobo:
+          lookupRecord.availableBalanceKobo ?? lookupRecord.balanceKobo,
+      }
+    : null;
+  const hasSearchTerm = Boolean(lookupValue.trim());
+  const visibleCustomers = verifiedCustomer
+    ? [verifiedCustomer]
+    : hasSearchTerm
+      ? discoveryMatches
+      : recentCustomers;
+  const tableBusy = hasSearchTerm
+    ? lookupPending || directoryPending
+    : recentPending;
+  const statusMessage = hasSearchTerm
+    ? lookupValue.trim().length < 2 && !lookupPending
+      ? 'Enter at least 2 characters to search.'
+      : directoryPending && !lookupPending
+        ? `Searching for “${lookupValue.trim()}”…`
+        : lookupMessage
+    : recentPending
+      ? 'Loading recent customers…'
+      : recentError;
+
+  return (
+    <div className="find-customer-view" data-od-id="find-customer-content">
+      <header
+        className="find-customer-recent-head"
+        data-od-id="recent-customers-heading"
+      >
+        <h2
+          className="sc-discovery-section-title"
+          id="find-customer-results-title"
+        >
+          Recent customers
+        </h2>
+        <p className="sc-discovery-muted">
+          Up to ten of the most recently registered customer profiles.
+        </p>
+      </header>
+      <section
+        className="find-customer-search sc-discovery-panel"
+        data-od-id="customer-search"
+        aria-busy={lookupPending || directoryPending}
+      >
+        <form id="customer-search-form" onSubmit={submitSearch}>
+          <div className="find-customer-search-row">
+            <label
+              className="find-customer-query table-search"
+              htmlFor="customer-search-query"
+            >
+              <Search aria-hidden="true" size={16} strokeWidth={1.8} />
+              <Input
+                ref={queryInputRef}
+                id="customer-search-query"
+                type="search"
+                aria-label="Customer search"
+                placeholder="Search customers, phone, or card…"
+                autoComplete="off"
+                className="sc-input--compact"
+                value={lookupValue}
+                onChange={(event) => onQueryChange(event.target.value)}
+              />
+            </label>
+            <Button
+              type="submit"
+              disabled={lookupPending}
+              className="find-customer-search-action find-customer-search-action--primary"
+              data-od-id="customer-search-button"
+            >
+              <Search aria-hidden="true" size={16} strokeWidth={1.8} />
+              {lookupPending ? 'Searching…' : 'Search'}
+            </Button>
+            <Button
+              type="button"
+              variant="secondary"
+              className="find-customer-search-action find-customer-search-action--secondary"
+              data-od-id="customer-scan-button"
+              onClick={() => queryInputRef.current?.focus()}
+            >
+              <ScanLine aria-hidden="true" size={16} strokeWidth={1.8} />
+              Scan
+            </Button>
+          </div>
+        </form>
+      </section>
+
+      {statusMessage ? (
+        <p
+          className="find-customer-notice sc-discovery-muted"
+          data-od-id="customer-search-state"
+          role="status"
+          aria-live="polite"
+        >
+          {statusMessage}
+        </p>
+      ) : null}
+
+      <section
+        className="find-customer-recent sc-discovery-panel"
+        data-od-id="recent-customers"
+        aria-labelledby="find-customer-results-title"
+        aria-busy={tableBusy}
+      >
+        <div
+          className="find-customer-table-wrap"
+          data-od-id="customer-results"
+          role="region"
+          aria-label="Customer results"
+          {...scrollRegionProps}
+        >
+          <table className="find-customer-table">
+            <caption className="sr-only">
+              Customer name, masked phone, card status, available balance, and
+              profile action.
+            </caption>
+            <thead>
+              <tr>
+                <th scope="col">Customer</th>
+                <th scope="col">Phone</th>
+                <th scope="col">Card status</th>
+                <th scope="col">Available balance</th>
+                <th scope="col">Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              {visibleCustomers.length ? (
+                visibleCustomers.map((customer, index) => {
+                  const customerId = customer.customerId ?? customer.id;
+                  const customerName = customer.fullName ?? 'Name unavailable';
+                  const profileQuery = customerId
+                    ? new URLSearchParams({ id: customerId })
+                    : null;
+                  if (profileQuery && verifiedCustomer && selectedCardSerial) {
+                    profileQuery.set('card', selectedCardSerial);
+                  }
+                  const normalizedCardStatus = customer.cardStatus
+                    ?.trim()
+                    .toUpperCase();
+                  const cardStatus =
+                    normalizedCardStatus === 'ACTIVE'
+                      ? 'Active card'
+                      : customer.cardStatus
+                        ? customer.cardStatus
+                            .replaceAll('_', ' ')
+                            .toLowerCase()
+                            .replace(/^\w/, (letter) => letter.toUpperCase())
+                        : 'Card status unavailable';
+                  const cardStatusTone =
+                    normalizedCardStatus === 'ACTIVE'
+                      ? 'active'
+                      : ['PENDING', 'ISSUING'].includes(
+                            normalizedCardStatus ?? '',
+                          )
+                        ? 'pending'
+                        : [
+                              'BLOCKED',
+                              'CANCELLED',
+                              'DEACTIVATED',
+                              'EXPIRED',
+                              'INACTIVE',
+                              'LOST',
+                              'REVOKED',
+                              'SUSPENDED',
+                            ].includes(normalizedCardStatus ?? '')
+                          ? 'inactive'
+                          : 'unknown';
+                  const balanceKobo = customer.availableBalanceKobo;
+                  const balanceTone =
+                    typeof balanceKobo !== 'number' ||
+                    !Number.isFinite(balanceKobo)
+                      ? 'unknown'
+                      : balanceKobo > 0
+                        ? 'positive'
+                        : balanceKobo < 0
+                          ? 'negative'
+                          : 'zero';
+
+                  return (
+                    <tr
+                      key={customerId ?? `${customerName}-${index}`}
+                      data-od-id={
+                        verifiedCustomer
+                          ? 'customer-selection'
+                          : `customer-card-${customerId ?? index}`
+                      }
+                    >
+                      <td>{customerName}</td>
+                      <td>{customer.maskedPhone ?? 'Phone unavailable'}</td>
+                      <td>
+                        <span
+                          className={`find-customer-card-status find-customer-card-status--${cardStatusTone}`}
+                        >
+                          {cardStatus}
+                        </span>
+                      </td>
+                      <td className="find-customer-table__balance">
+                        <span
+                          className={`find-customer-balance find-customer-balance--${balanceTone}`}
+                        >
+                          {typeof balanceKobo === 'number' &&
+                          Number.isFinite(balanceKobo) ? (
+                            <Money amountKobo={balanceKobo} />
+                          ) : (
+                            'Balance unavailable'
+                          )}
+                        </span>
+                      </td>
+                      <td>
+                        {profileQuery ? (
+                          <Link
+                            className="cashier-primary-action find-customer-profile-action"
+                            href={`/cashier/customers?${profileQuery.toString()}`}
+                            aria-label={`View profile for ${customerName}`}
+                          >
+                            View profile
+                          </Link>
+                        ) : (
+                          'Profile unavailable'
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })
+              ) : (
+                <tr>
+                  <td className="find-customer-empty-cell" colSpan={5}>
+                    {tableBusy
+                      ? hasSearchTerm
+                        ? `Searching for “${lookupValue.trim()}”…`
+                        : 'Loading recent customers…'
+                      : hasSearchTerm
+                        ? lookupMessage || 'No customers found.'
+                        : recentError || 'No customers found.'}
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+        {!verifiedCustomer && hasSearchTerm && visibleCustomers.length > 0 ? (
+          <p className="find-customer-discovery-note sc-discovery-muted">
+            Scan an active card to continue
+          </p>
+        ) : null}
+      </section>
+    </div>
   );
 }

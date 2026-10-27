@@ -1,0 +1,35 @@
+# Tasks: Simplify pilot POS device authentication
+
+- [x] 1. OpenSpec and migration plan
+  - [x] 1.1 Record impact findings and confirm scope excludes loyalty/ledger/SMS/worker changes.
+  - [x] 1.2 Add the DEVICE_TOKEN enum and DeviceTokenCredential persistence as an additive migration; enforce tenant/device integrity and one active credential per device.
+  - [x] 1.3 Update `docs/database/migration-tracker.md` with no-remote-apply, local backup/safety gate, rollback/outage and key replacement/re-pair procedure.
+  - [x] 1.4 Update environment schema/example/runbook with dedicated 32-byte base64url key, one key version, HTTPS deployment requirement, and fail-closed behavior.
+- [x] 2. Backend credential lifecycle
+  - [x] 2.1 Add random token generation, strict key parsing, HMAC-SHA-256 hash, key version, and timing-safe verification utilities/tests.
+  - [x] 2.2 Add scoped Admin/Supervisor pair/reset/revoke routes requiring existing session CSRF; write audit actor/time.
+  - [x] 2.3 Pair/reset/revoke/deactivate atomically revoke prior credential(s) and all active device sessions; enforce non-enumerating tenant/branch scope and active device/branch status.
+  - [x] 2.4 Set/clear the exact `__Host-shopcity_pos_device` cookie only on the target-browser response; never expose raw token through API JSON.
+  - [x] 2.5 Keep HMAC_LEGACY and WEBAUTHN implementation/data for compatibility; deployed Preview/Staging/Production require explicit DEVICE_TOKEN-only policy and reject those modes for Cashier sessions. No alternate proof or silent migration is allowed.
+- [x] 3. Cashier login and session binding
+  - [x] 3.1 Use same-origin BFF origin validation plus server-only BFF credential and deployment-environment identity for deployed login; exact CORS origin fallback remains local/test only. Referer is used only when Origin is absent; missing/invalid origin fails closed.
+  - [x] 3.2 Keep Supabase password verification and existing rate limits/generic failures, then validate device token, active account/tenant/device/branch, exact branch compatibility, and mode before session creation. The deployed pilot token-only policy is environment-validated; actual secret/API/origin values remain deployment-owner configuration.
+  - [x] 3.3 Lock/recheck device and active credential during login; update last-use metadata and issue only session bound to persisted deviceId.
+  - [x] 3.4 Preserve device token cookie on cashier logout/session refresh; refresh must revalidate session/device eligibility and not renew/change credential.
+  - [x] 3.5 Verify pairing/reset/revoke/deactivation atomically invalidate sessions, including focused HTTP integration coverage for pairing, cashier session binding, reset, and session rejection.
+- [x] 4. Device Management UI and API contracts
+  - [x] 4.1 Add authorized current-browser token pairing/reset state while retaining the existing WebAuthn migration/rotation path; no token plaintext storage or JSON.
+  - [x] 4.2 Update OpenAPI and regenerate the client with repository scripts.
+  - [x] 4.3 Verify same-origin proxy forwards Cookie/Origin/Referer and preserves Set-Cookie attributes.
+  - [x] 4.4 Reuse the server-supported device idempotency identity for same-payload create/update retries; issue fresh keys for changed/new operations and cover both paths in UI tests.
+  - [x] 4.5 Add an exact supplemental origin allowlist for token pairing only; keep reset origin checks and global CORS behavior unchanged and cover the boundary in tests.
+- [ ] 5. Verification and closure
+  - [x] 5.1 Add focused backend/controller/security tests and frontend/device management tests.
+  - [x] 5.2 Run Prisma validate/generate and verify the full migration chain on the empty disposable PostgreSQL Testcontainers target; do not apply shared databases.
+  - [ ] 5.3 Re-run focused and full Jest suites, web tests/typecheck, client typecheck, root/web lint and build, Semgrep on changed auth surfaces, and strict OpenSpec validation after the staff-authentication/BFF implementation; only the focused auth and web proxy/login suites have passed so far.
+  - [ ] 5.4 Run GitNexus detect_changes, inspect final diff, confirm no staged files and no unrelated dirty files changed.
+  - [x] 5.9 Make `/health/ready` fail safely when token-only mode requires a missing or invalid POS HMAC key; cover safe diagnostics and liveness compatibility.
+  - [x] 5.5 Record actual staging POS pairing/E2E as incomplete unless approved staging access and hardware are available; do not claim pilot acceptance.
+  - [x] 5.6 Clear the POS cookie on reset/deactivation only when the request token matches the selected device; verify browser A remains usable when it resets device B.
+  - [x] 5.7 Transition DEVICE_TOKEN devices to UNPAIRED on deactivation/reactivation and require supervised re-pairing without changing HMAC_LEGACY or WEBAUTHN behavior.
+  - [x] 5.8 Pin the selected target while pairing is pending, gate mutations after list-refresh failure, and provide a manual refresh recovery path.

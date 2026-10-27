@@ -1,6 +1,7 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
   IsBoolean,
+  IsDefined,
   IsEmail,
   IsIn,
   IsOptional,
@@ -15,6 +16,22 @@ export class CreateCustomerDto {
   @ApiProperty()
   @IsString()
   phone!: string;
+
+  @ApiProperty({ description: 'Unused barcode for the initial customer card' })
+  @IsString()
+  cardSerialNumber!: string;
+
+  @ApiProperty({
+    description: 'Affirmative acceptance of required loyalty-service terms',
+  })
+  @IsDefined()
+  @IsBoolean()
+  loyaltyConsent!: boolean;
+
+  @ApiProperty({ description: 'Optional consent to marketing messages' })
+  @IsDefined()
+  @IsBoolean()
+  marketingOptIn!: boolean;
 
   @ApiPropertyOptional()
   @IsOptional()
@@ -52,6 +69,16 @@ export class UpdateCustomerDto {
   @IsOptional()
   @IsEmail()
   email?: string;
+}
+
+export class WithdrawCustomerMarketingPreferenceDto {
+  @ApiProperty({
+    description:
+      'Authenticated store staff confirms the customer requested this change in person',
+  })
+  @IsDefined()
+  @IsBoolean()
+  confirmedInPersonRequest!: boolean;
 }
 
 export class UpdateCustomerStatusDto {

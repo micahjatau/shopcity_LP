@@ -1,7 +1,23 @@
-import { expect, test, type Page } from '@playwright/test';
+import {
+  expect,
+  test,
+  type APIRequestContext,
+  type Page,
+} from '@playwright/test';
+import {
+  canonicalCashierContractSelectors,
+  type ComputedStyleSnapshot,
+} from './fixtures/design-system-conformance';
+import {
+  cashierConformanceRoutes,
+  conformanceViewports,
+  publicConformanceRoutes,
+  shellConformanceRoutes,
+} from './fixtures/route-conformance-matrix';
 import { shellNavigationByRole } from '../components/shell-navigation';
+import { businessDateInTimezone } from '../lib/reports/supervisor-overview-data';
 
-const baseUrl = 'http://127.0.0.1:3100';
+const baseUrl = process.env.PLAYWRIGHT_BASE_URL ?? 'http://127.0.0.1:3100';
 
 const sessionByRole = {
   CASHIER: {
@@ -36,32 +52,1861 @@ const sessionByRole = {
 test.describe.configure({ timeout: 120000 });
 
 test.describe('workflow route coverage', () => {
+  test('renders the native Supervisor overview cards and table responsively', async ({
+    page,
+  }) => {
+    await mockShell(page, 'SUPERVISOR');
+    const approvalCursors: string[] = [];
+    const approvalSearches: string[] = [];
+    page.on('request', (request) => {
+      const url = new URL(request.url());
+      if (url.pathname === '/api/v1/approvals') {
+        approvalCursors.push(url.searchParams.get('cursor') ?? '');
+        approvalSearches.push(url.searchParams.get('search') ?? '');
+      }
+    });
+    await page.setViewportSize({ width: 1440, height: 1000 });
+    await page.goto(`${baseUrl}/supervisor`);
+
+    const overview = page.locator('.supervisor-overview');
+    await expect(
+      overview.getByRole('heading', { name: 'Hi, Supervisor!', level: 1 }),
+    ).toBeVisible();
+    await expect(
+      overview.getByRole('link', { name: 'Open Approvals' }),
+    ).toHaveCSS('background-color', 'rgb(142, 1, 1)');
+    await expect(
+      overview.getByRole('link', { name: 'Open Approvals' }),
+    ).toHaveCSS('background-image', 'none');
+    await expect(overview.locator('[data-metric-card]')).toHaveCount(4);
+    await expect(overview.getByText('89', { exact: true })).toBeVisible();
+    await expect(
+      overview.getByText('Customer 1', { exact: true }),
+    ).toBeVisible();
+    await expect(
+      overview.getByText('Page 1 · 80 pending overall'),
+    ).toBeVisible();
+    await expect(overview.getByText(/Daily report materialized/)).toBeVisible();
+    await expect(overview.getByRole('table')).toBeVisible();
+    await expect(overview.locator('tbody tr')).toHaveCount(5);
+    await expect(
+      overview.getByRole('button', { name: 'Previous approvals page' }),
+    ).toBeDisabled();
+    await expect(
+      overview.getByRole('button', { name: 'Next approvals page' }),
+    ).toBeEnabled();
+    const pagination = overview.getByRole('navigation', {
+      name: 'Pending approvals pagination',
+    });
+    await expect(pagination).toHaveCSS('justify-content', 'flex-end');
+    await expect(
+      overview.getByRole('button', { name: 'Previous approvals page' }),
+    ).toHaveText('');
+    await expect(
+      overview.getByRole('button', { name: 'Next approvals page' }),
+    ).toHaveText('');
+    const pageSearch = overview.getByRole('searchbox', {
+      name: 'Search all open approvals',
+    });
+    await overview.getByRole('button', { name: 'Next approvals page' }).click();
+    await expect(
+      overview.getByText('Page 2 · 80 pending overall'),
+    ).toBeVisible();
+    await expect.poll(() => approvalCursors).toContain('overview-more');
+    await overview
+      .getByRole('button', { name: 'Previous approvals page' })
+      .click();
+    await expect(
+      overview.getByText('Page 1 · 80 pending overall'),
+    ).toBeVisible();
+    await pageSearch.fill('Zara');
+    await expect(
+      overview.getByText('Zara Customer', { exact: true }),
+    ).toBeVisible();
+    await expect(overview.locator('tbody tr')).toHaveCount(1);
+    await expect(overview.getByText('Page 1 · 1 match')).toBeVisible();
+    await expect.poll(() => approvalSearches).toContain('Zara');
+    await expect(pageSearch).toHaveValue('Zara');
+    await expect(overview.locator('img')).toHaveCount(0);
+    await page.screenshot({
+      path: '/tmp/shopcity-supervisor-overview-desktop.png',
+      fullPage: true,
+    });
+
+    await page.setViewportSize({ width: 375, height: 844 });
+    await expect(pagination).toHaveCSS('justify-content', 'flex-end');
+    expect(
+      await page.evaluate(() => document.documentElement.scrollWidth),
+    ).toBeLessThanOrEqual(375);
+    expect(
+      await overview
+        .locator('.supervisor-overview__table-scroll')
+        .evaluate((element) => element.scrollWidth > element.clientWidth),
+    ).toBe(true);
+    await page.screenshot({
+      path: '/tmp/shopcity-supervisor-overview-mobile.png',
+      fullPage: true,
+    });
+  });
+
+  test('shows full-width card search and a verified assignment eligibility dialog', async ({
+    page,
+  }) => {
+    await mockShell(page, 'SUPERVISOR');
+    let createCardRequests = 0;
+    page.on('request', (request) => {
+      if (
+        request.method() === 'POST' &&
+        new URL(request.url()).pathname === '/api/v1/cards'
+      ) {
+        createCardRequests += 1;
+      }
+    });
+    await page.route('**/api/v1/customers**', async (route) => {
+      const { pathname } = new URL(route.request().url());
+      if (pathname === '/api/v1/customers') {
+        return route.fulfill(
+          json({
+            success: true,
+            data: {
+              items: [
+                {
+                  id: 'customer-1',
+                  fullName: 'Ada Shopper',
+                  phoneE164: '+2348000000001',
+                },
+              ],
+            },
+            meta: meta(pathname),
+          }),
+        );
+      }
+      if (pathname === '/api/v1/customers/customer-1') {
+        return route.fulfill(
+          json({
+            success: true,
+            data: {
+              id: 'customer-1',
+              fullName: 'Ada Shopper',
+              phoneE164: '+2348000000001',
+              status: 'ACTIVE',
+              activeCardStatus: 'BLOCKED',
+            },
+            meta: meta(pathname),
+          }),
+        );
+      }
+      return route.fallback();
+    });
+
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto(`${baseUrl}/supervisor/cards?tab=assign`);
+    const searchInput = page.getByLabel('Name, phone number, or customer ID');
+    await searchInput.fill('Ada');
+    const searchPanel = page.locator('.sc-assignment-search');
+    const panelWidth = await searchPanel.evaluate(
+      (panel) => panel.getBoundingClientRect().width,
+    );
+    const searchWidth = await searchInput.evaluate(
+      (input) => input.getBoundingClientRect().width,
+    );
+    expect(searchWidth).toBeGreaterThan(panelWidth - 64);
+    await page.getByRole('button', { name: 'Search customers' }).click();
+
+    const result = page.getByRole('button', { name: /Ada Shopper/ });
+    await expect(result).toBeVisible();
+    const resultWidth = await result.evaluate(
+      (row) => row.getBoundingClientRect().width,
+    );
+    expect(resultWidth).toBeGreaterThan(panelWidth - 64);
+    await result.click();
+    await expect(page).toHaveURL(
+      /\/supervisor\/cards\?tab=assign&id=customer-1/,
+    );
+    const dialog = page.getByRole('dialog', {
+      name: 'Assignment eligibility',
+    });
+    await expect(dialog).toBeVisible();
+    await expect(
+      dialog.getByRole('heading', { name: 'Ada Shopper' }),
+    ).toBeVisible();
+    await expect(dialog.getByText('Customer status')).toBeVisible();
+    await expect(dialog.getByText('Current card status')).toBeVisible();
+    await expect(dialog.getByLabel('New card serial')).toHaveValue('');
+
+    await page.setViewportSize({ width: 390, height: 844 });
+    await expect(dialog).toBeVisible();
+    expect(
+      await page.evaluate(() => document.documentElement.scrollWidth),
+    ).toBeLessThanOrEqual(390);
+    const statusColumns = await dialog
+      .locator('.sc-assignment-dialog__fields')
+      .evaluate(
+        (fields) =>
+          getComputedStyle(fields).gridTemplateColumns.trim().split(/\s+/)
+            .length,
+      );
+    expect(statusColumns).toBe(1);
+
+    await dialog.getByLabel('New card serial').fill('TEST-CARD-UI-001');
+    await dialog.getByRole('button', { name: 'Review assignment' }).click();
+    await expect(
+      dialog.getByRole('heading', { name: 'Review card assignment' }),
+    ).toBeVisible();
+    await expect(dialog.getByText('TEST-CARD-UI-001')).toBeVisible();
+    expect(createCardRequests).toBe(0);
+
+    await page.keyboard.press('Escape');
+    await expect(dialog).toHaveCount(0);
+    await expect(searchInput).toHaveValue('Ada');
+    const returnedResult = page.getByRole('button', { name: /Ada Shopper/ });
+    await expect(returnedResult).toBeVisible();
+    await expect(returnedResult).toBeFocused();
+    await expect(page).toHaveURL(/\/supervisor\/cards\?tab=assign$/);
+    expect(createCardRequests).toBe(0);
+  });
+
+  test('repairs sidebar geometry, collapse state, and mobile drawer access', async ({
+    page,
+  }) => {
+    await mockShell(page, 'CASHIER');
+    await page.addInitScript(() => {
+      window.localStorage.clear();
+      window.sessionStorage.clear();
+    });
+
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto(`${baseUrl}/cashier`);
+    await expect(page.locator('link[rel="icon"]')).toHaveAttribute(
+      'href',
+      /\/brand\/supervisor\/icon\.png/,
+    );
+    const sidebar = page.locator('.shell-sidebar');
+    await expect(sidebar).toHaveAttribute('data-collapsed', 'false');
+    await page.waitForTimeout(300);
+    await page.mouse.move(600, 500);
+    await expect(page).toHaveScreenshot('sidebar-expanded-desktop.png', {
+      maxDiffPixelRatio: 0.08,
+    });
+    expect(Math.round((await sidebar.boundingBox())?.width ?? 0)).toBe(244);
+
+    await page.getByRole('button', { name: 'Collapse sidebar' }).click();
+    await expect(sidebar).toHaveAttribute('data-collapsed', 'true');
+    await expect(sidebar.locator('.shell-sidebar-brand-logo')).toHaveAttribute(
+      'src',
+      /icon\.png/,
+    );
+    await page.waitForTimeout(300);
+    await page.mouse.move(600, 500);
+    await expect(
+      page.getByRole('button', { name: 'Expand sidebar' }),
+    ).toHaveAttribute('aria-expanded', 'false');
+    await expect(page).toHaveScreenshot('sidebar-collapsed-desktop.png', {
+      maxDiffPixelRatio: 0.08,
+    });
+    expect(Math.round((await sidebar.boundingBox())?.width ?? 0)).toBe(76);
+    await expect(page.getByRole('link', { name: 'Overview' })).toHaveAttribute(
+      'title',
+      'Overview',
+    );
+    await expect(page.getByRole('button', { name: 'Logout' })).toBeVisible();
+
+    await page.setViewportSize({ width: 1024, height: 900 });
+    await expect(sidebar).toHaveAttribute('data-collapsed', 'true');
+    await page.getByRole('button', { name: 'Expand sidebar' }).click();
+    await expect(sidebar).toHaveAttribute('data-collapsed', 'false');
+    await expect(
+      page.getByRole('link', { name: 'Find Customer Lookup' }),
+    ).toBeVisible();
+    await page.getByRole('button', { name: 'Collapse sidebar' }).click();
+    await page.waitForTimeout(300);
+    await expect(page).toHaveScreenshot('sidebar-collapsed-tablet.png', {
+      maxDiffPixelRatio: 0.08,
+    });
+    expect(
+      await page.locator('body').evaluate((body) => body.scrollWidth),
+    ).toBeLessThanOrEqual(1024);
+
+    await page.setViewportSize({ width: 768, height: 900 });
+    await page.getByRole('button', { name: 'Expand sidebar' }).click();
+    await expect(sidebar).toHaveAttribute('data-collapsed', 'false');
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    expect(
+      await page
+        .locator('.shell-body')
+        .evaluate((element) => getComputedStyle(element).transitionDuration),
+    ).toBe('0s');
+
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.reload();
+    await expect(sidebar).toBeHidden();
+    await page.getByRole('button', { name: 'Menu' }).click();
+    const drawer = page.getByRole('dialog', { name: 'Primary navigation' });
+    await expect(drawer).toBeVisible();
+    await expect(
+      drawer.getByRole('link', { name: /help & training/i }),
+    ).toBeVisible();
+    await expect(drawer.getByRole('button', { name: 'Logout' })).toBeVisible();
+    await expect(page).toHaveScreenshot('sidebar-mobile-drawer.png', {
+      maxDiffPixelRatio: 0.08,
+    });
+    await page.keyboard.press('Escape');
+    await expect(drawer).not.toBeVisible();
+    const menuButton = page.getByRole('button', { name: 'Menu' });
+    await expect(menuButton).toBeFocused();
+    expect(
+      await menuButton.evaluate((element) => {
+        const style = getComputedStyle(element);
+        return {
+          outlineWidth: style.outlineWidth,
+          outlineOffset: style.outlineOffset,
+        };
+      }),
+    ).toEqual({ outlineWidth: '2px', outlineOffset: '2px' });
+
+    await page.setViewportSize({ width: 375, height: 812 });
+    await page.reload();
+    expect(
+      await page.locator('body').evaluate((body) => body.scrollWidth),
+    ).toBeLessThanOrEqual(375);
+  });
+
+  test('fills Cashier and Admin sidebar artwork to the rail edge', async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+
+    for (const { role, route } of [
+      { role: 'CASHIER', route: '/cashier' },
+      { role: 'ADMIN', route: '/admin/customers' },
+    ] as const) {
+      await mockShell(page, role);
+      await page.goto(`${baseUrl}${route}`);
+
+      const sidebar = page.locator('.shell-sidebar');
+      await expect(page.locator('.shell-loading-screen')).toBeHidden();
+      await expect(sidebar).toBeVisible();
+      const backgroundCoverage = await sidebar.evaluate((element) => {
+        const style = getComputedStyle(element);
+        const railWidth = element.getBoundingClientRect().width;
+        const imageWidth = style.backgroundSize.split(' ')[0];
+        return {
+          positionX: Number.parseFloat(style.backgroundPositionX),
+          imageWidth: imageWidth.endsWith('%')
+            ? (railWidth * Number.parseFloat(imageWidth)) / 100
+            : Number.parseFloat(imageWidth),
+          railWidth,
+        };
+      });
+      expect(backgroundCoverage.positionX).toBe(0);
+      expect(backgroundCoverage.imageWidth).toBeGreaterThan(
+        backgroundCoverage.railWidth,
+      );
+      await expect(sidebar).toHaveScreenshot(
+        `sidebar-${role.toLowerCase()}-artwork-edge.png`,
+        { maxDiffPixelRatio: 0.02 },
+      );
+    }
+  });
+
+  test('keeps the Capture Purchase confirmation card readable at POS and mobile widths', async ({
+    page,
+  }) => {
+    await mockShell(page, 'CASHIER');
+    const customerName =
+      'Alexandria Emmanuelle Shopper With A Long Name For Small POS Screens';
+    const maskedPhone = '+234280* *** 5799';
+    await page.route('**/api/v1/cards/lookup/CARD-001', (route) =>
+      route.fulfill(
+        json({
+          success: true,
+          data: {
+            customer: {
+              id: 'customer-1',
+              fullName: customerName,
+              maskedPhone,
+            },
+            customerId: 'customer-1',
+            customerName,
+            serialNumber: 'CARD-001',
+            status: 'ACTIVE',
+            branchId: 'branch-1',
+          },
+          meta: meta('/api/v1/cards/lookup/CARD-001'),
+        }),
+      ),
+    );
+    await page.route('**/api/v1/customers/customer-1', (route) =>
+      route.fulfill(
+        json({
+          success: true,
+          data: {
+            customerId: 'customer-1',
+            fullName: customerName,
+            email:
+              'ale***@very-long-subdomain-for-overflow-checking.customer-data.example',
+            availableBalanceKobo: 40000,
+          },
+          meta: meta('/api/v1/customers/customer-1'),
+        }),
+      ),
+    );
+
+    for (const width of [1366, 1280, 1440, 1920, 768, 390]) {
+      await page.setViewportSize({ width, height: 768 });
+      await page.goto(`${baseUrl}/cashier/earn`);
+      await page.getByRole('textbox', { name: 'Lookup' }).fill('CARD-001');
+      await page.getByRole('button', { name: 'Search customer' }).click();
+      const confirmationHeading = page.getByRole('heading', {
+        name: 'Step 2 — Confirm customer',
+      });
+      await expect(confirmationHeading).toBeVisible();
+      const profileCardPreview = page.getByRole('img', {
+        name: `ShopCity card preview for ${customerName}; card number CARD-001; status Active`,
+      });
+      await expect(profileCardPreview).toBeVisible();
+      await expect(profileCardPreview).toContainText(
+        customerName.toUpperCase(),
+      );
+      await expect(profileCardPreview).toContainText('CARD-001');
+      const profileCardArtwork = profileCardPreview.locator('img');
+      await expect(profileCardArtwork).toBeVisible();
+      await expect(profileCardArtwork).toHaveAttribute(
+        'src',
+        /IMG-20260802-WA0001/,
+      );
+      await expect
+        .poll(() =>
+          profileCardArtwork.evaluate(
+            (image: HTMLImageElement) =>
+              image.complete && image.naturalWidth > 0,
+          ),
+        )
+        .toBe(true);
+      await expect(confirmationHeading).toHaveCSS('font-size', '16px');
+      await expect(confirmationHeading).toHaveCSS('font-weight', '700');
+      await expect(
+        page.locator('.cashier-stage-heading-description'),
+      ).toHaveText('Read the name back to the customer before continuing.');
+      await expect(
+        page.locator('.cashier-capture-confirm__instruction'),
+      ).toHaveCount(0);
+      await expect(
+        page.locator('.cashier-capture-confirm__field--customer dd'),
+      ).toHaveText(customerName);
+      await expect(
+        page.locator('.cashier-capture-confirm__details'),
+      ).toContainText(maskedPhone);
+      await expect(
+        page.locator('.cashier-capture-confirm__details'),
+      ).toContainText(
+        'ale***@very-long-subdomain-for-overflow-checking.customer-data.example',
+      );
+      await expect(
+        page.locator('.cashier-capture-confirm__details dt'),
+      ).toHaveText([
+        'Customer',
+        'Email',
+        'Phone number',
+        'Virtual Card Number',
+        'Wallet Balance',
+      ]);
+      await expect(
+        page.locator(
+          '.cashier-capture-card-preview > .cashier-capture-card-preview__status',
+        ),
+      ).toHaveText('Status: Active');
+      await expect(
+        page.locator('.cashier-capture-confirm__details'),
+      ).toContainText('₦400.00');
+      const details = page.locator('.cashier-capture-confirm__details');
+      const detailsOverflow = await details.evaluate(
+        (element) => element.scrollWidth > element.clientWidth,
+      );
+      expect(detailsOverflow).toBe(false);
+      const bounds = await page
+        .locator('.cashier-capture-confirm-layout')
+        .evaluate((element) => {
+          const identity = element
+            .querySelector('.cashier-capture-confirm__identity')!
+            .getBoundingClientRect();
+          const card = element.querySelector('figure')!.getBoundingClientRect();
+          return {
+            identityRight: identity.right,
+            identityBottom: identity.bottom,
+            cardLeft: card.left,
+            cardTop: card.top,
+            scrollWidth: element.scrollWidth,
+            clientWidth: element.clientWidth,
+          };
+        });
+      expect(bounds.scrollWidth).toBeLessThanOrEqual(bounds.clientWidth);
+      const cardWidth = await page
+        .locator('.cashier-capture-card-preview > figure')
+        .evaluate((element) => element.getBoundingClientRect().width);
+      expect(cardWidth).toBeLessThanOrEqual(320);
+      if (width >= 900) {
+        expect(bounds.cardLeft).toBeGreaterThanOrEqual(bounds.identityRight);
+      } else {
+        expect(bounds.cardTop).toBeGreaterThanOrEqual(bounds.identityBottom);
+      }
+      const actions = page.locator(
+        '.cashier-confirm-stage .cashier-stage-actions',
+      );
+      const backButton = actions.getByRole('button', {
+        name: 'Go back to find customer',
+      });
+      const proceedButton = actions.getByRole('button', { name: 'Proceed' });
+      await expect(backButton).toHaveText('Back');
+      await expect(backButton).toHaveCSS('width', '160px');
+      await expect(proceedButton).toHaveCSS('width', '160px');
+      await expect(backButton).toHaveCSS('height', '32px');
+      await expect(proceedButton).toHaveCSS('height', '32px');
+      await expect(
+        page.getByRole('button', {
+          name: 'Copy virtual card number CARD-001',
+        }),
+      ).toBeVisible();
+      await expect(proceedButton).toHaveCSS(
+        'background-image',
+        /linear-gradient/,
+      );
+      await backButton.focus();
+      await page.keyboard.press('Tab');
+      await expect(proceedButton).toBeFocused();
+      await expect(proceedButton).toHaveCSS('outline-style', 'solid');
+    }
+  });
+
+  test('keeps Earn and Redeem lookup presentation aligned', async ({
+    page,
+  }) => {
+    await mockShell(page, 'CASHIER');
+    await page.route('**/api/v1/config/operational', (route) =>
+      route.fulfill(
+        json({
+          success: true,
+          data: {
+            tenant: { id: 'tenant-1', name: 'ShopCity' },
+            branch: {
+              id: 'branch-1',
+              name: 'Main branch',
+              timezone: 'Africa/Lagos',
+              receiptWeekStartDay: 1,
+            },
+            policies: { defaultEarnRateBps: 200 },
+          },
+          meta: meta('/api/v1/config/operational'),
+        }),
+      ),
+    );
+    let mode: 'success' | 'loading' | 'error' = 'success';
+    await page.route('**/api/v1/cards/lookup/CARD-PAIR', async (route) => {
+      if (mode === 'loading')
+        await new Promise((resolve) => setTimeout(resolve, 700));
+      if (mode === 'error') {
+        await route.fulfill({
+          ...json({ success: false, error: { statusCode: 503 } }),
+          status: 503,
+        });
+        return;
+      }
+      await route.fulfill(
+        json({
+          success: true,
+          data: {
+            customer: { id: 'customer-1', fullName: 'Ada Shopper' },
+            serialNumber: 'CARD-PAIR',
+            status: 'ACTIVE',
+            availableBalanceKobo: 5500,
+            branchId: 'branch-1',
+          },
+          meta: meta('/api/v1/cards/lookup/CARD-PAIR'),
+        }),
+      );
+    });
+
+    let canonicalLookupStyles: ComputedStyleSnapshot | null = null;
+    let canonicalLookupButtonStyles: Record<string, string> | null = null;
+    for (const kind of ['earn', 'redeem'] as const) {
+      const route = kind === 'earn' ? '/cashier/earn' : '/cashier/redeem';
+      await page.goto(`${baseUrl}${route}`);
+      const lookup = page.locator('.cashier-verified-card-lookup');
+      await expect(lookup).toBeVisible();
+      if (kind === 'earn') {
+        const capturePanel = page.locator('[data-od-id="capture-flow"]');
+        const panelSize = await capturePanel.evaluate((element) => {
+          const { width, height } = element.getBoundingClientRect();
+          return { width, height };
+        });
+        expect(panelSize.width).toBeCloseTo(712, 0);
+        expect(panelSize.height).toBeCloseTo(550, 0);
+        const pathway = page.locator('[data-od-id="capture-stages"]');
+        await expect(pathway).toHaveCSS('width', '712px');
+        await expect(pathway).toHaveCSS('height', '44px');
+        await expect(pathway).toHaveCSS('padding-left', '16px');
+        await expect(pathway).toHaveCSS('padding-right', '16px');
+        await expect(pathway).toHaveCSS('border-radius', '16px');
+        await expect(pathway).toHaveCSS('opacity', '1');
+        await expect(pathway.locator('.cashier-flow-steps__track')).toHaveCSS(
+          'gap',
+          '16px',
+        );
+        const alignment = await page.evaluate(() => {
+          const panel = document
+            .querySelector('[data-od-id="capture-flow"]')!
+            .getBoundingClientRect();
+          const steps = document
+            .querySelector('[data-od-id="capture-stages"]')!
+            .getBoundingClientRect();
+          return {
+            panelLeft: panel.left,
+            panelRight: panel.right,
+            stepsLeft: steps.left,
+            stepsRight: steps.right,
+          };
+        });
+        expect(alignment.stepsLeft).toBeCloseTo(alignment.panelLeft, 0);
+        expect(alignment.stepsRight).toBeCloseTo(alignment.panelRight, 0);
+      }
+      const lookupStyles = await page
+        .getByRole('textbox', { name: 'Lookup' })
+        .evaluate((input): ComputedStyleSnapshot => {
+          const style = getComputedStyle(input);
+          return {
+            fontFamily: style.fontFamily,
+            fontSize: style.fontSize,
+            lineHeight: style.lineHeight,
+            minHeight: style.minHeight,
+            borderRadius: style.borderRadius,
+            borderWidth: style.borderWidth,
+            borderStyle: style.borderStyle,
+            borderColor: style.borderColor,
+            backgroundColor: style.backgroundColor,
+            color: style.color,
+            paddingInline: `${style.paddingLeft}|${style.paddingRight}`,
+            paddingBlock: `${style.paddingTop}|${style.paddingBottom}`,
+          };
+        });
+      expect(lookupStyles).toMatchObject({
+        fontSize: '12px',
+        minHeight: '0px',
+        borderRadius: '0px',
+        paddingInline: '0px|0px',
+      });
+      if (kind === 'earn') canonicalLookupStyles = lookupStyles;
+      else expect(lookupStyles).toEqual(canonicalLookupStyles);
+      const lookupButtonStyles = await page
+        .getByRole('button', { name: 'Search customer' })
+        .evaluate((button) => {
+          const style = getComputedStyle(button);
+          return {
+            fontFamily: style.fontFamily,
+            fontSize: style.fontSize,
+            minHeight: style.minHeight,
+            borderRadius: style.borderRadius,
+            borderWidth: style.borderWidth,
+            borderStyle: style.borderStyle,
+            borderColor: style.borderColor,
+            backgroundColor: style.backgroundColor,
+            backgroundImage: style.backgroundImage,
+            color: style.color,
+            paddingInline: `${style.paddingLeft}|${style.paddingRight}`,
+          };
+        });
+      if (kind === 'earn') {
+        expect(lookupButtonStyles).toMatchObject({
+          minHeight: '32px',
+          borderRadius: '16px',
+        });
+        expect(lookupButtonStyles.backgroundImage).toMatch(
+          /^linear-gradient\(100\.54deg/,
+        );
+      } else if (canonicalLookupButtonStyles) {
+        expect(lookupButtonStyles).toEqual(canonicalLookupButtonStyles);
+      } else {
+        canonicalLookupButtonStyles = lookupButtonStyles;
+      }
+      await expect(page).toHaveScreenshot(`financial-lookup-${kind}-idle.png`, {
+        maxDiffPixelRatio: 0.08,
+      });
+
+      mode = 'loading';
+      await page.getByRole('textbox', { name: 'Lookup' }).fill('CARD-PAIR');
+      const lookupResponse = page.waitForResponse(
+        '**/api/v1/cards/lookup/CARD-PAIR',
+      );
+      await page.getByRole('button', { name: 'Search customer' }).click();
+      await expect(
+        page.getByRole('button', { name: 'Looking up…' }),
+      ).toBeDisabled();
+      await expect(page).toHaveScreenshot(
+        `financial-lookup-${kind}-loading.png`,
+        {
+          maxDiffPixelRatio: 0.08,
+        },
+      );
+      await lookupResponse;
+
+      mode = 'error';
+      await page.reload();
+      await page.getByRole('textbox', { name: 'Lookup' }).fill('CARD-PAIR');
+      await page.getByRole('button', { name: 'Search customer' }).click();
+      await expect(
+        page.getByText(/Card verification unavailable \(503\)/),
+      ).toBeVisible();
+      await expect(page).toHaveScreenshot(
+        `financial-lookup-${kind}-error.png`,
+        {
+          maxDiffPixelRatio: 0.08,
+        },
+      );
+
+      mode = 'success';
+      await page.reload();
+      await page.getByRole('textbox', { name: 'Lookup' }).fill('CARD-PAIR');
+      await page.getByRole('button', { name: 'Search customer' }).click();
+      const confirmationHeading = page.getByRole('heading', {
+        name:
+          kind === 'earn'
+            ? 'Step 2 — Confirm customer'
+            : 'Step 2 — Basket subtotal',
+      });
+      await expect(confirmationHeading).toBeVisible();
+      if (kind === 'earn') {
+        await expect(
+          page.locator('.cashier-capture-confirm__details'),
+        ).toContainText('Wallet Balance');
+        await expect(
+          page.locator('.cashier-capture-confirm__details'),
+        ).not.toContainText(/Earn eligibility|Expiring credit/);
+        await expect(
+          page.getByRole('img', {
+            name: /ShopCity card preview for Ada Shopper/,
+          }),
+        ).toBeVisible();
+        const backButton = page.getByRole('button', {
+          name: 'Go back to find customer',
+        });
+        await expect(backButton).toBeVisible();
+        await expect(backButton).toHaveText('Back');
+        await expect(backButton.locator('svg')).toHaveCount(0);
+      } else {
+        await expect(
+          page.locator('.cashier-redeem-customer-details'),
+        ).toContainText('Available Credit');
+        await expect(
+          page.getByRole('img', {
+            name: /ShopCity card preview for Ada Shopper/,
+          }),
+        ).toBeVisible();
+        const backButton = page.getByRole('button', { name: 'Back' });
+        await expect(backButton).toBeVisible();
+        await expect(backButton.locator('svg')).toHaveCount(1);
+      }
+      await expect(page).toHaveScreenshot(
+        `financial-lookup-${kind}-verified.png`,
+        {
+          maxDiffPixelRatio: 0.08,
+        },
+      );
+      if (kind === 'earn') {
+        await page.getByRole('button', { name: 'Proceed' }).click();
+        await expect(
+          page.getByRole('article', { name: 'earn transaction' }),
+        ).toBeVisible();
+        await expect(page.locator('.cashier-verified-card-lookup')).toHaveCount(
+          0,
+        );
+        await expect(page).toHaveScreenshot(
+          `financial-lookup-${kind}-confirmation.png`,
+          {
+            maxDiffPixelRatio: 0.08,
+          },
+        );
+      } else {
+        await expect(
+          page.locator('[data-od-id="redeem-basket"]'),
+        ).toBeVisible();
+        await expect(page.locator('.cashier-verified-card-lookup')).toHaveCount(
+          0,
+        );
+      }
+    }
+  });
+
+  test('opens and closes the cashier transaction detail modal without unsupported fields', async ({
+    page,
+  }) => {
+    await mockShell(page, 'CASHIER');
+    await page.setViewportSize({ width: 1440, height: 924 });
+    await page.route('**/api/v1/reports/cashier-today**', (route) =>
+      route.fulfill(
+        json({
+          success: true,
+          data: {
+            branchId: 'branch-1',
+            timezone: 'Africa/Lagos',
+            items: [
+              {
+                id: 'txn-1',
+                occurredAt: '2030-01-01T10:00:00.000Z',
+                operation: 'EARN',
+                customerName: 'Michael Adeyemi',
+                purchaseAmountKobo: 50000,
+                loyaltyAmountKobo: 500,
+                receiptNumber: 'R-001',
+                status: 'APPROVED',
+              },
+            ],
+          },
+          meta: meta('/api/v1/reports/cashier-today'),
+        }),
+      ),
+    );
+    let detailMode: 'success' | 'error' = 'success';
+    await page.route('**/api/v1/transactions/txn-1', (route) => {
+      if (detailMode === 'error') {
+        return route.fulfill({
+          ...json({ success: false, error: { statusCode: 503 } }),
+          status: 503,
+        });
+      }
+      return route.fulfill(
+        json({
+          success: true,
+          data: {
+            id: 'txn-1',
+            transactionId: 'txn-1',
+            type: 'EARN',
+            direction: 'CREDIT',
+            tenantId: 'tenant-1',
+            branchId: 'branch-1',
+            customerId: 'customer-1',
+            deviceId: null,
+            cardSerialNumber: 'SC-2670-7376',
+            posReceiptNumber: 'R-001',
+            purchaseAmountKobo: 50000,
+            occurredAt: '2030-01-01T10:00:00.000Z',
+            capturedAt: '2030-01-01T10:01:00.000Z',
+            state: 'POSTED',
+            captureStatus: null,
+            reviewStatus: null,
+            approvalId: null,
+            approvalStatus: null,
+            ledgerEntryId: 'ledger-1',
+            creditKobo: 500,
+            redeemedAmountKobo: null,
+            redemptionId: null,
+            availableBalanceKobo: 0,
+            expiresAt: null,
+            smsStatus: null,
+            ledger: {},
+            reversal: null,
+          },
+          meta: meta('/api/v1/transactions/txn-1'),
+        }),
+      );
+    });
+    await page.goto(`${baseUrl}/cashier/transactions`);
+    await expect(
+      page.getByLabel('Minimum purchase amount in naira'),
+    ).toBeVisible();
+    await expect(page).toHaveScreenshot('cashier-transactions-list.png', {
+      maxDiffPixelRatio: 0.08,
+    });
+
+    const trigger = page.getByRole('row', { name: /open transaction R-001/i });
+    await trigger.click();
+    const dialog = page.getByRole('dialog', {
+      name: 'Transaction R-001',
+    });
+    await expect(dialog).toBeVisible();
+    await expect(page.locator('.transaction-detail-modal')).toHaveCSS(
+      'width',
+      '600px',
+    );
+    await expect(
+      page.getByRole('button', { name: 'Close transaction detail' }),
+    ).toBeFocused();
+    await expect(dialog).toContainText('SC-2670-7376');
+    await page.keyboard.press('Tab');
+    await expect(
+      page.getByRole('button', { name: 'Copy virtual card number' }),
+    ).toBeFocused();
+    await page.keyboard.press('Tab');
+    await expect(
+      page.getByRole('button', { name: 'Close transaction detail' }),
+    ).toBeFocused();
+    await expect(dialog).toContainText('txn-1');
+    await expect(dialog).not.toContainText('customer-1');
+    await expect(dialog).toContainText('Michael Adeyemi');
+    await expect(dialog).toContainText(
+      'Audit events are not included in the Cashier transaction response.',
+    );
+    await page.evaluate(() => {
+      if (document.activeElement instanceof HTMLElement) {
+        document.activeElement.blur();
+      }
+    });
+    await expect(page).toHaveScreenshot('cashier-transactions-detail.png', {
+      maxDiffPixelRatio: 0.08,
+    });
+    await page.keyboard.press('Escape');
+    await expect(dialog).not.toBeVisible();
+    await expect(trigger).toBeFocused();
+
+    detailMode = 'error';
+    await page.setViewportSize({ width: 1024, height: 900 });
+    await page.reload();
+    await expect(
+      page.getByLabel('Minimum purchase amount in naira'),
+    ).toBeVisible();
+    await expect(
+      page.getByRole('region', { name: 'Transaction results' }),
+    ).toHaveCSS('overflow-x', 'auto');
+    expect(
+      await page.evaluate(() => document.documentElement.scrollWidth),
+    ).toBeLessThanOrEqual(1024);
+
+    await page.setViewportSize({ width: 375, height: 812 });
+    await page.reload();
+    await expect(
+      page.getByLabel('Minimum purchase amount in naira'),
+    ).toBeVisible();
+    await expect(
+      page.getByRole('region', { name: 'Transaction results' }),
+    ).toHaveCSS('overflow-x', 'auto');
+    expect(
+      await page.evaluate(() => document.documentElement.scrollWidth),
+    ).toBeLessThanOrEqual(375);
+    const mobileTrigger = page.getByRole('row', {
+      name: /open transaction R-001/i,
+    });
+    await mobileTrigger.click();
+    await expect(
+      page.getByRole('dialog', { name: 'Transaction R-001' }),
+    ).toContainText('Transaction detail unavailable');
+    await page.keyboard.press('Escape');
+    await expect(
+      page.getByRole('dialog', { name: 'Transaction R-001' }),
+    ).not.toBeVisible();
+  });
+
   test('covers cashier earn, redeem, customers and sync routes', async ({
     request,
   }) => {
-    for (const href of [
+    await expectRoutesAvailable(request, [
       '/cashier/lookup?card=CARD-001',
       '/cashier/earn?card=CARD-001',
       '/cashier/customers',
       '/cashier/redeem?card=CARD-001',
       '/cashier/sync',
-    ]) {
-      const response = await request.get(href);
-      expect(response.status()).toBe(200);
+    ]);
+  });
+
+  test('covers public login across the required viewport matrix', async ({
+    page,
+  }) => {
+    for (const route of publicConformanceRoutes) {
+      for (const viewport of conformanceViewports) {
+        await page.setViewportSize({
+          width: viewport.width,
+          height: viewport.height,
+        });
+        await page.goto(`${baseUrl}${route.path}`);
+        await expect(page.locator('[data-od-id="login-page"]')).toBeVisible();
+        const loginBackgroundPreload = page.locator(
+          'link[rel="preload"][as="image"][href$="/brand/login-bgrd.webp"]',
+        );
+        await expect(loginBackgroundPreload).toHaveCount(1);
+        await expect(loginBackgroundPreload).toHaveAttribute(
+          'fetchpriority',
+          'high',
+        );
+        await expect(page.locator('[data-od-id="login-page"]')).toHaveCSS(
+          'background-image',
+          /login-bgrd\.webp/,
+        );
+        await expect(
+          page.locator('[data-od-id="login-form"] input[type="radio"]'),
+        ).toHaveCount(0);
+        await expect(
+          page.getByText(/your shopcity account determines your workspace/i),
+        ).toBeVisible();
+        expect(
+          await page.locator('body').evaluate((body) => body.scrollWidth),
+          `${route.path} ${viewport.name}`,
+        ).toBeLessThanOrEqual(viewport.width);
+      }
+    }
+  });
+
+  test('executes the route and viewport conformance matrix', async ({
+    page,
+  }) => {
+    for (const [role, routes] of [
+      ['CASHIER', cashierConformanceRoutes],
+      [
+        'SUPERVISOR',
+        shellConformanceRoutes.filter(
+          ({ role: routeRole }) => routeRole === 'SUPERVISOR',
+        ),
+      ],
+      [
+        'ADMIN',
+        shellConformanceRoutes.filter(
+          ({ role: routeRole }) => routeRole === 'ADMIN',
+        ),
+      ],
+    ] as const) {
+      await page.unroute('**/api/v1/**');
+      await mockShell(page, role);
+      for (const route of routes) {
+        await page.setViewportSize({
+          width: conformanceViewports[0].width,
+          height: conformanceViewports[0].height,
+        });
+        await page.goto(`${baseUrl}${route.path}`, {
+          waitUntil: 'domcontentloaded',
+        });
+        await expect(page.locator('.shell-loading-screen')).toBeHidden();
+        if (role === 'CASHIER') {
+          const primaryActions = page.locator(
+            '.shell-root--cashier :is(.sc-button--primary, .cashier-primary-action, .cashier-earn-receipt-proceed, .cashier-redeem-actions > button[type="submit"])',
+          );
+          const primaryActionCount = await primaryActions.count();
+          if (route.path !== '/cashier/transactions') {
+            expect(primaryActionCount, route.path).toBeGreaterThan(0);
+          }
+          for (let index = 0; index < primaryActionCount; index += 1) {
+            const action = primaryActions.nth(index);
+            if (
+              (await action.isDisabled()) ||
+              (await action.getAttribute('aria-disabled')) === 'true'
+            ) {
+              continue;
+            }
+            await expect(action).toHaveCSS(
+              'background-image',
+              /^linear-gradient\(100\.54deg/,
+            );
+            await expect(action).toHaveCSS('color', 'rgb(255, 255, 255)');
+          }
+        }
+        for (const viewport of conformanceViewports) {
+          await page.setViewportSize({
+            width: viewport.width,
+            height: viewport.height,
+          });
+          await page.emulateMedia({ reducedMotion: 'reduce' });
+          await expect(page.locator('.shell-loading-screen')).toBeHidden();
+          await expect(page.locator('main')).toBeVisible();
+          await page.getByRole('combobox', { name: 'Search ShopCity' }).focus();
+          await expect(page.locator('.shell-main')).toHaveCSS(
+            'max-width',
+            'none',
+          );
+          const categoryBox = await page
+            .locator('.global-shell-search__categories')
+            .boundingBox();
+          expect(categoryBox?.width ?? 0).toBeGreaterThan(0);
+          const searchRowWidth = await page
+            .locator('.global-shell-search__row')
+            .evaluate((element) => ({
+              scrollWidth: element.scrollWidth,
+              clientWidth: element.clientWidth,
+            }));
+          expect(
+            searchRowWidth.scrollWidth,
+            `${role} ${route.path} ${viewport.name} search row overflow: ${JSON.stringify(searchRowWidth)}`,
+          ).toBeLessThanOrEqual(searchRowWidth.clientWidth);
+
+          for (const contract of canonicalCashierContractSelectors) {
+            const subjects = page.locator(contract.selector);
+            const subjectCount = await subjects.count();
+            // Some canonical owners are legitimately absent on routes whose
+            // state does not render that component. Every matching instance is
+            // checked when the documented scope is present.
+            for (let index = 0; index < subjectCount; index += 1) {
+              const subject = subjects.nth(index);
+              const className = (await subject.getAttribute('class')) ?? '';
+              const elementId = (await subject.getAttribute('id')) ?? '';
+              const expectedValue =
+                contract.selector === '.shell-topbar' && viewport.width <= 620
+                  ? '56px'
+                  : contract.selector === '.sc-control.sc-input--compact' &&
+                      contract.property === 'min-height' &&
+                      ['/cashier/lookup', '/supervisor/customers'].includes(
+                        route.path,
+                      )
+                    ? '32px'
+                    : route.path === '/cashier/transactions' &&
+                        contract.selector ===
+                          '.sc-control:not(.sc-textarea):not(.sc-input--compact)' &&
+                        contract.property === 'min-height'
+                      ? '32px'
+                      : ['/cashier/earn', '/cashier/redeem'].includes(
+                            route.path,
+                          ) &&
+                          contract.selector ===
+                            '.sc-button:not(.sc-button--link)' &&
+                          contract.property === 'border-radius'
+                        ? '16px'
+                        : route.path === '/cashier/lookup' &&
+                            className.includes('find-customer-search-action') &&
+                            contract.property === 'border-radius'
+                          ? '999px'
+                          : [
+                                '/supervisor/customers',
+                                '/supervisor/transactions',
+                              ].includes(route.path) &&
+                              (className.includes(
+                                'supervisor-customer-directory__filter',
+                              ) ||
+                                className.includes(
+                                  'supervisor-customer-directory__register',
+                                )) &&
+                              contract.property === 'border-radius'
+                            ? '999px'
+                            : route.path === '/supervisor/customers' &&
+                                className.includes(
+                                  'supervisor-customer-directory__search-submit',
+                                ) &&
+                                contract.property === 'border-radius'
+                              ? '50%'
+                              : route.path === '/supervisor/customers' &&
+                                  className.includes(
+                                    'supervisor-customer-directory__search-input',
+                                  ) &&
+                                  contract.property === 'min-height'
+                                ? '32px'
+                                : route.path === '/supervisor/transactions' &&
+                                    [
+                                      'supervisor-transaction-receipt-number',
+                                      'supervisor-transaction-minimum-amount',
+                                    ].includes(elementId) &&
+                                    contract.property === 'border-radius'
+                                  ? '999px'
+                                  : route.path === '/supervisor/transactions' &&
+                                      [
+                                        'supervisor-transaction-receipt-number',
+                                        'supervisor-transaction-minimum-amount',
+                                      ].includes(elementId) &&
+                                      contract.property === 'min-height'
+                                    ? '40px'
+                                    : route.path ===
+                                          '/supervisor/transactions' &&
+                                        className.includes(
+                                          'supervisor-transaction-',
+                                        ) &&
+                                        contract.selector ===
+                                          '.sc-button:not(.sc-button--link)' &&
+                                        contract.property === 'border-radius'
+                                      ? '999px'
+                                      : route.path ===
+                                            '/cashier/transactions' &&
+                                          className.includes(
+                                            'transaction-filter-',
+                                          ) &&
+                                          contract.property === 'border-radius'
+                                        ? '999px'
+                                        : [
+                                              '/cashier/earn',
+                                              '/cashier/redeem',
+                                            ].includes(route.path) &&
+                                            contract.selector ===
+                                              '.sc-control:not(.sc-textarea)' &&
+                                            contract.property ===
+                                              'border-radius'
+                                          ? '0px'
+                                          : [
+                                                '/cashier/earn',
+                                                '/cashier/redeem',
+                                              ].includes(route.path) &&
+                                              contract.selector ===
+                                                '.sc-control:not(.sc-textarea):not(.sc-input--compact)' &&
+                                              contract.property === 'min-height'
+                                            ? '0px'
+                                            : route.path.endsWith(
+                                                  '/customers/new',
+                                                ) &&
+                                                contract.selector ===
+                                                  '.sc-control:not(.sc-textarea):not(.sc-input--compact)' &&
+                                                contract.property ===
+                                                  'min-height'
+                                              ? '42px'
+                                              : contract.expected;
+              await expect(subject).toHaveCSS(contract.property, expectedValue);
+            }
+          }
+
+          expect(
+            await page.locator('body').evaluate((body) => body.scrollWidth),
+            `${role} ${route.path} ${viewport.name}`,
+          ).toBeLessThanOrEqual(viewport.width);
+          expect(
+            await page
+              .locator('.shell-body')
+              .evaluate(
+                (element) => getComputedStyle(element).transitionDuration,
+              ),
+            `${role} ${route.path} ${viewport.name} reduced motion`,
+          ).toBe('0s');
+          const invalidTargets = await page
+            .locator(
+              'button:visible, input:visible, select:visible, textarea:visible',
+            )
+            .evaluateAll(
+              (elements) =>
+                elements.filter((element) => {
+                  const rect = element.getBoundingClientRect();
+                  return rect.width <= 0 || rect.height <= 0;
+                }).length,
+            );
+          expect(
+            invalidTargets,
+            `${role} ${route.path} ${viewport.name} targets`,
+          ).toBe(0);
+        }
+      }
     }
   });
 
   test('covers supervisor customer, card, and reports routes', async ({
     request,
   }) => {
-    for (const href of [
+    await expectRoutesAvailable(request, [
       '/supervisor/customers',
       '/supervisor/cards',
       '/supervisor/reports',
-    ]) {
-      const response = await request.get(href);
-      expect(response.status()).toBe(200);
+    ]);
+  });
+
+  test('verifies profile typography hierarchy and responsive width across all Supervisor routes', async ({
+    page,
+  }) => {
+    const routes = [
+      ['/supervisor', 'Hi, Supervisor!', 'Welcome back to your dashboard'],
+      [
+        '/supervisor/approvals',
+        'Approval Centre',
+        'Financial exceptions waiting on a supervisor or administrator decision.',
+      ],
+      ['/supervisor/cards', 'Cards', 'Review issued cards or assign a card.'],
+      [
+        '/supervisor/customers',
+        'Customers',
+        'Find customers and open their verified profile.',
+      ],
+      [
+        '/supervisor/fraud',
+        'Flagged activity',
+        'Review patterns, check the context, and record the next step.',
+      ],
+      [
+        '/supervisor/reports',
+        'Operational reports',
+        'Review branch performance over time, investigate patterns, and generate detailed reports.',
+      ],
+      [
+        '/supervisor/transactions',
+        'Transactions',
+        'Review branch transactions and filter by receipt number.',
+      ],
+    ] as const;
+    const headerTypography = async (title: string, description: string) => {
+      const titleElement = page.getByRole('heading', { level: 1, name: title });
+      const descriptionElement = page.getByText(description, { exact: true });
+      const readTypography = (element: Element) => {
+        const style = getComputedStyle(element);
+        return [
+          style.fontFamily,
+          style.fontSize,
+          style.fontWeight,
+          style.lineHeight,
+          style.color,
+        ];
+      };
+      const [titleStyle, descriptionStyle] = await Promise.all([
+        titleElement.evaluate(readTypography),
+        descriptionElement.evaluate(readTypography),
+      ]);
+      return { title: titleStyle, description: descriptionStyle };
+    };
+
+    let supervisorTypography:
+      Awaited<ReturnType<typeof headerTypography>> | undefined;
+    await mockShell(page, 'SUPERVISOR');
+    for (const [path, title, description] of routes) {
+      await page.setViewportSize({ width: 1440, height: 900 });
+      await page.goto(`${baseUrl}${path}`);
+      const root = page.locator('main');
+      await expect(root.getByRole('heading', { level: 1 })).toHaveCount(1);
+      await expect(
+        root.getByRole('heading', { level: 1, name: title }),
+      ).toBeVisible();
+      await expect(root.getByText(description, { exact: true })).toBeVisible();
+      const typography = await headerTypography(title, description);
+      supervisorTypography ??= typography;
+      expect(typography, `${path} header typography`).toEqual(
+        supervisorTypography,
+      );
+      expect(typography.title[0]).toContain('Inter');
+      expect(typography.title.slice(1)).toEqual([
+        '28px',
+        '700',
+        typography.title[3],
+        'rgb(17, 24, 39)',
+      ]);
+      expect(typography.description[0]).toContain('Inter');
+      expect(typography.description.slice(1)).toEqual([
+        '14px',
+        typography.description[2],
+        typography.description[3],
+        'rgb(75, 85, 99)',
+      ]);
+
+      if (path === '/supervisor') {
+        const overview = root.locator('.supervisor-overview');
+        await expect(
+          overview.locator('.supervisor-overview__section-heading h2'),
+        ).toHaveCSS('font-size', '18px');
+        await expect(
+          overview.locator('.supervisor-overview__freshness'),
+        ).toHaveCSS('font-size', '12px');
+        await expect(
+          overview.getByRole('link', { name: 'Open Approvals' }),
+        ).toHaveAttribute('href', '/supervisor/approvals');
+        await expect(overview.locator('[data-metric-card]')).toHaveCount(4);
+        await expect(overview.getByRole('table')).toBeVisible();
+        await expect(overview.locator('tbody tr')).toHaveCount(5);
+        await expect(overview.getByRole('columnheader')).toHaveCount(4);
+        await expect(overview.locator('img')).toHaveCount(0);
+      } else if (path === '/supervisor/customers') {
+        await expect(root.getByRole('table')).toBeVisible();
+      } else if (path === '/supervisor/cards') {
+        await expect(
+          root.getByRole('region', { name: 'Issued cards directory' }),
+        ).toBeVisible();
+      } else if (path === '/supervisor/transactions') {
+        await expect(
+          root.getByRole('textbox', { name: 'Receipt number' }),
+        ).toBeVisible();
+        await expect(
+          root.getByRole('button', { name: 'Search' }),
+        ).toBeVisible();
+        await expect(root.getByRole('table')).toBeVisible();
+        await expect(
+          root.getByRole('columnheader', { name: 'Receipt no.' }),
+        ).toBeVisible();
+        await expect(
+          root.getByText('No branch transactions found'),
+        ).toBeVisible();
+        await expect(
+          root.locator('.supervisor-transaction-reversal'),
+        ).toHaveCount(0);
+      } else {
+        const sectionHeading = root.getByRole('heading', { level: 2 }).first();
+        const bodyCopy = root.getByText(description, { exact: true });
+        await expect(sectionHeading).toBeVisible();
+        await expect(bodyCopy).toBeVisible();
+        const hierarchy = await Promise.all([
+          root
+            .getByRole('heading', { level: 1 })
+            .evaluate((node) =>
+              Number.parseFloat(getComputedStyle(node).fontSize),
+            ),
+          sectionHeading.evaluate((node) =>
+            Number.parseFloat(getComputedStyle(node).fontSize),
+          ),
+          bodyCopy.evaluate((node) =>
+            Number.parseFloat(getComputedStyle(node).fontSize),
+          ),
+        ]);
+        expect(hierarchy, `${path} title/section/body scale`).toHaveLength(3);
+        expect(hierarchy[0], `${path} title scale`).toBeGreaterThan(
+          hierarchy[1],
+        );
+        expect(hierarchy[1], `${path} section scale`).toBeGreaterThanOrEqual(
+          hierarchy[2],
+        );
+      }
+
+      for (const width of [1440, 768, 375]) {
+        await page.setViewportSize({ width, height: 900 });
+        const documentWidth = await page.evaluate(() =>
+          Math.max(
+            document.body.scrollWidth,
+            document.documentElement.scrollWidth,
+          ),
+        );
+        expect(
+          documentWidth,
+          `${path} document width at ${width}px`,
+        ).toBeLessThanOrEqual(width);
+        if (path === '/supervisor' && width === 375) {
+          const tableScroller = page.locator(
+            '.supervisor-overview__table-scroll',
+          );
+          expect(
+            await tableScroller.evaluate(
+              (element) => element.scrollWidth > element.clientWidth,
+            ),
+          ).toBe(true);
+        }
+      }
     }
+
+    await mockShell(page, 'CASHIER');
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto(`${baseUrl}/cashier/lookup`);
+    const cashierTypography = await headerTypography(
+      'Find customer',
+      'Search by phone number, card serial or name to continue a loyalty transaction.',
+    );
+    expect(cashierTypography.title[1]).toBe('34px');
+    expect(cashierTypography.title[4]).toBe('rgb(142, 1, 1)');
+
+    await mockShell(page, 'ADMIN');
+    await page.goto(`${baseUrl}/admin/customers`);
+    const adminCustomerWorkspace = page.locator(
+      '[aria-label="Customer workspace"]',
+    );
+    await expect(
+      adminCustomerWorkspace.locator('.supervisor-page'),
+    ).toHaveCount(0);
+    await expect(
+      adminCustomerWorkspace.getByRole('heading', {
+        level: 1,
+        name: 'Customers',
+      }),
+    ).toBeVisible();
+    await expect(
+      adminCustomerWorkspace.getByText(
+        'Use the shell navigation for cashier, sync, and supervisor routes.',
+      ),
+    ).toBeVisible();
+
+    await page.goto(`${baseUrl}/admin/transactions`);
+    await expect(
+      page.getByRole('heading', { level: 1, name: 'Transaction review' }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole('alert').filter({
+        hasText:
+          'Use this route for search, detail inspection, and compensating reversals.',
+      }),
+    ).toBeVisible();
+
+    await mockShell(page, 'CASHIER');
+    await page.goto(`${baseUrl}/cashier/customers`);
+    await expect(
+      page.getByRole('heading', { level: 1, name: 'Customers' }),
+    ).toBeVisible();
+    await expect(
+      page.getByText(
+        'Search, inspect, and trace customer balance, history, and card state.',
+      ),
+    ).toBeVisible();
+  });
+
+  test('searches a receipt and confirms a Supervisor reversal in the transaction dialog', async ({
+    page,
+  }) => {
+    await mockShell(page, 'SUPERVISOR');
+    await page.context().addCookies([
+      {
+        name: 'shopcity_csrf',
+        value: 'csrf-browser-token',
+        url: baseUrl,
+      },
+    ]);
+
+    let receiptSearchCallCount = 0;
+    await page.route('**/api/v1/transactions?*', async (route) => {
+      receiptSearchCallCount += 1;
+      const url = new URL(route.request().url());
+      if (receiptSearchCallCount === 1) {
+        expect(url.searchParams.has('receiptNumber')).toBe(false);
+      } else {
+        expect(url.searchParams.get('receiptNumber')).toBe('r-001');
+      }
+      if (url.searchParams.has('status')) {
+        expect(url.searchParams.get('status')).toBe('CONFIRMED');
+        expect(url.searchParams.get('staffId')).toBe('cashier-1');
+        expect(url.searchParams.get('minReceiptAmountKobo')).toBe('10000');
+      }
+      if (receiptSearchCallCount === 1 || receiptSearchCallCount === 4) {
+        await new Promise((resolve) => setTimeout(resolve, 250));
+      }
+      return route.fulfill(
+        json({
+          success: true,
+          data: {
+            items: [
+              {
+                transactionId: 'ledger-1',
+                receiptNumber: 'R-001',
+                operation: 'EARN',
+                amountKobo: 500,
+                creditKobo: 500,
+                customerName:
+                  receiptSearchCallCount === 4
+                    ? 'Refreshed Michael Adeyemi'
+                    : 'Michael Adeyemi',
+                purchaseAmountKobo: 10_000,
+                status: 'CONFIRMED',
+                occurredAt: '2030-01-01T10:00:00.000Z',
+              },
+            ],
+            staffOptions: [{ id: 'cashier-1', label: 'cashier@example.test' }],
+            nextCursor: null,
+            hasMore: false,
+          },
+          meta: meta('/api/v1/transactions'),
+        }),
+      );
+    });
+    await page.route('**/api/v1/transactions/ledger-1', async (route) =>
+      route.fulfill(
+        json({
+          success: true,
+          data: {
+            transactionId: 'ledger-1',
+            posReceiptNumber: 'R-001',
+            type: 'EARN',
+            state: 'CONFIRMED',
+            creditKobo: 500,
+            redeemedAmountKobo: null,
+            purchaseAmountKobo: 10_000,
+            availableBalanceKobo: 2_500,
+            occurredAt: '2030-01-01T10:00:00.000Z',
+            capturedAt: '2030-01-01T10:01:00.000Z',
+          },
+          meta: meta('/api/v1/transactions/ledger-1'),
+        }),
+      ),
+    );
+
+    let reversalRequest: {
+      body: unknown;
+      csrfToken: string | undefined;
+      idempotencyKey: string | undefined;
+    } | null = null;
+    await page.route(
+      '**/api/v1/transactions/ledger-1/reverse',
+      async (route) => {
+        const request = route.request();
+        const headers = request.headers();
+        reversalRequest = {
+          body: request.postDataJSON(),
+          csrfToken: headers['x-csrf-token'],
+          idempotencyKey: headers['idempotency-key'],
+        };
+        return route.fulfill({
+          ...json({
+            success: true,
+            data: { transactionId: 'ledger-reversal-1' },
+            meta: meta('/api/v1/transactions/ledger-1/reverse'),
+          }),
+          status: 201,
+        });
+      },
+    );
+
+    await page.goto(`${baseUrl}/supervisor/transactions`);
+    await expect(
+      page.getByText(
+        'Review branch transactions and filter by receipt number.',
+        {
+          exact: true,
+        },
+      ),
+    ).toBeVisible();
+    const refreshButton = page.getByRole('button', {
+      name: 'Refresh transactions',
+    });
+    await expect(refreshButton).toBeDisabled();
+    await expect.poll(() => receiptSearchCallCount).toBe(1);
+    await expect(refreshButton).toBeEnabled();
+    const resultRow = page.locator('tbody tr').filter({ hasText: 'R-001' });
+    await expect(resultRow).toBeVisible();
+    await page.getByRole('textbox', { name: 'Receipt number' }).fill('r-001');
+    await page
+      .locator('.supervisor-transaction-search')
+      .getByRole('button', { name: 'Search' })
+      .click();
+    await expect(resultRow).toBeVisible();
+    await page
+      .getByRole('button', { name: 'Status filter, All Statuses' })
+      .click();
+    await page.getByRole('option', { name: 'Confirmed' }).click();
+    await page.getByRole('button', { name: 'Staff filter, All Staff' }).click();
+    await page.getByRole('option', { name: 'cashier@example.test' }).click();
+    const minimumAmountInput = page.getByPlaceholder('Minimum amount (₦)');
+    await expect(minimumAmountInput).toHaveAttribute(
+      'aria-label',
+      'Minimum amount (₦)',
+    );
+    await minimumAmountInput.fill('100.00');
+    await page
+      .locator('.supervisor-transaction-search')
+      .getByRole('button', { name: 'Apply filters' })
+      .click();
+    await expect.poll(() => receiptSearchCallCount).toBe(3);
+    await expect(resultRow).toBeVisible();
+    await expect(refreshButton).toBeEnabled();
+    await expect(refreshButton).toHaveCSS('color', 'rgb(74, 74, 74)');
+    await expect(refreshButton).toHaveCSS(
+      'background-color',
+      'rgb(246, 244, 245)',
+    );
+    await expect(refreshButton).toHaveCSS('border-width', '1px');
+    await expect(refreshButton).toHaveCSS('border-color', 'rgb(222, 217, 218)');
+    const refreshContent = refreshButton.locator(
+      '.supervisor-transaction-refresh-content',
+    );
+    await expect(refreshContent).toHaveCSS('display', 'inline-flex');
+    const refreshParts = await refreshContent.evaluate((content) => {
+      const icon = content.querySelector('svg')?.getBoundingClientRect();
+      const label = content.querySelector('span')?.getBoundingClientRect();
+      return icon && label
+        ? {
+            iconRight: icon.right,
+            labelLeft: label.left,
+            iconCenter: icon.top + icon.height / 2,
+            labelCenter: label.top + label.height / 2,
+          }
+        : null;
+    });
+    expect(refreshParts).not.toBeNull();
+    expect(refreshParts!.labelLeft).toBeGreaterThanOrEqual(
+      refreshParts!.iconRight,
+    );
+    expect(
+      Math.abs(refreshParts!.iconCenter - refreshParts!.labelCenter),
+    ).toBeLessThan(2);
+    const headerRightGap = await page
+      .locator('[data-od-id="transactions-heading"]')
+      .evaluate((header) => {
+        const refresh = header.querySelector('.supervisor-transaction-refresh');
+        return refresh
+          ? header.getBoundingClientRect().right -
+              refresh.getBoundingClientRect().right
+          : Number.POSITIVE_INFINITY;
+      });
+    expect(headerRightGap).toBeLessThan(2);
+    const transactionPagination = page.getByRole('navigation', {
+      name: 'Transaction pages',
+    });
+    await expect(transactionPagination).toHaveCSS('display', 'flex');
+    await expect(transactionPagination).toHaveCSS(
+      'justify-content',
+      'flex-end',
+    );
+    await expect(transactionPagination.locator('button').first()).toHaveCSS(
+      'width',
+      '34px',
+    );
+    await expect(transactionPagination.locator('button').first()).toHaveCSS(
+      'border-radius',
+      '8px',
+    );
+    await expect(transactionPagination.locator('button').first()).toHaveCSS(
+      'color',
+      'rgb(0, 0, 0)',
+    );
+    await expect(transactionPagination.locator('button').first()).toHaveCSS(
+      'opacity',
+      '0.45',
+    );
+    await expect(
+      transactionPagination.locator(
+        '.supervisor-transaction-pagination-status',
+      ),
+    ).toHaveCSS('color', 'rgb(0, 0, 0)');
+    await refreshButton.click();
+    await expect(refreshButton).toBeDisabled();
+    await expect(page.getByText('Michael Adeyemi')).toBeVisible();
+    await expect.poll(() => receiptSearchCallCount).toBe(4);
+    await expect(page.getByText('Refreshed Michael Adeyemi')).toBeVisible();
+    await expect(resultRow).toBeVisible();
+    await expect(
+      page.getByRole('columnheader', { name: 'Name' }),
+    ).toBeVisible();
+    await expect(
+      page.locator('.supervisor-transaction-filter > span').first(),
+    ).toHaveCSS('font-size', '12px');
+    await expect(
+      page.getByRole('button', { name: 'Status filter, Confirmed' }),
+    ).toHaveCSS('font-size', '12px');
+    const receiptPlaceholderFontSize = await page
+      .getByRole('textbox', { name: 'Receipt number' })
+      .evaluate((input) => getComputedStyle(input, '::placeholder').fontSize);
+    expect(receiptPlaceholderFontSize).toBe('12px');
+    const minimumPlaceholderFontSize = await page
+      .getByPlaceholder('Minimum amount (₦)')
+      .evaluate((input) => getComputedStyle(input, '::placeholder').fontSize);
+    expect(minimumPlaceholderFontSize).toBe('12px');
+    await expect(
+      page.getByText('Minimum amount (₦)', { exact: true }),
+    ).toBeVisible();
+    await expect(page.getByRole('columnheader', { name: 'Status' })).toHaveCSS(
+      'font-size',
+      '11px',
+    );
+    await expect(resultRow.locator('td').first()).toHaveCSS(
+      'font-size',
+      '12px',
+    );
+    await expect(page.locator('.supervisor-transaction-table-card')).toHaveCSS(
+      'border-radius',
+      '16px',
+    );
+    await resultRow.click();
+
+    const dialog = page.getByRole('dialog', { name: /R-001/ });
+    await expect(dialog).toBeVisible();
+    await expect(dialog).toHaveCSS('width', '920px');
+    await expect(
+      dialog.getByRole('heading', { name: 'Transaction R-001' }),
+    ).toHaveCSS('font-size', '18px');
+    await expect(dialog.locator('dt').first()).toHaveCSS('font-size', '12px');
+    await expect(dialog.locator('dd').first()).toHaveCSS('font-size', '16px');
+    await expect(
+      dialog.getByRole('heading', { name: 'Transaction timeline' }),
+    ).toBeVisible();
+    await expect(
+      dialog.getByText(
+        'Receipt image is not provided by the transaction service.',
+      ),
+    ).toBeVisible();
+    await expect(
+      dialog.getByRole('heading', { name: 'Request reversal' }),
+    ).toBeVisible();
+    for (const placeholder of [
+      'Reason for reversal',
+      'Type REVERSE to confirm',
+    ]) {
+      const placeholderFontSize = await dialog
+        .getByPlaceholder(placeholder)
+        .evaluate((input) => getComputedStyle(input, '::placeholder').fontSize);
+      expect(placeholderFontSize).toBe('12px');
+    }
+    await dialog
+      .getByRole('textbox', { name: 'Reversal reason' })
+      .fill('Duplicate receipt entry');
+    await dialog
+      .getByRole('textbox', { name: 'Type REVERSE to confirm' })
+      .fill('REVERSE');
+    await dialog.getByRole('button', { name: 'Confirm reversal' }).click();
+    await expect(dialog.getByRole('alert')).toContainText('Reversal confirmed');
+    await expect
+      .poll(() => reversalRequest)
+      .toEqual({
+        body: { reason: 'Duplicate receipt entry' },
+        csrfToken: 'csrf-browser-token',
+        idempotencyKey: expect.any(String),
+      });
+
+    await page.setViewportSize({ width: 375, height: 812 });
+    await expect(dialog).toBeVisible();
+    await expect(dialog).toHaveCSS('width', '351px');
+    const mobileHeaderRightGap = await page
+      .locator('[data-od-id="transactions-heading"]')
+      .evaluate((header) => {
+        const refresh = header.querySelector('.supervisor-transaction-refresh');
+        return refresh
+          ? header.getBoundingClientRect().right -
+              refresh.getBoundingClientRect().right
+          : Number.POSITIVE_INFINITY;
+      });
+    expect(mobileHeaderRightGap).toBeLessThan(2);
+    await expect(page.locator('.supervisor-transaction-pagination')).toHaveCSS(
+      'justify-content',
+      'flex-end',
+    );
+    await expect(
+      page.locator('.supervisor-transaction-pagination-button').first(),
+    ).toHaveCSS('width', '34px');
+    await expect(
+      page.locator('.supervisor-transaction-table-scroll'),
+    ).toHaveCSS('overflow-x', 'visible');
+    expect(
+      await page.locator('body').evaluate((body) => body.scrollWidth),
+    ).toBeLessThanOrEqual(375);
+  });
+
+  test('shows Supervisor transaction column dividers only on hover or focus', async ({
+    page,
+  }) => {
+    await mockShell(page, 'SUPERVISOR');
+    await page.route('**/api/v1/transactions**', (route) =>
+      route.fulfill(
+        json({
+          success: true,
+          data: {
+            items: [
+              {
+                transactionId: 'ledger-1',
+                receiptNumber: 'R-001',
+                operation: 'EARN',
+                amountKobo: 500,
+                creditKobo: 500,
+                customerName: 'Michael Adeyemi',
+                purchaseAmountKobo: 10_000,
+                status: 'CONFIRMED',
+                occurredAt: '2030-01-01T10:00:00.000Z',
+              },
+            ],
+            staffOptions: [],
+            nextCursor: null,
+            hasMore: false,
+          },
+          meta: meta('/api/v1/transactions'),
+        }),
+      ),
+    );
+
+    await page.goto(`${baseUrl}/supervisor/transactions`);
+    const table = page.getByRole('table', {
+      name: 'Supervisor branch transactions',
+    });
+    await expect(table).toBeVisible();
+    await expect(table.getByText('R-001')).toBeVisible();
+
+    const firstColumnHeader = page.getByRole('columnheader', {
+      name: 'Receipt No.',
+    });
+    const firstColumnDivider = firstColumnHeader.locator(
+      '.supervisor-transaction-table__column-resizer',
+    );
+    const secondColumnDivider = page
+      .getByRole('columnheader', { name: 'Name' })
+      .locator('.supervisor-transaction-table__column-resizer');
+    const firstDividerOpacity = () =>
+      firstColumnDivider.evaluate(
+        (divider) => getComputedStyle(divider, '::before').opacity,
+      );
+    const secondDividerOpacity = () =>
+      secondColumnDivider.evaluate(
+        (divider) => getComputedStyle(divider, '::before').opacity,
+      );
+
+    await expect.poll(firstDividerOpacity).toBe('0');
+    await expect.poll(secondDividerOpacity).toBe('0');
+    await firstColumnHeader.hover();
+    await expect.poll(firstDividerOpacity).toBe('1');
+    await expect.poll(secondDividerOpacity).toBe('0');
+    await page.mouse.move(0, 0);
+    await expect.poll(firstDividerOpacity).toBe('0');
+    await page.keyboard.press('Tab');
+    await firstColumnDivider.focus();
+    await expect.poll(firstDividerOpacity).toBe('1');
+
+    await page.setViewportSize({ width: 375, height: 812 });
+    await expect(firstColumnDivider).toBeHidden();
   });
 
   test('keeps the cashier overview launcher and context compact', async ({
@@ -71,23 +1916,195 @@ test.describe('workflow route coverage', () => {
     await page.goto(`${baseUrl}/cashier`);
 
     await expect(
-      page.getByRole('heading', { name: 'Ready for the next customer' }),
+      page.getByRole('heading', { name: 'Hi, Cashier!' }),
+    ).toBeVisible();
+    const findCustomerAction = page
+      .locator('main')
+      .getByRole('link', { name: 'Find Customer' })
+      .first();
+    await expect(findCustomerAction).toBeVisible();
+    await expect(findCustomerAction).toHaveCSS(
+      'background-image',
+      /^linear-gradient\(100\.54deg/,
+    );
+    await expect(
+      page.getByRole('heading', { name: "Today's Activity" }),
     ).toBeVisible();
     await expect(
-      page.getByRole('link', { name: 'Scan or enter card' }).first(),
-    ).toBeVisible();
-    await expect(page.getByLabel('Cashier context')).toBeVisible();
-    await expect(
-      page.getByRole('heading', { name: 'Choose a task' }),
+      page.getByRole('heading', { name: 'Recent Transactions' }),
     ).toBeVisible();
     await expect(
-      page.getByLabel('Cashier context').getByRole('link', {
-        name: 'Open sync queue',
-      }),
+      page.getByText('No transactions recorded today.'),
     ).toBeVisible();
+    await page.locator('main').evaluate((main) => {
+      main.style.height = '826px';
+      main.style.overflow = 'hidden';
+    });
     await expect(page.locator('main')).toHaveScreenshot(
       'cashier-overview-compact.png',
+      { maxDiffPixelRatio: 0.08 },
     );
+  });
+
+  test('aligns overview composition across prototype viewports', async ({
+    page,
+  }) => {
+    await mockShell(page, 'CASHIER');
+    await page.goto(`${baseUrl}/cashier`);
+
+    for (const viewport of [
+      { width: 1440, height: 900 },
+      { width: 1024, height: 900 },
+      { width: 390, height: 844 },
+    ]) {
+      await page.setViewportSize(viewport);
+      await page.emulateMedia({ reducedMotion: 'reduce' });
+      await page.reload();
+
+      const overview = page.locator('.cashier-overview');
+      await expect(overview).toBeVisible();
+      await expect(
+        page.getByRole('heading', { name: 'Hi, Cashier!' }),
+      ).toBeVisible();
+      await expect(
+        page.getByRole('link', { name: 'View today’s transactions →' }),
+      ).toBeVisible();
+
+      const transactionSearch = page.getByRole('searchbox', {
+        name: 'Search recent transactions',
+      });
+      const transactionSearchField = page.locator(
+        '.cashier-today-card .table-search',
+      );
+      await transactionSearch.focus();
+      await expect(transactionSearch).toBeFocused();
+      await expect
+        .poll(() =>
+          transactionSearchField.evaluate((element) => {
+            const style = getComputedStyle(element);
+            return `${style.outlineStyle} ${style.outlineWidth}`;
+          }),
+        )
+        .toBe('solid 3px');
+
+      const overviewWidth = await overview.evaluate((element) =>
+        Math.round(element.getBoundingClientRect().width),
+      );
+      expect(overviewWidth).toBeGreaterThan(0);
+      expect(overviewWidth).toBeLessThanOrEqual(1120);
+      expect(
+        await page.locator('body').evaluate((body) => body.scrollWidth),
+      ).toBeLessThanOrEqual(viewport.width);
+
+      const metricBoxes = await page
+        .locator('[data-od-id^="metric-"]')
+        .evaluateAll((elements) =>
+          elements.map((element) => {
+            const box = element.getBoundingClientRect();
+            return {
+              width: Math.round(box.width),
+              height: Math.round(box.height),
+            };
+          }),
+        );
+      expect(metricBoxes).toHaveLength(4);
+      expect(
+        metricBoxes.every(({ width, height }) => width > 0 && height > 0),
+      ).toBe(true);
+      expect(Math.max(...metricBoxes.map(({ height }) => height))).toBe(
+        Math.min(...metricBoxes.map(({ height }) => height)),
+      );
+    }
+  });
+
+  test('covers overview empty and authoritative error states', async ({
+    page,
+  }) => {
+    await mockShell(page, 'CASHIER');
+    await page.goto(`${baseUrl}/cashier`);
+    await expect(
+      page.getByText('No transactions recorded today.'),
+    ).toBeVisible();
+
+    await page.route('**/api/v1/reports/cashier-today**', (route) =>
+      route.fulfill({
+        ...json({ success: false, error: { statusCode: 503 } }),
+        status: 503,
+      }),
+    );
+    await page.reload();
+    await expect(
+      page.locator('.cashier-overview-notice[role="status"]'),
+    ).toHaveText('Today’s activity is temporarily unavailable.');
+    await expect(
+      page.getByText('No transactions recorded today.'),
+    ).not.toBeVisible();
+  });
+
+  test('covers overview loading and narrow layout', async ({ page }) => {
+    await mockShell(page, 'CASHIER');
+    let releaseRequest!: () => void;
+    const requestPending = new Promise<void>((resolve) => {
+      releaseRequest = resolve;
+    });
+    await page.route('**/api/v1/reports/cashier-today**', async (route) => {
+      await requestPending;
+      await route.fulfill(
+        json({
+          success: true,
+          data: { branchId: 'branch-1', timezone: 'Africa/Lagos', items: [] },
+          meta: meta('/api/v1/reports/cashier-today'),
+        }),
+      );
+    });
+
+    await page.setViewportSize({ width: 375, height: 812 });
+    const navigation = page.goto(`${baseUrl}/cashier`);
+    await expect(
+      page.locator('.cashier-overview-notice[role="status"]'),
+    ).toHaveText('Loading today’s activity…');
+    releaseRequest();
+    await navigation;
+    await expect(
+      page.getByText('No transactions recorded today.'),
+    ).toBeVisible();
+    expect(
+      await page.locator('body').evaluate((body) => body.scrollWidth),
+    ).toBeLessThanOrEqual(375);
+  });
+
+  test('keeps overview long values inside tablet geometry', async ({
+    page,
+  }) => {
+    await mockShell(page, 'CASHIER');
+    await page.route('**/api/v1/reports/cashier-today**', (route) =>
+      route.fulfill(
+        json({
+          success: true,
+          data: {
+            branchId: 'branch-1',
+            timezone: 'Africa/Lagos',
+            items: [
+              {
+                id: 'long-transaction',
+                occurredAt: '2030-01-01T10:00:00.000Z',
+                operation: 'EARN',
+                loyaltyAmountKobo: 999999999,
+                receiptNumber: 'R-' + '9'.repeat(80),
+                status: 'APPROVED',
+              },
+            ],
+          },
+          meta: meta('/api/v1/reports/cashier-today'),
+        }),
+      ),
+    );
+    await page.setViewportSize({ width: 768, height: 900 });
+    await page.goto(`${baseUrl}/cashier`);
+    await expect(page.getByText(/R-999999/)).toBeVisible();
+    expect(
+      await page.locator('body').evaluate((body) => body.scrollWidth),
+    ).toBeLessThanOrEqual(768);
   });
 
   test('covers lookup success, context handoff, keyboard, and narrow layout', async ({
@@ -98,31 +2115,281 @@ test.describe('workflow route coverage', () => {
     await page.setViewportSize({ width: 375, height: 812 });
     await page.goto(`${baseUrl}/cashier/lookup?card=CARD-001`);
 
-    const lookup = page.getByRole('textbox', { name: 'Lookup' });
+    const lookup = page.getByRole('searchbox', { name: 'Customer search' });
     await expect(lookup).toHaveValue('CARD-001');
     await lookup.press('Enter');
-    await expect(page.getByText('Ada Shopper')).toBeVisible();
-    const lookupCard = page.getByLabel('Lookup and status');
     await expect(
-      lookupCard.getByRole('link', { name: 'Earn' }),
-    ).toHaveAttribute('href', '/cashier/earn?card=CARD-001');
+      page.locator('.find-customer-table').getByRole('cell', {
+        name: 'Ada Shopper',
+        exact: true,
+      }),
+    ).toBeVisible();
     await expect(
-      lookupCard.getByRole('link', { name: 'Redeem' }),
-    ).toHaveAttribute('href', '/cashier/redeem?card=CARD-001');
+      page.getByRole('link', { name: 'View profile for Ada Shopper' }),
+    ).toHaveAttribute('href', '/cashier/customers?id=customer-1&card=CARD-001');
+    await page.locator('main').evaluate((main) => {
+      main.style.height = '836px';
+      main.style.overflow = 'hidden';
+    });
     await expect(page.locator('main')).toHaveScreenshot(
       'cashier-lookup-mobile.png',
+      { maxDiffPixelRatio: 0.08 },
     );
+  });
+
+  test('aligns Find Customer geometry and keyboard focus across viewports', async ({
+    page,
+  }) => {
+    await mockShell(page, 'CASHIER');
+    await page.goto(`${baseUrl}/cashier/lookup`);
+
+    const content = page.locator('.find-customer-view');
+    const searchPanel = page.locator('.find-customer-search');
+    const recentPanel = page.locator('.find-customer-recent');
+    const searchRow = page.locator('.find-customer-search-row');
+    const searchField = page.locator('.find-customer-query');
+    const recentTitle = page.getByRole('heading', { name: 'Recent customers' });
+    const lookup = page.getByRole('searchbox', { name: 'Customer search' });
+
+    for (const viewport of [
+      { width: 1440, height: 900 },
+      { width: 1024, height: 900 },
+      { width: 390, height: 844 },
+    ]) {
+      await page.setViewportSize(viewport);
+      await expect(searchPanel).toBeVisible();
+      await expect(recentPanel).toBeVisible();
+
+      const panelWidths = await content.evaluate((element) => ({
+        content: element.getBoundingClientRect().width,
+        search:
+          element
+            .querySelector('.find-customer-search')
+            ?.getBoundingClientRect().width ?? 0,
+        recent:
+          element
+            .querySelector('.find-customer-recent')
+            ?.getBoundingClientRect().width ?? 0,
+      }));
+      expect(Math.abs(panelWidths.search - panelWidths.content)).toBeLessThan(
+        4,
+      );
+      expect(Math.abs(panelWidths.recent - panelWidths.content)).toBeLessThan(
+        4,
+      );
+      const titleBottom = await recentTitle.evaluate(
+        (element) => element.getBoundingClientRect().bottom,
+      );
+      const searchTop = await searchField.evaluate(
+        (element) => element.getBoundingClientRect().top,
+      );
+      expect(titleBottom).toBeLessThan(searchTop);
+      expect(
+        await page.locator('body').evaluate((body) => body.scrollWidth),
+      ).toBeLessThanOrEqual(viewport.width);
+
+      await lookup.focus();
+      await expect(lookup).toBeFocused();
+      await expect
+        .poll(() =>
+          searchField.evaluate((element) => {
+            const style = getComputedStyle(element);
+            return `${style.outlineStyle} ${style.outlineWidth}`;
+          }),
+        )
+        .toBe('solid 3px');
+      await expect(lookup).toHaveAttribute(
+        'placeholder',
+        'Search customers, phone, or card…',
+      );
+      await expect(searchField).toHaveCSS(
+        'background-color',
+        'rgb(246, 244, 245)',
+      );
+
+      const columns = await searchRow.evaluate(
+        (element) => getComputedStyle(element).gridTemplateColumns,
+      );
+      if (viewport.width <= 620) {
+        expect(columns.trim().split(/\s+/)).toHaveLength(1);
+      } else {
+        expect(columns.trim().split(/\s+/)).toHaveLength(3);
+      }
+      const searchButtonContent = page
+        .getByRole('button', { name: 'Search' })
+        .locator('span');
+      await expect(searchButtonContent).toHaveCSS('display', 'flex');
+      await expect(searchButtonContent).toHaveCSS('flex-direction', 'row');
+      await expect(
+        page.getByRole('columnheader', { name: 'Customer' }),
+      ).toHaveCSS('font-size', '12px');
+    }
+  });
+
+  test('discovers customers by name without unlocking financial workflows', async ({
+    page,
+  }) => {
+    await mockShell(page, 'CASHIER');
+    await page.goto(`${baseUrl}/cashier/lookup`);
+
+    const lookup = page.getByRole('searchbox', { name: 'Customer search' });
+    await lookup.fill('Ada Shopper');
+    await page
+      .locator('#customer-search-form')
+      .getByRole('button', { name: 'Search' })
+      .click();
+    await expect(
+      page.locator('.find-customer-table').getByRole('cell', {
+        name: 'Ada Shopper',
+        exact: true,
+      }),
+    ).toBeVisible();
+    await expect(
+      page.getByText('Scan an active card to continue'),
+    ).toBeVisible();
+    await expect(
+      page.locator('main').getByRole('link', { name: 'Capture Purchase' }),
+    ).toHaveCount(0);
+    await expect(
+      page.getByRole('link', { name: 'View profile for Ada Shopper' }),
+    ).toHaveAttribute('href', '/cashier/customers?id=customer-1');
+  });
+
+  test('shows a recent customer table and cashier-safe shared customer profile', async ({
+    page,
+  }) => {
+    await mockShell(page, 'CASHIER');
+    let profileProjectionRequests = 0;
+    page.on('request', (request) => {
+      if (new URL(request.url()).pathname.endsWith('/profile-projection')) {
+        profileProjectionRequests += 1;
+      }
+    });
+    await page.route('**/api/v1/customers/customer-1', async (route) =>
+      route.fulfill(
+        json({
+          success: true,
+          data: {
+            customerId: 'customer-1',
+            fullName: 'Ada Shopper',
+            maskedPhone: '+23480* *** 0001',
+            phoneE164: '+2348000000001',
+            email: 'private@example.com',
+            status: 'BLOCKED',
+            cardNumber: 'PRIVATE-CARD-001',
+            cardStatus: 'ACTIVE',
+            availableBalanceKobo: 5500,
+          },
+          meta: meta('/api/v1/customers/customer-1'),
+        }),
+      ),
+    );
+    await page.goto(`${baseUrl}/cashier/lookup`);
+
+    const recentTable = page.locator('.find-customer-table');
+    await expect(recentTable.getByRole('row')).toHaveCount(2);
+    await expect(
+      recentTable.getByRole('columnheader', { name: 'Customer ID' }),
+    ).toHaveCount(0);
+    await expect(recentTable.getByText('customer-1')).toHaveCount(0);
+    await expect(
+      recentTable.getByRole('columnheader', { name: 'Available balance' }),
+    ).toBeVisible();
+
+    for (const width of [1440, 390]) {
+      await page.setViewportSize({ width, height: 900 });
+      const layout = await page.evaluate(() => {
+        const tableWrap = document.querySelector('.find-customer-table-wrap');
+        return {
+          pageWidth: document.documentElement.scrollWidth,
+          tableWidth: tableWrap?.scrollWidth ?? 0,
+          tableClientWidth: tableWrap?.clientWidth ?? 0,
+        };
+      });
+      expect(layout.pageWidth).toBeLessThanOrEqual(width);
+      if (width < 620) {
+        expect(layout.tableWidth).toBeGreaterThan(layout.tableClientWidth);
+      }
+    }
+
+    await page.goto(`${baseUrl}/cashier/lookup?card=CARD-001`);
+    const profileLink = page.getByRole('link', {
+      name: 'View profile for Ada Shopper',
+    });
+    await expect(profileLink).toHaveAttribute(
+      'href',
+      '/cashier/customers?id=customer-1&card=CARD-001',
+    );
+    await expect(
+      recentTable.locator('.find-customer-card-status--active'),
+    ).toHaveCSS('color', 'rgb(6, 118, 71)');
+    await expect(
+      recentTable.locator('.find-customer-balance--positive'),
+    ).toHaveCSS('color', 'rgb(6, 118, 71)');
+    await page.goto(`${baseUrl}${await profileLink.getAttribute('href')}`);
+    await expect(page).toHaveURL(
+      /\/cashier\/customers\?id=customer-1&card=CARD-001/,
+    );
+    await expect(page.locator('.shell-loading-screen')).toBeHidden();
+    await expect(
+      page.getByRole('heading', { level: 1, name: 'Ada Shopper' }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole('navigation', { name: 'Customer profile sections' }),
+    ).toBeVisible();
+    await expect(page.getByText('+23480* *** 0001')).toBeVisible();
+    await expect(page.getByText('+2348000000001')).toHaveCount(0);
+    await expect(page.getByText('private@example.com')).toHaveCount(0);
+    await expect(page.getByText('PRIVATE-CARD-001')).toHaveCount(0);
+    await expect(page.getByText('Last purchase amount')).toBeVisible();
+    await expect(page.getByText('Total monthly Earn')).toBeVisible();
+    await expect(page.getByText('Last amount redeemed')).toBeVisible();
+    await expect(page.getByText('Member since Date not provided')).toHaveCount(
+      0,
+    );
+    await expect(page.getByText('Status not provided')).toHaveCount(0);
+    await expect(
+      page.getByRole('button', { name: 'Edit customer details' }),
+    ).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Manage card' })).toHaveCount(
+      0,
+    );
+    await expect(
+      page.getByRole('link', { name: 'Capture Purchase', exact: true }),
+    ).toHaveAttribute('href', '/cashier/earn?card=CARD-001');
+    await expect(
+      page.getByRole('link', { name: 'Redeem Credit', exact: true }),
+    ).toHaveAttribute('href', '/cashier/redeem?card=CARD-001');
+    expect(profileProjectionRequests).toBe(0);
+    expect(
+      await page.evaluate(() => document.documentElement.scrollWidth),
+    ).toBeLessThanOrEqual(390);
+    await expect(page).toHaveScreenshot('cashier-customer-profile-mobile.png', {
+      fullPage: true,
+      maxDiffPixelRatio: 0.02,
+    });
   });
 
   test('shows an authoritative lookup error state', async ({ page }) => {
     await mockShell(page, 'CASHIER');
+    await page.route('**/api/v1/customers*', async (route) =>
+      route.fulfill({ status: 404, body: '{}' }),
+    );
     await page.setViewportSize({ width: 375, height: 812 });
     await page.goto(`${baseUrl}/cashier/lookup`);
 
-    const lookup = page.getByRole('textbox', { name: 'Lookup' });
+    const lookup = page.getByRole('searchbox', { name: 'Customer search' });
     await lookup.fill('UNKNOWN-CARD');
-    await page.getByRole('button', { name: 'Lookup' }).click();
-    await expect(page.getByText('Lookup unavailable (404).')).toBeVisible();
+    await page
+      .locator('#customer-search-form')
+      .getByRole('button', { name: 'Search' })
+      .click();
+    await expect(
+      page.getByRole('status').filter({
+        hasText:
+          'Customer search is unavailable on this deployment. Check the API route.',
+      }),
+    ).toBeVisible();
   });
 
   test('shows an explicit offline lookup failure without claiming resolution', async ({
@@ -132,60 +2399,1667 @@ test.describe('workflow route coverage', () => {
     await page.goto(`${baseUrl}/cashier/lookup`);
     await page.context().setOffline(true);
 
-    await page.getByRole('textbox', { name: 'Lookup' }).fill('CARD-001');
-    await page.getByRole('button', { name: 'Lookup' }).click();
+    await page
+      .getByRole('searchbox', { name: 'Customer search' })
+      .fill('CARD-001');
+    await page
+      .locator('#customer-search-form')
+      .getByRole('button', { name: 'Search' })
+      .click();
     await expect(
-      page.getByText('Lookup unavailable offline. Reconnect to try again.'),
+      page.getByRole('status').filter({
+        hasText:
+          'Customer lookup requires a connection. Reconnect to try again.',
+      }),
     ).toBeVisible();
+  });
+
+  test('matches Capture Purchase Step 1 to Figma node 408:513', async ({
+    page,
+  }) => {
+    await mockShell(page, 'CASHIER');
+    await page.setViewportSize({ width: 1440, height: 923 });
+    await page.route('**/api/v1/config/operational', (route) =>
+      route.fulfill(
+        json({
+          success: true,
+          data: {
+            tenant: { id: 'tenant-1', name: 'ShopCity' },
+            branch: {
+              id: 'branch-1',
+              name: 'Main branch',
+              timezone: 'Africa/Lagos',
+              receiptWeekStartDay: 1,
+            },
+            policies: { defaultEarnRateBps: 500 },
+          },
+          meta: meta('/api/v1/config/operational'),
+        }),
+      ),
+    );
+    await page.route('**/api/v1/reports/cashier-today**', (route) =>
+      route.fulfill(
+        json({
+          success: true,
+          data: {
+            branchId: 'branch-1',
+            timezone: 'Africa/Lagos',
+            items: [
+              ['Sammie Tomiwa', 'CAP-001', 'APPROVED'],
+              ['Aliyu Mohammed', 'CAP-002', 'APPROVED'],
+              ['Alice Wonda Lahand', 'CAP-003', 'DENIED'],
+              ['Sonia Tizhe', 'CAP-004', 'APPROVED'],
+              ['Olaolu Mofe', 'CAP-005', 'APPROVED'],
+              ['Chidera Aguiyi', 'CAP-006', 'DENIED'],
+            ].map(([customerName, receiptNumber, status], index) => ({
+              id: `earn-${index + 1}`,
+              occurredAt: `2030-01-01T10:0${index}:00.000Z`,
+              operation: 'EARN',
+              customerName,
+              receiptNumber,
+              loyaltyAmountKobo: 451000,
+              status,
+            })),
+          },
+          meta: meta('/api/v1/reports/cashier-today'),
+        }),
+      ),
+    );
+
+    await page.goto(`${baseUrl}/cashier/earn`);
+    await expect(page.locator('.shell-loading-screen')).toBeHidden({
+      timeout: 30000,
+    });
+
+    const captureFlow = page.locator('[data-od-id="capture-flow"]');
+    const searchCard = page.locator('.cashier-verified-card-lookup');
+    const recentCard = page.locator('.cashier-recent-captures');
+    await expect(captureFlow).toBeVisible();
+    await expect(
+      page.getByRole('heading', { name: 'Step 1 — Find customer' }),
+    ).toBeVisible();
+    await expect(
+      page.getByText(
+        'Scan the virtual card, or search by phone number or card serial.',
+      ),
+    ).toBeVisible();
+    await expect(page.getByRole('textbox', { name: 'Lookup' })).toBeVisible();
+    await expect(
+      page.getByText(
+        'Target lookup speed is under 5 seconds. Press Enter to search.',
+      ),
+    ).toBeVisible();
+    await expect(
+      recentCard.getByRole('heading', { name: 'Recently captured' }),
+    ).toBeVisible();
+    await expect(recentCard.locator('li')).toHaveCount(6);
+    await expect(recentCard.getByText('₦4,510', { exact: true })).toHaveCount(
+      6,
+    );
+    await expect(
+      recentCard.getByText('₦4,510.00', { exact: true }),
+    ).toHaveCount(0);
+    await expect(recentCard).not.toContainText('0803 123 4567');
+
+    expect(
+      await captureFlow.evaluate((element) =>
+        Math.round(element.getBoundingClientRect().width),
+      ),
+    ).toBe(712);
+    expect(
+      await captureFlow.evaluate((element) =>
+        Math.round(element.getBoundingClientRect().height),
+      ),
+    ).toBe(550);
+    await expect(searchCard).toHaveCSS('height', '143px');
+    await expect(recentCard).toHaveCSS('min-height', '399px');
+    await expect(recentCard.locator('h3')).toHaveCSS('font-size', '16px');
+    await expect(recentCard.locator('li').first()).toHaveCSS('height', '40px');
+    await expect(recentCard.locator('ul')).toHaveCSS('row-gap', '8px');
+    await expect(page.locator('.cashier-capture-search-field')).toHaveCSS(
+      'width',
+      '320px',
+    );
+    await expect(page.locator('.cashier-capture-search-field')).toHaveCSS(
+      'height',
+      '32px',
+    );
+    await expect(page.locator('.cashier-capture-search-actions')).toHaveCSS(
+      'width',
+      '328px',
+    );
+    await expect(
+      page.getByRole('button', { name: 'Search customer' }),
+    ).toHaveCSS('width', '160px');
+    await expect(
+      page.getByRole('button', { name: 'Search customer' }),
+    ).toHaveCSS('height', '32px');
+    await expect(page.getByRole('button', { name: 'Scan' })).toHaveCSS(
+      'height',
+      '32px',
+    );
+    await expect(captureFlow).toHaveScreenshot(
+      'cashier-earn-find-customer.png',
+      { maxDiffPixelRatio: 0.08 },
+    );
+
+    await page.setViewportSize({ width: 390, height: 844 });
+    expect(
+      await page.evaluate(() => document.documentElement.scrollWidth),
+    ).toBeLessThanOrEqual(390);
+    await expect(page.getByRole('textbox', { name: 'Lookup' })).toBeVisible();
+    await expect(
+      page.getByRole('button', { name: 'Search customer' }),
+    ).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Scan' })).toBeVisible();
+    expect(
+      await page
+        .locator('.cashier-capture-search-actions')
+        .evaluate((element) => element.scrollWidth <= element.clientWidth),
+    ).toBe(true);
+
+    await page.goto(`${baseUrl}/cashier/redeem`);
+    await expect(page.locator('.shell-loading-screen')).toBeHidden({
+      timeout: 30000,
+    });
+    await expect(
+      page.getByRole('heading', { name: 'Find customer' }),
+    ).toBeVisible();
+    await expect(page.getByRole('textbox', { name: 'Lookup' })).toBeVisible();
+    await expect(
+      page.locator('.cashier-verified-card-lookup .sc-alert'),
+    ).toHaveCount(0);
+    expect(
+      await page.evaluate(() => document.documentElement.scrollWidth),
+    ).toBeLessThanOrEqual(390);
+  });
+
+  test('projects current wallet balance in Earn review from the matching summary', async ({
+    page,
+  }) => {
+    await mockShell(page, 'CASHIER');
+    await page.route('**/api/v1/config/operational', async (route) =>
+      route.fulfill(
+        json({
+          success: true,
+          data: {
+            tenant: { id: 'tenant-1', name: 'ShopCity' },
+            branch: {
+              id: 'branch-1',
+              name: 'Main branch',
+              timezone: 'Africa/Lagos',
+              receiptWeekStartDay: 1,
+            },
+            policies: {
+              defaultEarnRateBps: 200,
+              minRedemptionKobo: 1000,
+              maxRedemptionBasketPercent: 50,
+              purchaseFlagThresholdKobo: 100000,
+              purchaseApprovalThresholdKobo: 200000,
+              redemptionApprovalThresholdKobo: 100000,
+              offlineRedemptionDisabled: false,
+            },
+          },
+          meta: meta('/api/v1/config/operational'),
+        }),
+      ),
+    );
+    await page.route('**/api/v1/cards/lookup/CARD-001', async (route) =>
+      route.fulfill(
+        json({
+          success: true,
+          data: {
+            customer: { id: 'customer-1', fullName: 'Ada Shopper' },
+            customerId: 'customer-1',
+            customerName: 'Ada Shopper',
+            serialNumber: 'CARD-001',
+            status: 'ACTIVE',
+            branchId: 'branch-1',
+          },
+          meta: meta('/api/v1/cards/lookup/CARD-001'),
+        }),
+      ),
+    );
+    await page.route('**/api/v1/customers/customer-1', async (route) =>
+      route.fulfill(
+        json({
+          success: true,
+          data: {
+            customerId: 'customer-1',
+            fullName: 'Ada Shopper',
+            email: 'ada***@shopcity.local',
+            availableBalanceKobo: 5500,
+          },
+          meta: meta('/api/v1/customers/customer-1'),
+        }),
+      ),
+    );
+
+    let earnPostCount = 0;
+    page.on('request', (request) => {
+      if (
+        request.method() === 'POST' &&
+        new URL(request.url()).pathname === '/api/v1/transactions/earn'
+      ) {
+        earnPostCount += 1;
+      }
+    });
+
+    await page.goto(`${baseUrl}/cashier/earn?card=CARD-001`);
+    await expect(
+      page
+        .getByLabel('Verified customer details')
+        .getByText('₦55.00', { exact: true }),
+    ).toBeVisible({ timeout: 30000 });
+    await page.getByRole('button', { name: 'Proceed' }).click();
+    await expect(page.getByLabel('Receipt number *')).toBeVisible();
+    await page.getByLabel('Receipt number *').fill('SUMMARY-BALANCE-001');
+    const purchase = page.getByLabel('Receipt amount (₦) *');
+    await purchase.fill('10');
+    await purchase.blur();
+    await page.getByRole('button', { name: 'Proceed to review' }).click();
+
+    const review = page.locator('[data-od-id="capture-review-details"]');
+    await expect(
+      review.getByRole('heading', { name: 'Step 4 — Review' }),
+    ).toBeVisible();
+    await expect(review.getByText('Balance before')).toBeVisible();
+    await expect(review.getByText('₦55.00', { exact: true })).toBeVisible();
+    await expect(review.getByText('2%', { exact: true })).toBeVisible();
+    await expect(review.getByText('₦10.00', { exact: true })).toHaveCount(2);
+    await expect(review.getByText('Estimated new balance')).toBeVisible();
+    await expect(review.getByText('₦55.20', { exact: true })).toBeVisible();
+    expect(earnPostCount).toBe(0);
+  });
+
+  test('renders confirmed Earn result and marks Review complete', async ({
+    page,
+  }) => {
+    await mockShell(page, 'CASHIER');
+    await page.route('**/api/v1/config/operational', async (route) =>
+      route.fulfill(
+        json({
+          success: true,
+          data: {
+            tenant: { id: 'tenant-1', name: 'ShopCity' },
+            branch: {
+              id: 'branch-1',
+              name: 'Main branch',
+              timezone: 'Africa/Lagos',
+              receiptWeekStartDay: 1,
+            },
+            policies: {
+              defaultEarnRateBps: 200,
+              minRedemptionKobo: 1000,
+              maxRedemptionBasketPercent: 50,
+              purchaseFlagThresholdKobo: 100000,
+              purchaseApprovalThresholdKobo: 200000,
+              redemptionApprovalThresholdKobo: 100000,
+              offlineRedemptionDisabled: false,
+            },
+          },
+          meta: meta('/api/v1/config/operational'),
+        }),
+      ),
+    );
+    await page.route('**/api/v1/transactions/earn', async (route) =>
+      route.fulfill({
+        ...json({
+          success: true,
+          data: {
+            id: 'receipt-1',
+            transactionId: 'earn-1',
+            state: 'CONFIRMED',
+            receiptId: 'receipt-1',
+            tenantId: 'tenant-1',
+            branchId: 'branch-1',
+            deviceId: 'device-1',
+            customerId: 'customer-1',
+            cardSerialNumber: 'CARD-001',
+            posReceiptNumber: 'EARN-SUCCESS-001',
+            purchaseAmountKobo: 1000,
+            creditKobo: 20,
+            captureStatus: 'CAPTURED',
+            availableBalanceKobo: 5520,
+            expiresAt: '2026-10-05T12:00:00.000Z',
+            smsStatus: 'QUEUED',
+            occurredAt: '2026-09-05T11:09:00.000Z',
+            capturedAt: '2026-09-05T11:09:00.000Z',
+            reviewStatus: 'APPROVED',
+          },
+          meta: meta('/api/v1/transactions/earn'),
+        }),
+        status: 201,
+      }),
+    );
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto(`${baseUrl}/cashier/earn?card=CARD-001`);
+    await expect(page.locator('.shell-loading-screen')).toBeHidden({
+      timeout: 30000,
+    });
+    await expect(
+      page
+        .getByLabel('Verified customer details')
+        .locator('.cashier-capture-confirm__field--customer dd'),
+    ).toBeVisible({ timeout: 30000 });
+    await page.getByRole('button', { name: 'Proceed' }).click();
+    await page.getByLabel('Receipt number *').fill('EARN-SUCCESS-001');
+    const purchase = page.getByLabel('Receipt amount (₦) *');
+    await purchase.fill('10');
+    await purchase.blur();
+    await page.getByRole('button', { name: 'Proceed to review' }).click();
+    await page.getByRole('button', { name: 'Confirm & add credit' }).click();
+
+    const result = page.locator('[data-od-id="capture-success"]');
+    await expect(
+      result.getByRole('heading', { name: 'ShopCity Credit earned' }),
+    ).toBeVisible();
+    const resultGeometry = await result.evaluate((element) => {
+      const details = element.querySelector('.capture-result-card__details');
+      return {
+        width: Math.round(element.getBoundingClientRect().width),
+        detailColumns: details
+          ? getComputedStyle(details).gridTemplateColumns.split(' ').length
+          : 0,
+      };
+    });
+    expect(resultGeometry.width).toBeLessThanOrEqual(590);
+    expect(resultGeometry.width).toBeGreaterThan(560);
+    expect(resultGeometry.detailColumns).toBe(2);
+    await expect(result.getByText('+₦0.20')).toBeVisible();
+    await expect(result.getByText('₦55.20')).toBeVisible();
+    await expect(result.getByText('2%', { exact: true })).toBeVisible();
+    await expect(result.getByText('₦10.00', { exact: true })).toHaveCount(2);
+    await expect(result.getByText('EARN-SUCCESS-001')).toBeVisible();
+    await expect(result.getByText('05 September 2026, 12:09 PM')).toBeVisible();
+    await expect(result.getByText('Approved')).toBeVisible();
+    await expect(
+      result.getByRole('link', { name: 'Redeem Now' }),
+    ).toHaveAttribute('href', '/cashier/redeem?card=CARD-001');
+    await expect(
+      result.getByRole('link', { name: 'View Customer' }),
+    ).toHaveAttribute('href', '/cashier/customers?id=customer-1');
+    const stages = page.locator('[data-od-id="capture-stages"]');
+    const reviewStep = stages.locator('.cashier-flow-step').last();
+    await expect(reviewStep).toHaveClass(/is-complete/);
+    await expect(
+      reviewStep.locator('.cashier-flow-step__icon img'),
+    ).toBeVisible();
+    await expect(page.locator('main')).toHaveScreenshot(
+      'cashier-earn-outcome.png',
+      { maxDiffPixelRatio: 0.08 },
+    );
+
+    await page.setViewportSize({ width: 390, height: 844 });
+    expect(
+      await page.evaluate(() => document.documentElement.scrollWidth),
+    ).toBeLessThanOrEqual(390);
+    await expect(
+      result.getByRole('link', { name: 'Redeem Now' }),
+    ).toBeVisible();
+  });
+
+  test('reuses the Capture Purchase lookup and journey bar for Redeem', async ({
+    page,
+  }) => {
+    await mockShell(page, 'CASHIER');
+    await mockCashierOperationalConfig(page);
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto(`${baseUrl}/cashier/redeem`);
+
+    await expect(
+      page.getByRole('heading', { name: 'Step 1 — Find customer' }),
+    ).toBeVisible();
+    const flow = page.locator('[data-od-id="redeem-flow"]');
+    const stages = page.locator('[data-od-id="redeem-stages"]');
+    await expect(flow).toBeVisible();
+    await expect(stages).toHaveClass(/cashier-flow-steps--capture/);
+    await expect(stages).toHaveCSS('width', '712px');
+    await expect(stages).toHaveCSS('height', '44px');
+    await expect(page.locator('main')).toHaveScreenshot(
+      'cashier-redeem-step1.png',
+      { maxDiffPixelRatio: 0.08 },
+    );
+    await expect(stages.locator('.cashier-flow-step.is-active')).toHaveText(
+      'Find Customer',
+    );
+    await expect(page.getByRole('textbox', { name: 'Lookup' })).toHaveAttribute(
+      'placeholder',
+      'Search',
+    );
+
+    await page.getByRole('textbox', { name: 'Lookup' }).fill('CARD-001');
+    await page.getByRole('button', { name: 'Search customer' }).click();
+    await expect(
+      page.getByRole('heading', { name: 'Step 2 — Basket subtotal' }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole('heading', { name: 'Confirm customer' }),
+    ).toHaveCount(0);
+    await expect(stages.locator('.cashier-flow-step.is-active')).toHaveText(
+      'Basket Total',
+    );
+  });
+
+  test('runs Redeem from verified card through the authoritative result', async ({
+    page,
+  }) => {
+    await mockShell(page, 'CASHIER');
+    await mockCashierOperationalConfig(page);
+    await page.route('**/api/v1/transactions/redeem', async (route) =>
+      route.fulfill({
+        ...json({
+          success: true,
+          data: {
+            redemptionId: 'redemption-1',
+            transactionId: 'transaction-redeem-1',
+            state: 'CONFIRMED',
+            posReceiptNumber: 'REDEEM-001',
+            basketAmountKobo: 10000,
+            redeemedAmountKobo: 1000,
+            remainingBalanceKobo: 4500,
+            smsStatus: 'QUEUED',
+          },
+          meta: meta('/api/v1/transactions/redeem'),
+        }),
+        status: 201,
+      }),
+    );
+
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto(`${baseUrl}/cashier/redeem?card=CARD-001`);
+    const redeemFlow = page.locator('[data-od-id="redeem-flow"]');
+    await expect(
+      page.getByRole('heading', { name: 'Step 2 — Basket subtotal' }),
+    ).toBeVisible({ timeout: 30000 });
+    await expect(page.locator('main')).toHaveScreenshot(
+      'cashier-redeem-step2.png',
+      { maxDiffPixelRatio: 0.08 },
+    );
+    const redeemStages = page.locator('[data-od-id="redeem-stages"]');
+    await page.setViewportSize({ width: 390, height: 844 });
+    await expect(redeemStages).toHaveCSS('height', '44px');
+    expect(
+      await redeemStages.evaluate((element) =>
+        Math.round(element.getBoundingClientRect().width),
+      ),
+    ).toBeLessThanOrEqual(390);
+    expect(
+      await page.locator('body').evaluate((body) => body.scrollWidth),
+    ).toBeLessThanOrEqual(390);
+    expect(
+      await page
+        .locator('.cashier-redeem-customer-layout')
+        .evaluate(
+          (element) =>
+            getComputedStyle(element).gridTemplateColumns.trim().split(/\s+/)
+              .length,
+        ),
+    ).toBe(1);
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await expect(
+      redeemStages.locator('.cashier-flow-step.is-active'),
+    ).toHaveText('Basket Total');
+    const cardPreview = page.getByRole('img', {
+      name: /ShopCity card preview for Ada Shopper; card number .+; status ACTIVE/,
+    });
+    await expect(cardPreview).toBeVisible();
+    await expect(cardPreview.locator('img')).toHaveAttribute(
+      'src',
+      /IMG-20260802-WA0001.jpg/,
+    );
+    await expect(page.getByText('Status: ACTIVE')).toBeVisible();
+
+    await page.getByLabel('POS receipt number').fill('REDEEM-001');
+    const basket = page.getByLabel('Basket subtotal (₦)');
+    await basket.fill('100');
+    await basket.blur();
+    await page.getByRole('button', { name: 'Proceed', exact: true }).click();
+    await expect(
+      page.getByRole('heading', { name: 'Step 3 — Redemption amount' }),
+    ).toBeVisible();
+    const redemption = page.getByLabel('Redemption amount (₦)');
+    await redemption.fill('10');
+    await redemption.blur();
+    await expect(
+      page.getByText('Customer pays', { exact: true }),
+    ).toBeVisible();
+    await expect(page.getByText('₦90.00')).toBeVisible();
+    await expect(page.locator('main')).toHaveScreenshot(
+      'cashier-redeem-step3.png',
+      { maxDiffPixelRatio: 0.08 },
+    );
+    await page.setViewportSize({ width: 390, height: 844 });
+    expect(
+      await page
+        .locator('.cashier-redeem-amount-controls')
+        .evaluate(
+          (element) =>
+            getComputedStyle(element).gridTemplateColumns.trim().split(/\s+/)
+              .length,
+        ),
+    ).toBe(1);
+    expect(
+      await page.locator('body').evaluate((body) => body.scrollWidth),
+    ).toBeLessThanOrEqual(390);
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.getByRole('button', { name: 'Proceed', exact: true }).click();
+    await expect(
+      page.getByRole('heading', { name: 'Step 4 — Confirm redemption' }),
+    ).toBeVisible();
+    await expect(page.locator('main')).toHaveScreenshot(
+      'cashier-redeem-step4.png',
+      { maxDiffPixelRatio: 0.08 },
+    );
+    await page.setViewportSize({ width: 390, height: 844 });
+    expect(
+      await page
+        .locator('.cashier-redeem-review-grid')
+        .evaluate(
+          (element) =>
+            getComputedStyle(element).gridTemplateColumns.trim().split(/\s+/)
+              .length,
+        ),
+    ).toBe(1);
+    expect(
+      await page.locator('body').evaluate((body) => body.scrollWidth),
+    ).toBeLessThanOrEqual(390);
+    await page.setViewportSize({ width: 1440, height: 900 });
+
+    const redeemResponse = page.waitForResponse(
+      (response) =>
+        response.url().includes('/api/v1/transactions/redeem') &&
+        response.request().method() === 'POST',
+    );
+    await page.getByRole('button', { name: 'Confirm redemption' }).click();
+    await expect(
+      page.getByRole('heading', { name: 'Redemption successful' }),
+    ).toBeVisible();
+    await expect(page.locator('main')).toHaveScreenshot(
+      'cashier-redeem-success.png',
+      { maxDiffPixelRatio: 0.08 },
+    );
+    await expect(page.getByText('Credit redeemed successfully.')).toBeVisible();
+    await expect(page.getByText('₦10.00')).toBeVisible();
+    await expect(
+      page.getByRole('link', { name: 'View customer' }),
+    ).toHaveAttribute('href', '/cashier/customers?id=customer-1');
+    const request = (await redeemResponse).request();
+    const payload = request.postDataJSON() as Record<string, unknown>;
+    expect(payload).toMatchObject({
+      cardSerialNumber: 'CARD-001',
+      posReceiptNumber: 'REDEEM-001',
+      basketAmountKobo: 10000,
+      requestedRedemptionKobo: 1000,
+    });
+    expect(payload).not.toHaveProperty('availableBalanceKobo');
+    await expect(redeemFlow).toBeVisible();
   });
 
   test('covers authoritative Earn and Redeem outcomes', async ({ page }) => {
     await mockShell(page, 'CASHIER');
+    await page.route('**/api/v1/config/operational', async (route) =>
+      route.fulfill(
+        json({
+          success: true,
+          data: {
+            tenant: { id: 'tenant-1', name: 'ShopCity' },
+            branch: {
+              id: 'branch-1',
+              name: 'Main branch',
+              timezone: 'Africa/Lagos',
+              receiptWeekStartDay: 1,
+            },
+            policies: {
+              defaultEarnRateBps: 500,
+              minRedemptionKobo: 1000,
+              maxRedemptionBasketPercent: 50,
+              purchaseFlagThresholdKobo: 100000,
+              purchaseApprovalThresholdKobo: 200000,
+              redemptionApprovalThresholdKobo: 100000,
+              offlineRedemptionDisabled: false,
+            },
+          },
+          meta: meta('/api/v1/config/operational'),
+        }),
+      ),
+    );
     await page.goto(`${baseUrl}/cashier/earn?card=CARD-001`);
+    await expect(page.locator('.shell-loading-screen')).toBeHidden({
+      timeout: 30000,
+    });
     await expect(
       page
-        .getByLabel('Lookup and status')
-        .getByText('Ada Shopper', { exact: true }),
+        .getByLabel('Verified customer details')
+        .locator('.cashier-capture-confirm__field--customer dd'),
+    ).toBeVisible({ timeout: 30000 });
+    const captureFlow = page.locator('[data-od-id="capture-flow"]');
+    await expect(captureFlow).toBeVisible({ timeout: 30000 });
+    const capturePanelWidth = await captureFlow.evaluate((element) =>
+      Math.round(element.getBoundingClientRect().width),
+    );
+    expect(capturePanelWidth).toBeLessThanOrEqual(860);
+    expect(
+      await page.locator('body').evaluate((body) => body.scrollWidth),
+    ).toBeLessThanOrEqual(1440);
+    await expect(
+      page
+        .getByLabel('Verified customer details')
+        .getByText('₦55.00', { exact: true }),
+    ).toBeVisible({ timeout: 30000 });
+    await page.getByRole('button', { name: 'Proceed' }).click();
+    await expect(
+      page.getByRole('heading', { name: 'Step 3 — Receipt details' }),
     ).toBeVisible();
-    await page.getByLabel('POS receipt number').fill('WORKFLOW-EARN-001');
-    const purchase = page.getByLabel('Purchase amount');
+    await expect(captureFlow).toHaveAttribute('data-state', 'step-3');
+    await expect(page.getByLabel('Receipt number *')).toBeVisible();
+    await expect(page.getByLabel('Receipt amount (₦) *')).toBeVisible();
+    const captureStages = page.locator('[data-od-id="capture-stages"]');
+    await expect(captureStages).toHaveCSS('width', '712px');
+    await expect(captureStages).toHaveCSS('height', '44px');
+    await expect(
+      captureStages.locator('.cashier-flow-step.is-active'),
+    ).toHaveText('Receipt Details');
+    const receiptDateTime = page.getByLabel('Receipt date & time *');
+    await expect(receiptDateTime).toBeVisible();
+    await receiptDateTime.fill('2026-09-05T11:28');
+    await expect(receiptDateTime).toHaveValue('2026-09-05T11:28');
+    await receiptDateTime.blur();
+    await expect(
+      page.getByRole('textbox', { name: /till|cashier reference/i }),
+    ).toHaveCount(0);
+    expect(
+      await captureFlow.evaluate((element) =>
+        Math.round(element.getBoundingClientRect().width),
+      ),
+    ).toBe(712);
+    await expect(page.locator('main')).toHaveScreenshot(
+      'cashier-earn-receipt-details.png',
+      { maxDiffPixelRatio: 0.08 },
+    );
+    await page.getByRole('button', { name: 'Back', exact: true }).click();
+    await expect(
+      page.getByRole('heading', { name: 'Step 2 — Confirm customer' }),
+    ).toBeVisible();
+    await page.getByRole('button', { name: 'Proceed' }).click();
+    await expect(page.getByLabel('Receipt number *')).toBeVisible();
+    await page.getByLabel('Receipt number *').fill('WORKFLOW-EARN-001');
+    const purchase = page.getByLabel('Receipt amount (₦) *');
     await purchase.fill('10');
     await purchase.blur();
-    await page.getByRole('button', { name: 'Submit earn' }).click();
+    await page.getByRole('button', { name: 'Proceed to review' }).click();
+    const earnReview = page.locator('[data-od-id="capture-review-details"]');
     await expect(
-      page.getByText('Earn confirmed by backend contract.'),
+      earnReview.getByRole('heading', { name: 'Step 4 — Review' }),
     ).toBeVisible();
-
+    await expect(
+      earnReview.getByText('Estimated ShopCity Credit'),
+    ).toBeVisible();
+    await expect(earnReview.getByText('Balance before')).toBeVisible();
+    await expect(earnReview.getByText('₦55.00', { exact: true })).toBeVisible();
+    await expect(earnReview.getByText('Estimated new balance')).toBeVisible();
+    await expect(earnReview.getByText('₦55.50', { exact: true })).toBeVisible();
+    await expect(earnReview.getByText('Till reference')).toHaveCount(0);
+    await expect(
+      page.getByRole('button', { name: 'Confirm & add credit' }),
+    ).toHaveText('Confirm & Add Credit');
+    await expect(captureFlow).toBeVisible();
+    expect(
+      await captureFlow.evaluate((element) =>
+        Math.round(element.getBoundingClientRect().width),
+      ),
+    ).toBe(712);
+    await expect(page.locator('main')).toHaveScreenshot(
+      'cashier-earn-review.png',
+      { maxDiffPixelRatio: 0.08 },
+    );
+    await page.setViewportSize({ width: 375, height: 812 });
+    expect(
+      await page.evaluate(() => document.documentElement.scrollWidth),
+    ).toBeLessThanOrEqual(375);
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.getByRole('button', { name: 'Confirm & add credit' }).click();
+    await expect(
+      page.getByRole('heading', {
+        level: 2,
+        name: 'ShopCity Credit earned',
+      }),
+    ).toBeVisible();
+    await expect(captureFlow).toHaveAttribute('data-state', 'step-4');
+    const completedReviewStep = captureStages
+      .locator('.cashier-flow-step')
+      .last();
+    await expect(completedReviewStep).toHaveClass(/is-complete/);
+    await expect(completedReviewStep.locator('img')).toBeVisible();
+    await expect(page.locator('main')).toHaveScreenshot(
+      'cashier-earn-outcome.png',
+      { maxDiffPixelRatio: 0.08 },
+    );
     await page.goto(`${baseUrl}/cashier/redeem?card=CARD-001`);
+    await expect(page.locator('.shell-loading-screen')).toBeHidden({
+      timeout: 30000,
+    });
     await expect(
       page
-        .getByLabel('Lookup and status')
-        .getByText('Ada Shopper', { exact: true }),
+        .getByRole('region', { name: 'Step 2 — Basket subtotal' })
+        .getByText('Ada Shopper', { exact: true })
+        .first(),
+    ).toBeVisible({ timeout: 30000 });
+    const redeemFlow = page.locator('[data-od-id="redeem-flow"]');
+    await expect(redeemFlow).toBeVisible({ timeout: 30000 });
+    expect(
+      await redeemFlow.evaluate((element) =>
+        Math.round(element.getBoundingClientRect().width),
+      ),
+    ).toBeLessThanOrEqual(720);
+    expect(
+      await page.locator('body').evaluate((body) => body.scrollWidth),
+    ).toBeLessThanOrEqual(1440);
+    await expect(
+      page.getByRole('heading', { name: 'Step 2 — Basket subtotal' }),
     ).toBeVisible();
+    await page.setViewportSize({ width: 390, height: 844 });
+    await expect(redeemFlow).toBeVisible();
+    expect(
+      await page.locator('body').evaluate((body) => body.scrollWidth),
+    ).toBeLessThanOrEqual(390);
+    await page.setViewportSize({ width: 1440, height: 900 });
     await page.getByLabel('POS receipt number').fill('WORKFLOW-REDEEM-001');
-    const basket = page.getByLabel('Basket amount');
-    const requested = page.getByLabel('Requested redemption');
+    const basket = page.getByLabel('Basket subtotal (₦)');
     await basket.fill('100');
     await basket.blur();
+    await page.getByRole('button', { name: 'Proceed', exact: true }).click();
+    await expect(
+      page.getByRole('heading', { name: 'Step 3 — Redemption amount' }),
+    ).toBeVisible();
+    const requested = page.getByLabel('Redemption amount (₦)');
     await requested.fill('10');
     await requested.blur();
-    await page.getByRole('button', { name: 'Submit redemption' }).click();
+    await page.getByRole('button', { name: 'Proceed', exact: true }).click();
     await expect(
-      page.getByText('Redemption confirmed by backend contract.'),
+      page.getByRole('heading', { name: 'Step 4 — Confirm redemption' }),
+    ).toBeVisible();
+    await expect(page.locator('main')).toHaveScreenshot(
+      'cashier-redeem-review.png',
+      { maxDiffPixelRatio: 0.08 },
+    );
+    await page.getByRole('button', { name: 'Confirm redemption' }).click();
+    await expect(
+      page.getByRole('heading', { name: 'Redemption successful' }),
+    ).toBeVisible();
+    await expect(page.getByText('Credit redeemed successfully.')).toBeVisible();
+    await expect(page.locator('main')).toHaveScreenshot(
+      'cashier-redeem-outcome.png',
+      { maxDiffPixelRatio: 0.08 },
+    );
+  });
+
+  test('applies the prototype Capture and Redeem 700px breakpoint', async ({
+    page,
+  }) => {
+    await mockShell(page, 'CASHIER');
+
+    for (const route of [
+      { path: '/cashier/earn?card=CARD-001', landmark: 'capture-flow' },
+      { path: '/cashier/redeem?card=CARD-001', landmark: 'redeem-flow' },
+    ] as const) {
+      const stepsId =
+        route.landmark === 'capture-flow' ? 'capture-stages' : 'redeem-stages';
+      const viewports = [701, 700, 390];
+      for (const width of viewports) {
+        await page.setViewportSize({ width, height: 844 });
+        await page.goto(`${baseUrl}${route.path}`);
+        await expect(page.locator('.shell-loading-screen')).toBeHidden({
+          timeout: 30000,
+        });
+        const customerContext =
+          route.landmark === 'capture-flow'
+            ? page.getByLabel('Verified customer details')
+            : page.locator('[data-od-id="redeem-basket"]');
+        await expect(
+          customerContext.getByText('Ada Shopper', { exact: true }).first(),
+        ).toBeVisible({ timeout: 30000 });
+        const flow = page.locator(`[data-od-id="${route.landmark}"]`);
+        const steps = page.locator(`[data-od-id="${stepsId}"]`);
+        await expect(flow).toBeVisible({ timeout: 30000 });
+        await expect(steps).toBeVisible({ timeout: 30000 });
+        if (route.landmark === 'capture-flow') {
+          expect(
+            await steps.evaluate(
+              (element) => getComputedStyle(element).display,
+            ),
+          ).toBe('block');
+          const stepSize = await steps.evaluate((element) => {
+            const { width, height } = element.getBoundingClientRect();
+            return { width, height, clientWidth: element.clientWidth };
+          });
+          const availableWidth = await page
+            .locator('.cashier-route-page--earn')
+            .evaluate((element) => element.clientWidth);
+          expect(stepSize.width).toBeCloseTo(Math.min(712, availableWidth), 0);
+          expect(stepSize.width).toBeLessThanOrEqual(width);
+          expect(stepSize.height).toBeCloseTo(44, 0);
+          expect(stepSize.clientWidth).toBeLessThanOrEqual(width);
+          expect(
+            await steps
+              .locator('.cashier-flow-step')
+              .evaluateAll((labels) =>
+                labels.every(
+                  (label) => getComputedStyle(label).whiteSpace === 'nowrap',
+                ),
+              ),
+          ).toBe(true);
+          const stepViewportWidth = stepSize.clientWidth;
+          const stepContentWidth = await steps.evaluate(
+            (element) => element.scrollWidth,
+          );
+          if (width === 390) {
+            expect(stepContentWidth).toBeGreaterThan(stepViewportWidth);
+          } else {
+            expect(stepContentWidth).toBeLessThanOrEqual(stepViewportWidth);
+          }
+        } else {
+          await expect(steps).toHaveClass(/cashier-flow-steps--capture/);
+          const stepSize = await steps.evaluate((element) => {
+            const { width, height } = element.getBoundingClientRect();
+            return { width, height, clientWidth: element.clientWidth };
+          });
+          const availableWidth = await page
+            .locator('.cashier-route-page--redeem')
+            .evaluate((element) => element.clientWidth);
+          expect(stepSize.width).toBeCloseTo(Math.min(712, availableWidth), 0);
+          expect(stepSize.height).toBeCloseTo(44, 0);
+          expect(
+            await steps
+              .locator('.cashier-flow-step')
+              .evaluateAll((labels) =>
+                labels.every(
+                  (label) => getComputedStyle(label).whiteSpace === 'nowrap',
+                ),
+              ),
+          ).toBe(true);
+          const stepContentWidth = await steps.evaluate(
+            (element) => element.scrollWidth,
+          );
+          if (width === 390) {
+            expect(stepContentWidth).toBeGreaterThan(stepSize.clientWidth);
+          } else {
+            expect(stepContentWidth).toBeLessThanOrEqual(stepSize.clientWidth);
+          }
+        }
+        expect(
+          await page.locator('body').evaluate((body) => body.scrollWidth),
+          `${route.path} at ${width}px overflow`,
+        ).toBeLessThanOrEqual(width);
+      }
+    }
+  });
+
+  test('covers focused registration routes and landmarks', async ({ page }) => {
+    for (const route of [
+      { path: '/supervisor/customers/new', role: 'SUPERVISOR' as const },
+      { path: '/admin/customers/new', role: 'ADMIN' as const },
+    ]) {
+      await mockShell(page, route.role);
+      await page.setViewportSize({ width: 700, height: 844 });
+      await page.goto(`${baseUrl}${route.path}`);
+      await expect(page.locator('[data-od-id="register-flow"]')).toBeVisible();
+      await expect(
+        page.locator('[data-od-id="register-information"]'),
+      ).toBeVisible();
+      expect(
+        await page.locator('body').evaluate((body) => body.scrollWidth),
+        `${route.path} overflow`,
+      ).toBeLessThanOrEqual(700);
+    }
+  });
+
+  test('covers approval-pending and insufficient-balance transaction outcomes', async ({
+    page,
+  }) => {
+    await mockShell(page, 'CASHIER');
+    await page.route('**/api/v1/transactions/earn', async (route) =>
+      route.fulfill({
+        ...json({
+          success: true,
+          data: {
+            transactionId: 'transaction-earn-pending',
+            status: 'PENDING',
+          },
+          meta: meta('/api/v1/transactions/earn'),
+        }),
+        status: 202,
+      }),
+    );
+    await page.route('**/api/v1/transactions/redeem', async (route) =>
+      route.fulfill({
+        ...json({
+          success: false,
+          error: { code: 'INSUFFICIENT_BALANCE' },
+        }),
+        status: 409,
+      }),
+    );
+
+    await page.goto(`${baseUrl}/cashier/earn?card=CARD-001`);
+    await page.getByRole('button', { name: 'Proceed' }).click();
+    await page.getByLabel('Receipt number *').fill('WORKFLOW-APPROVAL-001');
+    await page.getByLabel('Receipt amount (₦) *').fill('10');
+    await page.getByLabel('Receipt amount (₦) *').blur();
+    await page.getByRole('button', { name: 'Proceed to review' }).click();
+    await page.getByRole('button', { name: 'Confirm & add credit' }).click();
+    await expect(
+      page.getByRole('heading', { name: 'Awaiting approval' }),
+    ).toBeVisible();
+    await expect(
+      page.getByText(
+        'A supervisor needs to review this purchase before rewards are added.',
+      ),
+    ).toBeVisible();
+    const pendingNotice = page.locator('.capture-result-card--pending');
+    await pendingNotice.evaluate((element) => {
+      element.getAnimations().forEach((animation) => animation.finish());
+    });
+    const noticeGeometry = await pendingNotice.evaluate((element) => {
+      const { width, height } = element.getBoundingClientRect();
+      const styles = getComputedStyle(element);
+      return {
+        width: Math.round(width),
+        height: Math.round(height),
+        background: styles.backgroundColor,
+        borderRadius: styles.borderRadius,
+      };
+    });
+    expect(noticeGeometry).toEqual({
+      width: 542,
+      height: 134,
+      background: 'rgb(255, 250, 235)',
+      borderRadius: '16px',
+    });
+
+    await page.goto(`${baseUrl}/cashier/redeem?card=CARD-001`);
+    await page
+      .getByLabel('POS receipt number')
+      .fill('WORKFLOW-INSUFFICIENT-001');
+    await page.getByLabel('Basket subtotal (₦)').fill('100');
+    await page.getByLabel('Basket subtotal (₦)').blur();
+    await page.getByRole('button', { name: 'Proceed', exact: true }).click();
+    await page.getByLabel('Redemption amount (₦)').fill('10');
+    await page.getByLabel('Redemption amount (₦)').blur();
+    await page.getByRole('button', { name: 'Proceed', exact: true }).click();
+    await page.getByRole('button', { name: 'Confirm redemption' }).click();
+    await expect(
+      page.getByText('Available credit is lower than this redemption.'),
     ).toBeVisible();
   });
 
-  test('gates sync when the session has no backend device association', async ({
+  test('covers shell search results, keyboard selection, escape, and errors', async ({
+    page,
+  }) => {
+    await mockShell(page, 'CASHIER');
+    await page.goto(`${baseUrl}/cashier`);
+
+    const search = page.getByRole('combobox', { name: 'Search ShopCity' });
+    await expect(page.locator('.shell-loading-screen')).toBeHidden();
+    await expect(search).toBeVisible();
+    await expect(search).toBeEditable();
+    await search.fill('Ada');
+    await expect(
+      page.getByRole('option', { name: /Ada Shopper/ }),
+    ).toBeVisible();
+    await search.press('ArrowDown');
+    await search.press('Enter');
+    await expect(page).toHaveURL(/\/cashier\/customers\?id=customer-1/);
+
+    await page.goto(`${baseUrl}/cashier`);
+    await page.route('**/api/v1/customers*', async (route) =>
+      route.fulfill({
+        ...json({ success: false, error: { statusCode: 503 } }),
+        status: 503,
+      }),
+    );
+    await search.fill('Unavailable');
+    await expect(page.getByText('Search unavailable (503).')).toBeVisible();
+    await search.press('Escape');
+    await expect(search).toBeFocused();
+
+    await page.unroute('**/api/v1/customers*');
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto(`${baseUrl}/cashier`);
+    await expect(page.locator('.shell-loading-screen')).toBeHidden();
+    const mobileSearch = page.getByRole('combobox', {
+      name: 'Search ShopCity',
+    });
+    await expect(mobileSearch).toBeVisible();
+    await expect(mobileSearch).toBeEditable();
+    await mobileSearch.focus();
+    const mobileCategoryBox = await page
+      .locator('.global-shell-search__categories')
+      .boundingBox();
+    expect(mobileCategoryBox?.width ?? 0).toBeGreaterThan(0);
+    expect(
+      await page
+        .locator('.global-shell-search__row')
+        .evaluate((element) => element.scrollWidth <= element.clientWidth),
+    ).toBe(true);
+    await mobileSearch.fill('Ada');
+    await expect(
+      page.getByRole('option', { name: /Ada Shopper/ }),
+    ).toBeVisible();
+    await mobileSearch.press('Escape');
+    await expect(mobileSearch).toBeFocused();
+  });
+
+  test('captures same-state Transactions prototype and React screens for review', async ({
+    page,
+  }, testInfo) => {
+    await mockShell(page, 'CASHIER');
+    await page.setViewportSize({ width: 1440, height: 923 });
+    const searchWidthPairs: Array<{
+      viewport: number;
+      referenceInputWidth: number;
+      reactInputWidth: number;
+      referencePageWidth: number;
+      reactPageWidth: number;
+    }> = [];
+
+    await page.goto(`${baseUrl}/prototype/transactions-dashboard.html`);
+    await expect(
+      page.getByRole('heading', { name: 'Transactions', exact: true }),
+    ).toBeVisible();
+    await expect(page.getByText(/0 live receipts/)).toBeVisible();
+    const referenceInputWidth =
+      (await page.locator('#globalSearch').boundingBox())?.width ?? 0;
+    const referencePageWidth = await page
+      .locator('body')
+      .evaluate((body) => body.scrollWidth);
+    expect(referencePageWidth).toBeLessThanOrEqual(1440);
+    await page.screenshot({
+      path: testInfo.outputPath('transactions-html-empty-1440x923.png'),
+      fullPage: true,
+    });
+
+    await page.goto(`${baseUrl}/cashier/transactions`);
+    await expect(
+      page.getByRole('heading', { name: 'Transactions', exact: true }),
+    ).toBeVisible();
+    await expect(
+      page.getByText('0 bounded live receipts available today.'),
+    ).toBeVisible({ timeout: 10000 });
+    const reactInputWidth =
+      (
+        await page
+          .getByRole('combobox', { name: 'Search ShopCity' })
+          .boundingBox()
+      )?.width ?? 0;
+    const reactPageWidth = await page
+      .locator('body')
+      .evaluate((body) => body.scrollWidth);
+    expect(reactInputWidth).toBeGreaterThanOrEqual(180);
+    expect(reactPageWidth).toBeLessThanOrEqual(1440);
+    searchWidthPairs.push({
+      viewport: 1440,
+      referenceInputWidth,
+      reactInputWidth,
+      referencePageWidth,
+      reactPageWidth,
+    });
+    await page.screenshot({
+      path: testInfo.outputPath('transactions-react-empty-1440x923.png'),
+      fullPage: true,
+    });
+
+    for (const width of [920, 390, 375]) {
+      await page.setViewportSize({ width, height: 900 });
+      await page.goto(`${baseUrl}/prototype/transactions-dashboard.html`);
+      await expect(page.getByText(/0 live receipts/)).toBeVisible();
+      const referenceWidth =
+        (await page.locator('#globalSearch').boundingBox())?.width ?? 0;
+      const referenceScrollWidth = await page
+        .locator('body')
+        .evaluate((body) => body.scrollWidth);
+      expect(referenceScrollWidth).toBeLessThanOrEqual(width);
+      await page.screenshot({
+        path: testInfo.outputPath(`transactions-html-empty-${width}px.png`),
+      });
+
+      await page.goto(`${baseUrl}/cashier/transactions`);
+      await expect(
+        page.getByText('0 bounded live receipts available today.'),
+      ).toBeVisible({ timeout: 10000 });
+      const reactWidth =
+        (
+          await page
+            .getByRole('combobox', { name: 'Search ShopCity' })
+            .boundingBox()
+        )?.width ?? 0;
+      const reactScrollWidth = await page
+        .locator('body')
+        .evaluate((body) => body.scrollWidth);
+      expect(reactWidth).toBeGreaterThanOrEqual(width >= 920 ? 180 : 120);
+      expect(reactScrollWidth).toBeLessThanOrEqual(width);
+      searchWidthPairs.push({
+        viewport: width,
+        referenceInputWidth: referenceWidth,
+        reactInputWidth: reactWidth,
+        referencePageWidth: referenceScrollWidth,
+        reactPageWidth: reactScrollWidth,
+      });
+      await page.screenshot({
+        path: testInfo.outputPath(`transactions-react-empty-${width}px.png`),
+      });
+    }
+    console.log(
+      'transaction-search-width-parity',
+      JSON.stringify(searchWidthPairs),
+    );
+    await testInfo.attach('transaction-search-width-parity.json', {
+      body: JSON.stringify(searchWidthPairs, null, 2),
+      contentType: 'application/json',
+    });
+  });
+
+  test('keeps role search categories authorized and card deep links explicit', async ({
+    page,
+  }) => {
+    for (const [role, route] of [
+      ['CASHIER', '/cashier'],
+      ['SUPERVISOR', '/supervisor'],
+      ['ADMIN', '/admin'],
+    ] as const) {
+      await mockShell(page, role);
+      await page.goto(`${baseUrl}${route}`);
+      await page.getByRole('combobox', { name: 'Search ShopCity' }).focus();
+      await expect(
+        page.getByRole('button', { name: 'Customers' }),
+      ).toBeVisible();
+      await expect(page.getByRole('button', { name: 'Cards' })).toBeVisible();
+      await expect(page.getByRole('button', { name: 'Cashiers' })).toHaveCount(
+        role === 'CASHIER' ? 0 : 1,
+      );
+      await expect(
+        page.getByRole('button', { name: 'Notifications' }),
+      ).toBeDisabled();
+      if (role === 'ADMIN') {
+        await expect(
+          page
+            .locator('.shell-main-column a[href="/admin/operations"]')
+            .first(),
+        ).toHaveCSS('grid-column-start', 'span 2');
+        await expect(
+          page
+            .locator('.shell-main-column a[href="/admin/transactions"]')
+            .first(),
+        ).toHaveCSS('grid-column-start', 'auto');
+      }
+    }
+
+    await mockShell(page, 'CASHIER');
+    await page.goto(`${baseUrl}/cashier`);
+    const search = page.getByRole('combobox', { name: 'Search ShopCity' });
+    await search.focus();
+    await page.getByRole('button', { name: 'Cards' }).click();
+    await search.fill('CARD-001');
+    await search.press('Enter');
+    const cardResult = page.getByRole('option', { name: /Ada Shopper/ });
+    await expect(cardResult).toBeVisible();
+    await expect(cardResult).toHaveAttribute(
+      'href',
+      '/cashier/lookup?card=CARD-001',
+    );
+  });
+
+  test('keeps global search input usable and stable across viewports and categories', async ({
+    page,
+  }, testInfo) => {
+    await mockShell(page, 'ADMIN');
+    await page.goto(`${baseUrl}/admin`);
+    const search = page.getByRole('combobox', { name: 'Search ShopCity' });
+    const renderedGeometry: Array<{
+      viewport: number;
+      inputWidth: number;
+      categoryWidth: number;
+      groupWidth: number;
+      pageScrollWidth: number;
+    }> = [];
+
+    await search.click();
+    for (const { width } of conformanceViewports) {
+      await page.setViewportSize({ width, height: 900 });
+      await page.waitForTimeout(50);
+      const minimumWidth =
+        width >= 920 ? 176 : [390, 375].includes(width) ? 120 : 0;
+      const initialWidth = (await search.boundingBox())?.width ?? 0;
+      expect(initialWidth).toBeGreaterThanOrEqual(minimumWidth);
+      const button = page.getByRole('button', { name: 'Search' });
+      await expect(button).toBeVisible();
+      for (const category of ['Cards', 'Cashiers', 'Customers']) {
+        await page.getByRole('button', { name: category, exact: true }).click();
+        await expect(button).toBeVisible();
+        expect((await search.boundingBox())?.width ?? 0).toBeGreaterThanOrEqual(
+          minimumWidth,
+        );
+        await expect(page.getByRole('listbox')).toHaveCount(0);
+      }
+      const inputWidth = (await search.boundingBox())?.width ?? 0;
+      const categoryWidth =
+        (await page.locator('.global-shell-search__categories').boundingBox())
+          ?.width ?? 0;
+      const groupWidth =
+        (await page.locator('.global-shell-search').boundingBox())?.width ?? 0;
+      const pageScrollWidth = await page
+        .locator('body')
+        .evaluate((body) => body.scrollWidth);
+      expect(pageScrollWidth).toBeLessThanOrEqual(width);
+      renderedGeometry.push({
+        viewport: width,
+        inputWidth,
+        categoryWidth,
+        groupWidth,
+        pageScrollWidth,
+      });
+      if (width === 1440 || width === 920 || width === 390 || width === 375) {
+        await page.screenshot({
+          path: testInfo.outputPath(`global-search-${width}px.png`),
+        });
+      }
+    }
+    console.log(
+      'global-search-rendered-geometry',
+      JSON.stringify(renderedGeometry),
+    );
+    await testInfo.attach('global-search-rendered-geometry.json', {
+      body: JSON.stringify(renderedGeometry, null, 2),
+      contentType: 'application/json',
+    });
+  });
+
+  test('ignores stale shell search responses', async ({ page }) => {
+    await mockShell(page, 'CASHIER');
+    await page.route('**/api/v1/customers*', async (route) => {
+      const query = new URL(route.request().url()).searchParams.get('q');
+      if (query === 'old')
+        await new Promise((resolve) => setTimeout(resolve, 700));
+      await route.fulfill(
+        json({
+          success: true,
+          data: {
+            items: [
+              {
+                id: `customer-${query}`,
+                fullName: query === 'old' ? 'Old Result' : 'New Result',
+                phoneE164: '+2348000000002',
+                status: 'ACTIVE',
+              },
+            ],
+          },
+          meta: meta('/api/v1/customers'),
+        }),
+      );
+    });
+    await page.goto(`${baseUrl}/cashier`);
+    const search = page.getByRole('combobox', { name: 'Search ShopCity' });
+    await search.fill('old');
+    await page.waitForTimeout(320);
+    await search.fill('new');
+    await expect(
+      page.getByRole('option', { name: /New Result/ }),
+    ).toBeVisible();
+    await page.waitForTimeout(500);
+    await expect(page.getByRole('option', { name: /Old Result/ })).toHaveCount(
+      0,
+    );
+  });
+
+  test('uses the shared Cashier header and a clear text hierarchy', async ({
+    page,
+  }) => {
+    await mockShell(page, 'CASHIER', 'device-1');
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto(`${baseUrl}/cashier/lookup`);
+
+    const lookupTypography = await page
+      .locator('[data-od-id="find-customer-heading"]')
+      .evaluate((header) => {
+        const title = header.querySelector('h1');
+        const description = header.querySelector('.sc-page-head__copy > p');
+        if (!title || !description) return null;
+        const style = (element: Element) => {
+          const computed = getComputedStyle(element);
+          return {
+            fontFamily: computed.fontFamily,
+            fontSize: computed.fontSize,
+            fontWeight: computed.fontWeight,
+            lineHeight: computed.lineHeight,
+            color: computed.color,
+            letterSpacing: computed.letterSpacing,
+          };
+        };
+        return { title: style(title), description: style(description) };
+      });
+    expect(lookupTypography).not.toBeNull();
+
+    await page.goto(`${baseUrl}/cashier/sync`);
+    const syncTypography = await page
+      .locator('[data-od-id="sync-queue-heading"]')
+      .evaluate((header) => {
+        const title = header.querySelector('h1');
+        const description = header.querySelector('.sc-page-head__copy > p');
+        if (!title || !description) return null;
+        const style = (element: Element) => {
+          const computed = getComputedStyle(element);
+          return {
+            fontFamily: computed.fontFamily,
+            fontSize: computed.fontSize,
+            fontWeight: computed.fontWeight,
+            lineHeight: computed.lineHeight,
+            color: computed.color,
+            letterSpacing: computed.letterSpacing,
+          };
+        };
+        return { title: style(title), description: style(description) };
+      });
+    expect(syncTypography).toEqual(lookupTypography);
+
+    const hierarchy = await page.evaluate(() => {
+      const pageTitle = document.querySelector('.cashier-sync-header h1');
+      const statusTitle = document.querySelector(
+        '.cashier-sync-device-status h2',
+      );
+      const cardTitle = document.querySelector('.cashier-sync-queue-title h2');
+      const body = document.querySelector(
+        '.cashier-sync-header .sc-page-head__copy > p',
+      );
+      if (!pageTitle || !statusTitle || !cardTitle || !body) return null;
+      const fontSize = (element: Element) =>
+        Number.parseFloat(getComputedStyle(element).fontSize);
+      return {
+        pageTitle: fontSize(pageTitle),
+        statusTitle: fontSize(statusTitle),
+        cardTitle: fontSize(cardTitle),
+        body: fontSize(body),
+      };
+    });
+    expect(hierarchy).not.toBeNull();
+    expect(hierarchy!.pageTitle).toBeGreaterThan(hierarchy!.statusTitle);
+    expect(hierarchy!.statusTitle).toBe(hierarchy!.cardTitle);
+    expect(hierarchy!.cardTitle).toBeGreaterThan(hierarchy!.body);
+  });
+
+  test('keeps Sync Queue controls usable on a narrow viewport', async ({
+    page,
+  }, testInfo) => {
+    await mockShell(page, 'CASHIER');
+    await page.setViewportSize({ width: 375, height: 812 });
+    await page.goto(`${baseUrl}/cashier/sync`);
+
+    await expect(
+      page.getByRole('heading', { name: 'Sync Queue' }),
+    ).toBeVisible();
+    const heading = page.locator('[data-od-id="sync-queue-heading"]');
+    await expect(heading).toContainText(
+      'Review purchases saved on this device, sync eligible records, and check each result.',
+    );
+    await expect(
+      heading.locator('[data-od-id="sync-queue-toolbar"]'),
+    ).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Refresh' })).toBeVisible();
+    await expect(
+      page.getByRole('button', { name: 'Sync eligible records' }),
+    ).toBeDisabled();
+    await expect(
+      page.getByRole('heading', { name: 'Session needs device access' }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole('button', { name: 'Retry access' }),
+    ).toHaveCount(0);
+    await expect(
+      page.getByText(/Sign in again to restore device access/),
+    ).toBeVisible();
+    await expect(
+      page.getByRole('button', { name: 'Sign in again' }),
+    ).toBeVisible();
+    await expect(page.getByRole('textbox', { name: 'Device ID' })).toHaveCount(
+      0,
+    );
+    await expect(
+      page.getByText(/Queue summary above stays aligned/),
+    ).toHaveCount(0);
+    await expect(page.getByText('0 records', { exact: true })).toBeVisible();
+    await expect(
+      page.getByText(/Showing \d+ of \d+ local records/),
+    ).toHaveCount(0);
+    await expect(
+      page.getByRole('textbox', { name: 'Search sync queue' }),
+    ).toHaveCount(0);
+    await expect(
+      page.getByRole('combobox', { name: 'Filter sync queue by status' }),
+    ).toHaveCount(0);
+    await expect(
+      page.getByRole('heading', { name: 'No saved purchases on this device' }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole('link', { name: 'Capture Purchase' }),
+    ).toBeVisible();
+    await expect(page.getByText('0 waiting · 0 need attention')).toBeVisible();
+    await expect(page.locator('.shell-sidebar')).toBeHidden();
+    await expect(page.getByRole('button', { name: 'Menu' })).toBeVisible();
+    expect(
+      await page.locator('[data-od-id="sync-queue-toolbar"]').count(),
+    ).toBe(1);
+    await expect(
+      page.locator('[data-od-id="sync-queue-view"]'),
+    ).not.toContainText('—');
+    const landmarkOrder = await page
+      .locator('[data-od-id="sync-queue-view"]')
+      .evaluate((root) =>
+        [
+          root.querySelector('[data-od-id="sync-queue-heading"]'),
+          root.querySelector('[data-od-id="sync-queue-metrics"]'),
+          root.querySelector('[data-od-id="sync-queue-table"]'),
+        ].map((element) => {
+          if (!element) return -1;
+          return Array.from(root.querySelectorAll('*')).indexOf(element);
+        }),
+      );
+    expect(landmarkOrder).toEqual([...landmarkOrder].sort((a, b) => a - b));
+    const queueTop = await page
+      .locator('.cashier-sync-queue')
+      .evaluate((element) => element.getBoundingClientRect().top);
+    expect(queueTop).toBeGreaterThan(0);
+    await expect(page.locator('.cashier-sync-results')).toHaveCount(0);
+    await page.screenshot({
+      path: testInfo.outputPath('sync-queue-mobile-full-current.png'),
+    });
+    await page.locator('main').screenshot({
+      path: testInfo.outputPath('sync-queue-mobile-empty-current.png'),
+    });
+    const overflow = await page.locator('main').evaluate((main) => ({
+      scrollWidth: main.scrollWidth,
+      clientWidth: main.clientWidth,
+      children: Array.from(main.querySelectorAll<HTMLElement>('*'))
+        .filter((element) => element.scrollWidth > element.clientWidth + 1)
+        .slice(0, 8)
+        .map((element) => ({
+          tag: element.tagName,
+          className: element.className,
+          scrollWidth: element.scrollWidth,
+          clientWidth: element.clientWidth,
+        })),
+    }));
+    expect(overflow.scrollWidth, JSON.stringify(overflow)).toBeLessThanOrEqual(
+      overflow.clientWidth,
+    );
+  });
+
+  test('keeps the empty queue full width across workspace sizes', async ({
+    page,
+  }) => {
+    await mockShell(page, 'CASHIER', 'device-1');
+
+    for (const width of [375, 768, 1440]) {
+      await page.setViewportSize({ width, height: 900 });
+      await page.goto(`${baseUrl}/cashier/sync`);
+      await expect(
+        page.getByRole('heading', { name: 'Device access ready' }),
+      ).toBeVisible();
+      await expect(
+        page.getByRole('heading', {
+          name: 'No saved purchases on this device',
+        }),
+      ).toBeVisible();
+      await expect(page.getByText('0 records', { exact: true })).toBeVisible();
+      await expect(page.getByText(/Showing 0 of 0 local records/)).toHaveCount(
+        0,
+      );
+
+      const geometry = await page.evaluate(() => {
+        const page = document.querySelector('.cashier-sync-page');
+        const queue = document.querySelector('.cashier-sync-queue');
+        const priority = document.querySelector('.cashier-sync-priority');
+        if (!page || !queue || !priority) return null;
+        return {
+          pageWidth: page.getBoundingClientRect().width,
+          queueWidth: queue.getBoundingClientRect().width,
+          columns: getComputedStyle(priority)
+            .gridTemplateColumns.trim()
+            .split(/\s+/).length,
+          bodyWidth: document.body.scrollWidth,
+        };
+      });
+      expect(geometry).not.toBeNull();
+      expect(geometry!.queueWidth).toBeCloseTo(geometry!.pageWidth, 0);
+      expect(geometry!.columns).toBe(1);
+      expect(geometry!.bodyWidth).toBeLessThanOrEqual(width);
+    }
+  });
+
+  test('does not report zero while the local queue is loading', async ({
+    page,
+  }) => {
+    await page.addInitScript(() => {
+      Object.defineProperty(window, 'indexedDB', {
+        configurable: true,
+        value: { open: () => ({}) },
+      });
+    });
+    await mockShell(page, 'CASHIER', 'device-1');
+    await page.setViewportSize({ width: 768, height: 900 });
+    await page.goto(`${baseUrl}/cashier/sync`);
+
+    await expect(
+      page.getByRole('heading', { name: 'Checking saved purchases…' }),
+    ).toBeVisible();
+    await expect(
+      page.getByText('Loading saved purchases', { exact: true }),
+    ).toBeVisible();
+    await expect(page.getByText('Loading…', { exact: true })).toBeVisible();
+    await expect(page.getByText('0 records', { exact: true })).toHaveCount(0);
+    await expect(page.getByText(/0 waiting/)).toHaveCount(0);
+    await expect(
+      page.getByRole('heading', { name: 'No saved purchases on this device' }),
+    ).toHaveCount(0);
+  });
+
+  test('shows unknown queue counts and retry when the local read fails', async ({
+    page,
+  }) => {
+    await page.addInitScript(() => {
+      Object.defineProperty(window, 'indexedDB', {
+        configurable: true,
+        value: undefined,
+      });
+    });
+    await mockShell(page, 'CASHIER', 'device-1');
+    await page.setViewportSize({ width: 375, height: 812 });
+    await page.goto(`${baseUrl}/cashier/sync`);
+
+    await expect(
+      page.getByRole('heading', { name: 'Local queue unavailable' }),
+    ).toBeVisible();
+    await expect(page.getByText('Count unavailable')).toBeVisible();
+    await expect(
+      page.getByText('Unable to load saved purchases', { exact: true }),
+    ).toBeVisible();
+    await expect(page.getByText(/0 waiting/)).toHaveCount(0);
+    await expect(
+      page.getByRole('heading', { name: 'No saved purchases on this device' }),
+    ).toHaveCount(0);
+    await expect(
+      page.getByRole('button', { name: 'Sync eligible records' }),
+    ).toBeDisabled();
+    await expect(
+      page.getByRole('button', { name: 'Retry access' }),
+    ).toBeVisible();
+    await page.getByRole('button', { name: 'Retry access' }).click();
+    await expect(
+      page.getByText('Unable to load saved purchases', { exact: true }),
+    ).toBeVisible();
+  });
+
+  test('stacks the Sync Queue header when shell width is constrained', async ({
+    page,
+  }, testInfo) => {
+    await mockShell(page, 'CASHIER');
+    await page.setViewportSize({ width: 1080, height: 900 });
+    await page.goto(`${baseUrl}/cashier/sync`);
+
+    const header = page.locator('[data-od-id="sync-queue-heading"]');
+    const trackCount = () =>
+      header.evaluate(
+        (element) =>
+          getComputedStyle(element).gridTemplateColumns.trim().split(/\s+/)
+            .length,
+      );
+    await expect(header.locator('.sc-page-head__copy > p')).toBeVisible();
+    expect(await trackCount()).toBe(1);
+    await expect(page.getByRole('button', { name: 'Refresh' })).toBeVisible();
+    await expect(
+      page.getByRole('button', { name: 'Sync eligible records' }),
+    ).toBeVisible();
+
+    const headingCopyWidth = await header
+      .locator('.sc-page-head__copy > p')
+      .evaluate((element) => element.getBoundingClientRect().width);
+    expect(headingCopyWidth).toBeGreaterThan(400);
+
+    const mainOverflow = await page
+      .locator('main')
+      .evaluate((element) => element.scrollWidth - element.clientWidth);
+    expect(mainOverflow).toBeLessThanOrEqual(0);
+    await page.screenshot({
+      path: testInfo.outputPath('sync-queue-constrained-header.png'),
+    });
+
+    await page.setViewportSize({ width: 1440, height: 900 });
+    expect(await trackCount()).toBe(2);
+  });
+
+  test('offers supported session reconnection when the backend has no device association', async ({
     page,
   }) => {
     await mockShell(page, 'CASHIER');
     await page.goto(`${baseUrl}/cashier/sync`);
-    await page.getByRole('button', { name: 'Submit batch' }).click();
     await expect(
-      page.getByText(
-        'Authenticated device ID is unavailable. Reconnect the session.',
-      ),
+      page.getByRole('button', { name: 'Sync eligible records' }),
+    ).toBeDisabled();
+    await expect(
+      page.getByRole('heading', { name: 'Session needs device access' }),
     ).toBeVisible();
+    await expect(
+      page.getByRole('button', { name: 'Sign in again' }),
+    ).toBeVisible();
+    await page.getByRole('button', { name: 'Sign in again' }).click();
+    await expect(page).toHaveURL(/\/login$/);
+    await expect(
+      page.getByRole('heading', { name: 'Staff sign in' }),
+    ).toBeVisible();
+    await expect(page.locator('.login-notice')).toHaveText(
+      /Sign in with your ShopCity staff credentials/,
+    );
+    await expect(page.getByRole('textbox', { name: 'Device ID' })).toHaveCount(
+      0,
+    );
   });
 
   test('saves failed Earn locally and reconciles it through sync', async ({
@@ -195,11 +4069,13 @@ test.describe('workflow route coverage', () => {
     await page.route('**/api/v1/transactions/earn', (route) => route.abort());
     await page.goto(`${baseUrl}/cashier/earn?card=CARD-001`);
 
-    await page.getByLabel('POS receipt number').fill('WORKFLOW-OFFLINE-001');
-    const purchase = page.getByLabel('Purchase amount');
+    await page.getByRole('button', { name: 'Proceed' }).click();
+    await page.getByLabel('Receipt number *').fill('WORKFLOW-OFFLINE-001');
+    const purchase = page.getByLabel('Receipt amount (₦) *');
     await purchase.fill('10');
     await purchase.blur();
-    await page.getByRole('button', { name: 'Submit earn' }).click();
+    await page.getByRole('button', { name: 'Proceed to review' }).click();
+    await page.getByRole('button', { name: 'Confirm & add credit' }).click();
     await expect(
       page.getByText('Earn could not be submitted. Saved locally for sync.'),
     ).toBeVisible();
@@ -208,13 +4084,36 @@ test.describe('workflow route coverage', () => {
     await expect(
       page.getByRole('cell', { name: 'CARD-001' }).first(),
     ).toBeVisible();
-    await page.getByRole('button', { name: 'Submit batch' }).click();
+    await expect(
+      page
+        .getByRole('table', { name: 'Offline sync queue records' })
+        .getByText('Waiting to sync', { exact: true }),
+    ).toBeVisible();
+    await page.getByRole('button', { name: 'Sync eligible records' }).click();
     await expect(
       page.getByText('Batch submitted. Review per-record results below.'),
     ).toBeVisible();
+    await page.getByText('Per-record results (1)').click();
     await expect(
-      page.getByRole('cell', { name: 'confirmed', exact: true }).first(),
+      page.getByRole('cell', { name: 'Confirmed', exact: true }).first(),
     ).toBeVisible();
+    const activityGrid = page.locator('.cashier-sync-priority');
+    await expect(page.locator('.cashier-sync-results')).toBeVisible();
+    expect(
+      await activityGrid.evaluate(
+        (element) =>
+          getComputedStyle(element).gridTemplateColumns.trim().split(/\s+/)
+            .length,
+      ),
+    ).toBe(2);
+    await page.setViewportSize({ width: 768, height: 900 });
+    expect(
+      await activityGrid.evaluate(
+        (element) =>
+          getComputedStyle(element).gridTemplateColumns.trim().split(/\s+/)
+            .length,
+      ),
+    ).toBe(1);
   });
 
   test('disables Earn submission while the authoritative request is pending', async ({
@@ -234,11 +4133,14 @@ test.describe('workflow route coverage', () => {
     });
     await page.goto(`${baseUrl}/cashier/earn?card=CARD-001`);
 
-    await page.getByLabel('POS receipt number').fill('WORKFLOW-PENDING-001');
-    const purchase = page.getByLabel('Purchase amount');
+    await page.getByRole('button', { name: 'Proceed' }).click();
+    await page.getByLabel('Receipt number *').fill('WORKFLOW-PENDING-001');
+    const purchase = page.getByLabel('Receipt amount (₦) *');
     await purchase.fill('10');
     await purchase.blur();
-    const submit = page.getByRole('button', { name: 'Submit earn' });
+    const proceed = page.getByRole('button', { name: 'Proceed to review' });
+    await proceed.click();
+    const submit = page.getByRole('button', { name: 'Confirm & add credit' });
     await submit.click();
     await expect(submit).toBeDisabled();
   });
@@ -251,19 +4153,1466 @@ test.describe('workflow route coverage', () => {
         section.items.map((item) => item.href),
       ),
     );
-    const responses = await Promise.all(
-      hrefs.map((href) => request.get(href, { timeout: 30000 })),
+    await expectRoutesAvailable(request, hrefs);
+  });
+
+  test('keeps prototype landmarks inside the 1440px route geometry', async ({
+    page,
+  }) => {
+    const fixtures = [
+      ['/cashier', 'recent-transactions', 'CASHIER', 'overview'],
+      ['/cashier/lookup', 'customer-search', 'CASHIER', 'find-customer'],
+      [
+        '/cashier/earn?card=CARD-001',
+        'capture-flow',
+        'CASHIER',
+        'capture-purchase',
+      ],
+      [
+        '/cashier/redeem?card=CARD-001',
+        'redeem-flow',
+        'CASHIER',
+        'redeem-credit',
+      ],
+      [
+        '/supervisor/customers',
+        'customer-results',
+        'SUPERVISOR',
+        'customer-directory',
+      ],
+      [
+        '/supervisor/transactions',
+        'transactions-view',
+        'SUPERVISOR',
+        'transaction-workspace',
+      ],
+    ] as const;
+
+    await page.setViewportSize({ width: 1440, height: 923 });
+    for (const [route, landmark, role, routeName] of fixtures) {
+      await mockShell(page, role);
+      await page.goto(`${baseUrl}${route}`);
+      if (landmark === 'capture-flow') {
+        await page.getByRole('button', { name: 'Proceed' }).click();
+      }
+      const element =
+        routeName === 'customer-directory'
+          ? page.getByRole('region', { name: 'Customer results' })
+          : page.locator(`[data-od-id="${landmark}"]`);
+      await expect(page.locator('.shell-loading-screen')).toBeHidden();
+      await expect(element).toBeVisible();
+      if (landmark === 'recent-transactions') {
+        await expect(
+          page.getByText('No transactions recorded today.'),
+        ).toBeVisible();
+      }
+      const box = await element.boundingBox();
+      expect(box).not.toBeNull();
+      expect(box!.x).toBeGreaterThanOrEqual(0);
+      expect(box!.x + box!.width).toBeLessThanOrEqual(1440);
+      expect(box!.width).toBeGreaterThan(0);
+      expect(box!.height).toBeGreaterThan(0);
+      // The Supervisor customer directory has no approved prototype reference;
+      // keep its geometry covered without comparing it to an obsolete screenshot.
+      if (
+        routeName !== 'transaction-workspace' &&
+        routeName !== 'customer-directory'
+      ) {
+        await expect(element).toHaveScreenshot(`prototype-${landmark}.png`, {
+          maxDiffPixelRatio: 0.08,
+        });
+        await expect(page).toHaveScreenshot(
+          `prototype-route-${routeName}.png`,
+          {
+            fullPage: true,
+            maxDiffPixelRatio: 0.08,
+            mask: [
+              page.locator('.shell-session-label'),
+              page.locator('.shell-online'),
+            ],
+          },
+        );
+      }
+
+      const sidebar = await page.locator('.shell-sidebar').boundingBox();
+      const topbar = await page.locator('.shell-topbar').boundingBox();
+      expect(Math.round(sidebar?.width ?? 0)).toBe(244);
+      expect(Math.round(topbar?.height ?? 0)).toBe(64);
+      // The current sidebar uses the full ShopCity wordmark, not the compact mark.
+      expect(
+        await page.locator('.shell-sidebar-brand img').evaluate((node) => {
+          const box = node.getBoundingClientRect();
+          return {
+            width: Math.round(box.width),
+            height: Math.round(box.height),
+          };
+        }),
+      ).toEqual({ width: 124, height: 32 });
+
+      const buttonRhythm = await page
+        .locator('button:visible')
+        .evaluateAll((buttons) =>
+          buttons.map((button) => {
+            const style = getComputedStyle(button);
+            return {
+              display: style.display,
+              whiteSpace: style.whiteSpace,
+              className: button.className || button.outerHTML.slice(0, 120),
+              hasIconAndLabel:
+                Boolean(button.querySelector('svg')) &&
+                Boolean(button.textContent?.trim()),
+            };
+          }),
+        );
+      for (const button of buttonRhythm) {
+        expect(['flex', 'inline-flex', 'grid'], button.className).toContain(
+          button.display,
+        );
+        if (button.hasIconAndLabel) {
+          expect(button.whiteSpace, button.className).toBe('nowrap');
+        }
+      }
+    }
+  });
+
+  test('keeps topbar action controls aligned at tablet and compact widths', async ({
+    page,
+  }) => {
+    await mockShell(page, 'SUPERVISOR');
+    await page.setViewportSize({ width: 1024, height: 900 });
+    await page.goto(`${baseUrl}/supervisor`);
+    await expect(page.locator('.shell-loading-screen')).toBeHidden();
+
+    for (const width of [1024, 920, 768, 700, 621, 620, 390, 375]) {
+      await page.setViewportSize({ width, height: 900 });
+      const geometry = await page.evaluate(() => {
+        const rect = (selector: string) => {
+          const element = document.querySelector<HTMLElement>(selector);
+          if (!element || getComputedStyle(element).display === 'none') {
+            return null;
+          }
+          const {
+            x,
+            y,
+            width: elementWidth,
+            height,
+          } = element.getBoundingClientRect();
+          return { x, y, width: elementWidth, height };
+        };
+        return {
+          search: rect('.global-shell-search'),
+          status: rect('.shell-system-status'),
+          notification: rect('.shell-notifications'),
+          avatar: rect('.shell-avatar'),
+          mobileMenu: rect('.shell-mobile-menu-button'),
+          actions: rect('.shell-topbar-actions'),
+          pageWidth: document.documentElement.scrollWidth,
+          viewportWidth: window.innerWidth,
+        };
+      });
+
+      expect(
+        geometry.pageWidth,
+        `document overflow at ${width}px: ${JSON.stringify(geometry)}`,
+      ).toBeLessThanOrEqual(geometry.viewportWidth);
+      expect(geometry.avatar).not.toBeNull();
+      if (width > 620) {
+        expect(geometry.notification).not.toBeNull();
+        expect(geometry.status).not.toBeNull();
+        expect(geometry.actions).not.toBeNull();
+        expect(
+          geometry.search!.x + geometry.search!.width,
+          `search/status overlap at ${width}px: ${JSON.stringify(geometry)}`,
+        ).toBeLessThanOrEqual(geometry.status!.x + 1);
+        expect(
+          geometry.status!.x + geometry.status!.width,
+          `status/actions overlap at ${width}px: ${JSON.stringify(geometry)}`,
+        ).toBeLessThanOrEqual(geometry.actions!.x + 1);
+        expect(
+          Math.abs(geometry.notification!.y - geometry.avatar!.y),
+          `notification/avatar row mismatch at ${width}px: ${JSON.stringify(geometry)}`,
+        ).toBeLessThanOrEqual(1);
+        expect(
+          Math.abs(
+            geometry.notification!.y +
+              geometry.notification!.height / 2 -
+              (geometry.avatar!.y + geometry.avatar!.height / 2),
+          ),
+          `notification/avatar centers differ at ${width}px: ${JSON.stringify(geometry)}`,
+        ).toBeLessThanOrEqual(1);
+      } else {
+        expect(geometry.notification).toBeNull();
+        expect(geometry.mobileMenu).not.toBeNull();
+        expect(
+          Math.abs(
+            geometry.mobileMenu!.y +
+              geometry.mobileMenu!.height / 2 -
+              (geometry.avatar!.y + geometry.avatar!.height / 2),
+          ),
+          `avatar/menu centers differ at ${width}px: ${JSON.stringify(geometry)}`,
+        ).toBeLessThanOrEqual(1);
+      }
+    }
+  });
+
+  test('keeps Supervisor Help & Training visually contained and accessible at tablet width', async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 768, height: 900 });
+    await mockShell(page, 'SUPERVISOR');
+    await page.goto(`${baseUrl}/supervisor/customers?tab=register`);
+    await expect(page.locator('.shell-loading-screen')).toBeHidden();
+    await expect(page.locator('.sc-page')).toBeVisible();
+
+    const helpLink = page.getByRole('link', { name: 'Help & Training' });
+    await expect(helpLink).toBeVisible();
+    const supervisorTreatment = await helpLink.evaluate((link) => {
+      const label = link.querySelector('span');
+      const sidebar = link.closest('.shell-sidebar');
+      if (!label || !sidebar) return null;
+      const labelStyle = getComputedStyle(label);
+      const linkRect = link.getBoundingClientRect();
+      const sidebarRect = sidebar.getBoundingClientRect();
+      return {
+        text: label.textContent?.trim(),
+        position: labelStyle.position,
+        width: labelStyle.width,
+        clip: labelStyle.clip,
+        linkContained:
+          linkRect.left >= sidebarRect.left &&
+          linkRect.right <= sidebarRect.right,
+      };
+    });
+    expect(supervisorTreatment).toEqual({
+      text: 'Help & Training',
+      position: 'absolute',
+      width: '1px',
+      clip: 'rect(0px, 0px, 0px, 0px)',
+      linkContained: true,
+    });
+    await expect(helpLink).toHaveAccessibleName('Help & Training');
+    expect(
+      await page.evaluate(() => document.documentElement.scrollWidth),
+    ).toBeLessThanOrEqual(768);
+
+    for (const route of [
+      { path: '/admin/customers', role: 'ADMIN' as const },
+      { path: '/cashier', role: 'CASHIER' as const },
+    ]) {
+      await mockShell(page, route.role);
+      await page.goto(`${baseUrl}${route.path}`);
+      const helpLink = page.getByRole('link', { name: 'Help & Training' });
+      await expect(helpLink).toBeVisible();
+      await expect(
+        helpLink.locator('span').evaluate((label) => {
+          const style = getComputedStyle(label);
+          return style.position === 'absolute' && style.clip !== 'auto';
+        }),
+      ).resolves.toBe(false);
+      await expect(helpLink).toHaveAccessibleName('Help & Training');
+      expect(
+        await page.evaluate(() => document.documentElement.scrollWidth),
+      ).toBeLessThanOrEqual(768);
+    }
+  });
+
+  test('confirms Supervisor registration and saves a verified directory profile', async ({
+    page,
+  }) => {
+    await mockShell(page, 'SUPERVISOR');
+    const createPayloads: unknown[] = [];
+    const profileUpdatePayloads: unknown[] = [];
+    let customerName = 'Test Customer';
+    let customerStatus = 'ACTIVE';
+    await page.route('**/api/v1/customers**', async (route) => {
+      const request = route.request();
+      const pathname = new URL(request.url()).pathname;
+      if (pathname === '/api/v1/customers' && request.method() === 'GET') {
+        return route.fulfill(
+          json({
+            success: true,
+            data: {
+              items: [
+                {
+                  id: 'registered-customer-1',
+                  fullName: customerName,
+                  phoneE164: '0000000000',
+                  status: customerStatus,
+                  activeCardStatus: 'ACTIVE',
+                },
+              ],
+            },
+            meta: meta(pathname),
+          }),
+        );
+      }
+      if (pathname === '/api/v1/customers' && request.method() === 'POST') {
+        createPayloads.push(request.postDataJSON());
+        return route.fulfill({
+          ...json({
+            success: true,
+            data: { id: 'registered-customer-1' },
+            meta: meta(pathname),
+          }),
+          status: 201,
+        });
+      }
+      if (
+        pathname ===
+          '/api/v1/customers/registered-customer-1/profile-projection' &&
+        request.method() === 'GET'
+      ) {
+        return route.fulfill(
+          json({
+            success: true,
+            data: {
+              customerId: 'registered-customer-1',
+              sourceErrors: [],
+              memberSince: '2030-01-01T00:00:00.000Z',
+              pendingApprovalsCount: 0,
+              lifetimeEarnedKobo: 0,
+              expirySchedule: [],
+              recentActivity: [],
+              transactions: [],
+              redemptions: [],
+              walletLedger: [],
+              approvals: [],
+              consent: null,
+              card: null,
+            },
+            meta: meta(pathname),
+          }),
+        );
+      }
+      if (
+        pathname === '/api/v1/customers/registered-customer-1' &&
+        request.method() === 'GET'
+      ) {
+        return route.fulfill(
+          json({
+            success: true,
+            data: {
+              id: 'registered-customer-1',
+              fullName: customerName,
+              phoneE164: '0000000000',
+              email: 'test@example.com',
+              status: customerStatus,
+              activeCardStatus: 'ACTIVE',
+            },
+            meta: meta(pathname),
+          }),
+        );
+      }
+      if (
+        pathname === '/api/v1/customers/registered-customer-1' &&
+        request.method() === 'PATCH'
+      ) {
+        const payload = request.postDataJSON() as { fullName: string };
+        profileUpdatePayloads.push(payload);
+        customerName = payload.fullName;
+        return route.fulfill(
+          json({
+            success: true,
+            data: { id: 'registered-customer-1' },
+            meta: meta(pathname),
+          }),
+        );
+      }
+      if (
+        pathname === '/api/v1/customers/registered-customer-1/status' &&
+        request.method() === 'PATCH'
+      ) {
+        customerStatus = 'BLOCKED';
+        return route.fulfill(
+          json({
+            success: true,
+            data: { id: 'registered-customer-1', status: customerStatus },
+            meta: meta(pathname),
+          }),
+        );
+      }
+      return route.fallback();
+    });
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto(`${baseUrl}/supervisor/customers`);
+    await expect(page.locator('.shell-loading-screen')).toBeHidden();
+    await expect(
+      page.getByRole('heading', { name: 'Customers' }),
+    ).toBeVisible();
+    await expect(page.getByRole('table')).toBeVisible();
+    await page.getByRole('button', { name: 'Register customer' }).click();
+    const registrationDialog = page.getByRole('dialog', {
+      name: 'Register customer',
+    });
+    await expect(registrationDialog).toBeVisible();
+    await registrationDialog
+      .getByLabel('Full name', { exact: true })
+      .fill('Test Customer');
+    await registrationDialog
+      .getByLabel('Phone number', { exact: true })
+      .fill('0000000000');
+    await registrationDialog
+      .getByLabel('First card serial', { exact: true })
+      .fill('TEST-SERIAL-001');
+    await registrationDialog
+      .getByLabel('Loyalty service consent (required)', { exact: true })
+      .check();
+    await page.getByRole('button', { name: 'Review details' }).click();
+
+    const dialog = page.getByRole('dialog', {
+      name: 'Review customer details',
+    });
+    await expect(dialog).toBeVisible();
+    await expect(dialog).toContainText('Test Customer');
+    await expect(dialog).toContainText('0000000000');
+    await expect(dialog).toContainText('Not provided');
+    await expect(dialog).toContainText('TEST-SERIAL-001');
+    await expect(dialog).not.toContainText(
+      /customer status|card status|linked card|card tasks|active/i,
+    );
+    await expect(
+      dialog.getByRole('button', { name: 'Edit details' }),
+    ).toBeVisible();
+    await expect(
+      dialog.getByRole('button', { name: 'Register customer' }),
+    ).toBeVisible();
+    expect(createPayloads).toHaveLength(0);
+
+    const desktopMetrics = await dialog.evaluate((panel) => {
+      const style = getComputedStyle(panel);
+      return {
+        width: panel.getBoundingClientRect().width,
+        padding: style.paddingTop,
+        radius: style.borderRadius,
+      };
+    });
+    expect(desktopMetrics.width).toBeGreaterThanOrEqual(540);
+    expect(desktopMetrics.width).toBeLessThanOrEqual(600);
+    expect(desktopMetrics.padding).toBe('32px');
+    expect(desktopMetrics.radius).toBe('16px');
+
+    await page.setViewportSize({ width: 390, height: 844 });
+    const customerFields = dialog
+      .locator('.sc-registration-review__fields')
+      .first();
+    const mobileColumns = await customerFields.evaluate(
+      (fields) =>
+        getComputedStyle(fields).gridTemplateColumns.trim().split(/\s+/).length,
+    );
+    expect(mobileColumns).toBe(1);
+    expect(
+      await page.evaluate(() => document.documentElement.scrollWidth),
+    ).toBeLessThanOrEqual(390);
+
+    await dialog.getByRole('button', { name: 'Register customer' }).click();
+    await expect(page.getByRole('heading', { name: 'Success!' })).toBeVisible();
+    await expect(
+      page.getByText('Customer registered successfully'),
+    ).toBeVisible();
+    await expect(
+      page.getByRole('link', { name: 'View customer' }),
+    ).toHaveAttribute('href', '/supervisor/customers/registered-customer-1');
+    expect(createPayloads).toEqual([
+      {
+        fullName: 'Test Customer',
+        phone: '0000000000',
+        cardSerialNumber: 'TEST-SERIAL-001',
+        loyaltyConsent: true,
+        marketingOptIn: false,
+      },
+    ]);
+    await page.getByRole('button', { name: 'Done' }).click();
+
+    const customerRow = page.getByRole('row', { name: /Test Customer/ });
+    await expect(
+      customerRow.getByRole('link', { name: 'View profile for Test Customer' }),
+    ).toHaveAttribute('href', '/supervisor/customers/registered-customer-1');
+    await page.goto(`${baseUrl}/supervisor/customers/registered-customer-1`);
+    await expect(page).toHaveURL(
+      /\/supervisor\/customers\/registered-customer-1$/,
+    );
+    const customerDialog = page.getByRole('region', {
+      name: 'Customer details',
+    });
+    await expect(
+      customerDialog.getByRole('heading', {
+        name: 'Test Customer',
+        exact: true,
+      }),
+    ).toBeVisible();
+    await expect(
+      customerDialog.getByText('0000000000', { exact: true }),
+    ).toBeVisible();
+    await expect(
+      customerDialog.getByText('Active', { exact: true }),
+    ).toBeVisible();
+    await customerDialog
+      .getByRole('button', { name: 'Edit customer details' })
+      .click();
+    await expect(
+      customerDialog.getByRole('link', { name: 'Manage linked card →' }),
+    ).toHaveAttribute(
+      'href',
+      '/supervisor/cards?tab=assign&id=registered-customer-1',
+    );
+    await expect(customerDialog.getByLabel('Full name')).toHaveValue(
+      'Test Customer',
     );
 
-    for (const response of responses) {
-      expect(response.status()).toBe(200);
+    await customerDialog.getByLabel('Full name').fill('Test Customer Updated');
+    await customerDialog.getByRole('button', { name: 'Save changes' }).click();
+    await expect(page).toHaveURL(
+      /\/supervisor\/customers\/registered-customer-1$/,
+    );
+    await expect(
+      customerDialog.getByRole('heading', {
+        name: 'Test Customer Updated',
+        exact: true,
+      }),
+    ).toBeVisible();
+    expect(profileUpdatePayloads).toEqual([
+      {
+        fullName: 'Test Customer Updated',
+        phone: '0000000000',
+        email: 'test@example.com',
+      },
+    ]);
+    await page.setViewportSize({ width: 390, height: 844 });
+    expect(
+      await page.evaluate(() => document.documentElement.scrollWidth),
+    ).toBeLessThanOrEqual(390);
+
+    await expect(page).toHaveURL(
+      /\/supervisor\/customers\/registered-customer-1$/,
+    );
+  });
+
+  test('reviews responsive Supervisor customer directory and card task workspaces', async ({
+    page,
+  }, testInfo) => {
+    const workspaces = [
+      {
+        route: '/supervisor/customers',
+        role: 'SUPERVISOR' as const,
+        task: 'customer-directory',
+        heading: 'Customers',
+      },
+    ];
+    const widths = [1440, 1024, 768, 390, 375];
+
+    for (const workspace of workspaces) {
+      await mockShell(page, workspace.role);
+      await page.setViewportSize({ width: widths[0], height: 900 });
+      await page.goto(`${baseUrl}${workspace.route}`);
+      await expect(page.locator('.shell-loading-screen')).toBeHidden();
+      for (const width of widths) {
+        await page.setViewportSize({ width, height: 900 });
+        const panel = page.locator('.supervisor-customer-directory');
+        await expect(
+          page.getByRole('heading', { name: workspace.heading }),
+        ).toBeVisible();
+        await expect(panel).toHaveAttribute('aria-label', 'Customer results');
+        await expect(
+          panel.getByRole('button', { name: 'Register customer' }),
+        ).toBeVisible();
+        await expect(
+          panel.getByRole('button', {
+            name: 'Filter customers by status, All statuses',
+          }),
+        ).toBeVisible();
+        await expect(
+          panel.getByLabel(
+            'Search by customer name, phone number, or card number',
+          ),
+        ).toBeVisible();
+
+        const measurements = await page.evaluate(() => ({
+          documentWidth: document.documentElement.scrollWidth,
+          bodyWidth: document.body.scrollWidth,
+          viewportWidth: window.innerWidth,
+        }));
+        expect(
+          measurements.documentWidth,
+          `${workspace.task} at ${width}px`,
+        ).toBeLessThanOrEqual(width);
+        expect(
+          measurements.bodyWidth,
+          `${workspace.task} at ${width}px`,
+        ).toBeLessThanOrEqual(width);
+        expect(measurements.viewportWidth).toBe(width);
+
+        const controls = panel.locator('input, button, textarea, select, a');
+        const visibleControlRects = await controls.evaluateAll((elements) =>
+          elements
+            .filter((element) => {
+              const style = getComputedStyle(element);
+              return (
+                style.display !== 'none' &&
+                style.visibility !== 'hidden' &&
+                !element.closest('.supervisor-customer-table-wrap')
+              );
+            })
+            .map((element) => {
+              const rect = element.getBoundingClientRect();
+              return {
+                tag: element.tagName,
+                x: rect.x,
+                right: rect.right,
+                width: rect.width,
+                height: rect.height,
+                className: (element as HTMLElement).className,
+                disabled: (element as HTMLButtonElement).disabled,
+              };
+            }),
+        );
+        expect(visibleControlRects.length, workspace.task).toBeGreaterThan(0);
+        if (width <= 390) {
+          const toolbar = panel.locator(
+            '.supervisor-customer-directory__toolbar',
+          );
+          expect(
+            await toolbar.evaluate((element) => element.scrollWidth),
+          ).toBeLessThanOrEqual(width);
+        } else {
+          await expect(panel.getByRole('table')).toBeVisible();
+        }
+        for (const rect of visibleControlRects) {
+          expect(
+            rect.x,
+            `${workspace.task} control left edge at ${width}px`,
+          ).toBeGreaterThanOrEqual(0);
+          expect(
+            rect.right,
+            `${workspace.task} control right edge at ${width}px`,
+          ).toBeLessThanOrEqual(width);
+          expect(rect.width).toBeGreaterThan(0);
+          if (rect.tag === 'BUTTON') {
+            const expectedControlHeight = rect.className.includes(
+              'supervisor-customer-directory__pagination-button',
+            )
+              ? 34
+              : 40;
+            expect(rect.height).toBeGreaterThanOrEqual(expectedControlHeight);
+          }
+        }
+
+        const statusRects = await panel
+          .getByRole('status')
+          .evaluateAll((statuses) =>
+            statuses.map((status) => {
+              const rect = status.getBoundingClientRect();
+              return { x: rect.x, right: rect.right, width: rect.width };
+            }),
+          );
+        for (const rect of statusRects) {
+          expect(
+            rect.x,
+            `${workspace.task} status at ${width}px`,
+          ).toBeGreaterThanOrEqual(0);
+          expect(
+            rect.right,
+            `${workspace.task} status at ${width}px`,
+          ).toBeLessThanOrEqual(width);
+          expect(rect.width).toBeGreaterThan(0);
+        }
+        const firstInput = panel.locator('input:visible').first();
+        if (await firstInput.count()) {
+          await firstInput.focus();
+          await expect(firstInput).toBeFocused();
+        }
+
+        const screenshotPath = testInfo.outputPath(
+          `supervisor-${workspace.task}-${width}px.png`,
+        );
+        await page.screenshot({ path: screenshotPath, fullPage: true });
+        testInfo.attach(`${workspace.task}-${width}px`, {
+          path: screenshotPath,
+          contentType: 'image/png',
+        });
+      }
+    }
+  });
+
+  test('preserves directory search context through a stable-ID profile and guards dirty cancellation', async ({
+    page,
+  }) => {
+    test.setTimeout(120_000);
+    await mockShell(page, 'SUPERVISOR');
+    await page.route('**/api/v1/config/operational', async (route) => {
+      const pathname = new URL(route.request().url()).pathname;
+      await route.fulfill(
+        json({
+          success: true,
+          data: {
+            tenant: { id: 'tenant-1', name: 'ShopCity' },
+            branch: {
+              id: 'branch-1',
+              name: 'Main branch',
+              timezone: 'Africa/Lagos',
+              receiptWeekStartDay: 1,
+            },
+            policies: {
+              defaultEarnRateBps: 500,
+              minRedemptionKobo: 1000,
+              maxRedemptionBasketPercent: 50,
+              purchaseFlagThresholdKobo: 100000,
+              purchaseApprovalThresholdKobo: 200000,
+              redemptionApprovalThresholdKobo: 100000,
+              offlineRedemptionDisabled: false,
+            },
+          },
+          meta: meta(pathname),
+        }),
+      );
+    });
+    await page.route('**/api/v1/customers**', async (route) => {
+      const url = new URL(route.request().url());
+      const pathname = url.pathname;
+      if (
+        pathname === '/api/v1/customers/customer-1/ledger' &&
+        route.request().method() === 'GET'
+      ) {
+        return route.fulfill(
+          json({
+            success: true,
+            data: {
+              customerId: 'customer-1',
+              items: [
+                {
+                  id: 'ledger-internal-1',
+                  receiptId: 'receipt-internal-1',
+                  source: 'RC-8807-002',
+                  staffUsername: 'cashier.one',
+                  type: 'EARN',
+                  direction: 'CREDIT',
+                  amountKobo: 1200,
+                  status: 'CONFIRMED',
+                  effectiveAt: '2025-04-22T10:45:00.000Z',
+                  smsStatus: null,
+                  allocations: [],
+                  creditLot: {
+                    id: 'lot-internal-1',
+                    originalAmountKobo: 1200,
+                    remainingAmountKobo: 1200,
+                    earnedAt: '2025-04-22T10:45:00.000Z',
+                    expiresAt: '2027-03-27T23:59:59.000Z',
+                  },
+                  restorations: [],
+                },
+              ],
+              nextCursor: null,
+              hasMore: false,
+            },
+            meta: meta(pathname),
+          }),
+        );
+      }
+      if (
+        pathname === '/api/v1/customers' &&
+        route.request().method() === 'GET'
+      ) {
+        return route.fulfill(
+          json({
+            success: true,
+            data: {
+              items: [
+                {
+                  id: 'customer-1',
+                  fullName: 'Ada Shopper',
+                  phoneE164: '+2348000000001',
+                  status: 'ACTIVE',
+                },
+              ],
+            },
+            meta: meta(pathname),
+          }),
+        );
+      }
+      if (pathname === '/api/v1/customers/customer-1/profile-projection') {
+        return route.fulfill(
+          json({
+            success: true,
+            data: {
+              customerId: 'customer-1',
+              sourceErrors: [],
+              memberSince: '2024-01-02T00:00:00.000Z',
+              transactionCount: 42,
+              redemptionCount: 27,
+              pendingApprovalsCount: 0,
+              lifetimeEarnedKobo: 9200,
+              expirySchedule: [
+                {
+                  expiresAt: '2026-12-31',
+                  remainingAmountKobo: 1200,
+                },
+              ],
+              expiryScheduleIsUpcomingWindow: true,
+              expiryScheduleLimit: 12,
+              recentActivity: [
+                {
+                  id: 'activity-1',
+                  type: 'EARNING',
+                  status: 'CONFIRMED',
+                  amountKobo: 1200,
+                  occurredAt: '2025-01-02T00:00:00.000Z',
+                },
+              ],
+              transactions: [
+                {
+                  id: 'receipt-projection-1',
+                  occurredAt: '2025-04-22T10:45:00.000Z',
+                  purchaseAmountKobo: 50_000,
+                  captureStatus: 'CAPTURED',
+                  reviewStatus: 'APPROVED',
+                },
+              ],
+              walletLedger: [],
+              redemptions: [
+                {
+                  id: 'redemption-projection-1',
+                  occurredAt: '2025-04-23T10:45:00.000Z',
+                  requestedAmountKobo: 2000,
+                  confirmedAmountKobo: 1800,
+                  status: 'CONFIRMED',
+                },
+                {
+                  id: 'redemption-pending-1',
+                  occurredAt: '2025-04-22T10:45:00.000Z',
+                  requestedAmountKobo: 700,
+                  confirmedAmountKobo: null,
+                  status: 'PENDING_APPROVAL',
+                },
+              ],
+              approvals: [],
+              statusEvents: [],
+              consent: null,
+              card: {
+                identifier: 'SER-CUSTOMER-1',
+                status: 'ACTIVE',
+                issuedAt: '2024-01-02T00:00:00.000Z',
+                blockedAt: null,
+              },
+            },
+            meta: meta(pathname),
+          }),
+        );
+      }
+      if (pathname === '/api/v1/customers/customer-1') {
+        return route.fulfill(
+          json({
+            success: true,
+            data: {
+              id: 'customer-1',
+              fullName: 'Ada Shopper',
+              phoneE164: '+2348000000001',
+              availableBalanceKobo: 12345,
+              status: 'ACTIVE',
+            },
+            meta: meta(pathname),
+          }),
+        );
+      }
+      return route.fallback();
+    });
+    await page.goto(`${baseUrl}/supervisor/customers?q=Ada`);
+    const profileLink = page.getByRole('link', {
+      name: 'View profile for Ada Shopper',
+    });
+    await expect(profileLink).toBeVisible({ timeout: 30_000 });
+    await expect(profileLink).toHaveAttribute(
+      'href',
+      '/supervisor/customers/customer-1?q=Ada',
+    );
+    await profileLink.click({ timeout: 30_000 });
+    await expect(page).toHaveURL(
+      /\/supervisor\/customers\/customer-1\?q=Ada$/,
+      {
+        timeout: 30_000,
+      },
+    );
+    const detailsCard = page.locator('.supervisor-profile-details-card');
+    await expect(detailsCard).toBeVisible({ timeout: 30_000 });
+    await expect(detailsCard.getByText('Ada Shopper')).toBeVisible();
+    await expect(detailsCard.getByText('42', { exact: true })).toBeVisible();
+    await expect(detailsCard.getByText('27', { exact: true })).toBeVisible();
+    await expect(
+      page.getByRole('img', { name: /ShopCity card preview/ }),
+    ).toHaveCount(0);
+    const annualPurchasesCard = page
+      .locator('.supervisor-profile-metric')
+      .filter({ hasText: 'Annual Purchases' });
+    await expect(annualPurchasesCard).toContainText('Not provided');
+    await expect(page.getByText('Next expiry')).toHaveCount(0);
+    await expect(page.getByLabel('Full name')).toHaveCount(0);
+    await expect(
+      page.locator('[aria-labelledby="profile-activity-title"]'),
+    ).toBeVisible();
+    await expect(
+      page.locator('[aria-labelledby="profile-expiry-title"]'),
+    ).toBeVisible();
+
+    await page.goto(
+      `${baseUrl}/supervisor/customers/customer-1?q=Ada&tab=virtual-card`,
+    );
+    await expect(
+      page.getByRole('button', { name: 'Virtual Card' }),
+    ).toHaveAttribute('aria-current', 'page');
+    await expect(
+      page.getByRole('img', {
+        name: 'ShopCity card preview for Ada Shopper; card number SER-CUSTOMER-1; status ACTIVE',
+      }),
+    ).toBeVisible();
+    await page.reload({ waitUntil: 'commit', timeout: 30_000 });
+    await expect(
+      page.getByRole('button', { name: 'Virtual Card' }),
+    ).toHaveAttribute('aria-current', 'page', { timeout: 15_000 });
+    await expect(
+      page.getByRole('img', {
+        name: 'ShopCity card preview for Ada Shopper; card number SER-CUSTOMER-1; status ACTIVE',
+      }),
+    ).toBeVisible({ timeout: 15_000 });
+
+    await page.getByRole('button', { name: 'Transactions' }).click();
+    const transactionTable = page.getByRole('table', {
+      name: 'Customer transactions',
+    });
+    await expect(transactionTable).toBeVisible();
+    await expect(transactionTable.getByRole('row')).toHaveCount(2);
+    const transactionRow = transactionTable.getByRole('row').nth(1);
+    await expect(transactionRow.locator('td').nth(0)).toHaveText(
+      'Not provided',
+    );
+    await expect(transactionRow.locator('td').nth(1)).toContainText('2025');
+    await expect(transactionRow.locator('td').nth(2)).toContainText('500.00');
+    await expect(transactionRow.locator('td').nth(3)).toHaveText(
+      'Not provided',
+    );
+    await expect(transactionRow.locator('td').nth(4)).toContainText('Captured');
+    await page.getByRole('button', { name: 'Wallet Ledger' }).click();
+    const walletLedgerTable = page.getByRole('table', {
+      name: 'Customer wallet ledger',
+    });
+    await expect(walletLedgerTable).toBeVisible();
+    const walletLedgerRow = walletLedgerTable.getByRole('row').nth(1);
+    await expect(walletLedgerRow.locator('td').nth(0)).toHaveText(
+      'RC-8807-002',
+    );
+    await expect(walletLedgerRow.locator('td').nth(1)).toContainText('2025');
+    await expect(walletLedgerRow.locator('td').nth(2)).toContainText('Earned');
+    await expect(walletLedgerRow.locator('td').nth(3)).toContainText('12.00');
+    await expect(walletLedgerRow.locator('td').nth(4)).toHaveText(
+      'Not provided',
+    );
+    await expect(walletLedgerRow.locator('td').nth(5)).toContainText(
+      '27 Mar 2027',
+    );
+    await expect(walletLedgerRow.locator('td').nth(6)).toHaveText(
+      'cashier.one',
+    );
+    await expect(walletLedgerTable).not.toContainText('ledger-internal-1');
+    await expect(walletLedgerTable).not.toContainText('receipt-internal-1');
+    await page.getByRole('button', { name: 'Redemptions' }).click();
+    const redemptionsTable = page.getByRole('table', {
+      name: 'Customer redemptions',
+    });
+    await expect(redemptionsTable).toBeVisible();
+    await expect(redemptionsTable.getByRole('row')).toHaveCount(3);
+    await expect(redemptionsTable.getByRole('columnheader')).toHaveText([
+      'Date & Time',
+      'Redemption amount',
+      'Status',
+    ]);
+    await expect(redemptionsTable.getByText('Confirmed')).toBeVisible();
+    await expect(redemptionsTable.getByText('Pending Approval')).toBeVisible();
+    await expect(redemptionsTable.getByText('Requested')).toBeVisible();
+    await expect(redemptionsTable).toContainText('18.00');
+    await expect(redemptionsTable).toContainText('7.00');
+    await expect(redemptionsTable).not.toContainText('redemption-projection-1');
+    await expect(redemptionsTable).not.toContainText('redemption-pending-1');
+    await page.getByRole('button', { name: 'Virtual Card' }).click();
+    const profileCardPreview = page.getByRole('img', {
+      name: 'ShopCity card preview for Ada Shopper; card number SER-CUSTOMER-1; status ACTIVE',
+    });
+    await expect(profileCardPreview).toBeVisible();
+    await expect(profileCardPreview).toContainText('SER-CUSTOMER-1');
+    const virtualCardBranding = profileCardPreview.locator('img');
+    await expect(virtualCardBranding).toBeVisible();
+    const brandingBounds = await virtualCardBranding.boundingBox();
+    expect(brandingBounds?.height).toBeGreaterThan(40);
+    await expect(virtualCardBranding).toHaveAttribute(
+      'src',
+      /IMG-20260802-WA0001\.jpg/,
+    );
+    await expect
+      .poll(() =>
+        virtualCardBranding.evaluate(
+          (image: HTMLImageElement) => image.naturalWidth,
+        ),
+      )
+      .toBeGreaterThan(0);
+    await expect(profileCardPreview).toContainText(/ADA SHOPPER/);
+    await expect(page.getByText(/Issued/)).toBeVisible();
+    await page.screenshot({
+      path: '/tmp/shopcity-profile-virtual-card.png',
+      fullPage: true,
+    });
+    await page.getByRole('button', { name: 'Wallet Ledger' }).click();
+    await page.screenshot({
+      path: '/tmp/shopcity-profile-wallet-ledger.png',
+      fullPage: true,
+    });
+    await page.getByRole('button', { name: 'Transactions' }).click();
+    await page.screenshot({
+      path: '/tmp/shopcity-customer-profile-transactions.png',
+      fullPage: true,
+    });
+    await page.setViewportSize({ width: 375, height: 844 });
+    expect(
+      await page.evaluate(() => document.documentElement.scrollWidth),
+    ).toBeLessThanOrEqual(375);
+    expect(
+      await page
+        .locator('.supervisor-profile-transactions__table-wrap')
+        .evaluate((element) => element.scrollWidth > element.clientWidth),
+    ).toBe(true);
+    await page.getByRole('button', { name: 'Wallet Ledger' }).click();
+    const mobileWalletLedger = page.getByRole('table', {
+      name: 'Customer wallet ledger',
+    });
+    await expect(mobileWalletLedger).toBeVisible();
+    expect(
+      await page.evaluate(() => document.documentElement.scrollWidth),
+    ).toBeLessThanOrEqual(375);
+    expect(
+      await page
+        .locator('.supervisor-profile-wallet-ledger__table-wrap')
+        .evaluate((element) => element.scrollWidth > element.clientWidth),
+    ).toBe(true);
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.getByRole('button', { name: 'Overview' }).click();
+    await detailsCard
+      .getByRole('button', { name: 'Edit customer details' })
+      .click();
+    const profileForm = page.locator('.sc-customer-details__form');
+    await expect(profileForm.getByLabel('Full name')).toHaveValue(
+      'Ada Shopper',
+    );
+    await expect(
+      page.getByRole('dialog', { name: 'Edit customer details' }),
+    ).toBeVisible();
+    await profileForm.getByRole('button', { name: 'Cancel' }).click();
+    await expect(
+      page.getByRole('dialog', { name: 'Edit customer details' }),
+    ).not.toBeVisible();
+    const desktopLayout = await page.evaluate(() => {
+      const bounds = (selector: string) => {
+        const element = document.querySelector<HTMLElement>(selector);
+        if (!element) throw new Error(`Missing layout element: ${selector}`);
+        const { x, y, width, height } = element.getBoundingClientRect();
+        return { x, y, width, height };
+      };
+      const style = (selector: string) => {
+        const element = document.querySelector<HTMLElement>(selector);
+        if (!element)
+          throw new Error(`Missing typography element: ${selector}`);
+        const computed = getComputedStyle(element);
+        return {
+          fontSize: computed.fontSize,
+          fontWeight: computed.fontWeight,
+          color: computed.color,
+          lineHeight: computed.lineHeight,
+          fontVariantNumeric: computed.fontVariantNumeric,
+          wordBreak: computed.wordBreak,
+          overflowWrap: computed.overflowWrap,
+        };
+      };
+      const card = document.querySelector<HTMLElement>(
+        '.supervisor-profile-details-card',
+      );
+      if (!card) throw new Error('Missing read-only customer details card');
+      return {
+        details: bounds('.supervisor-profile-details-card'),
+        activity: bounds('[aria-labelledby="profile-activity-title"]'),
+        expiry: bounds('[aria-labelledby="profile-expiry-title"]'),
+        paddingTop: getComputedStyle(card).paddingTop,
+        typography: {
+          base: style('.sc-customer-details--page'),
+          title: style('.supervisor-profile-header__customer h1'),
+          memberSince: style('.supervisor-profile-header > .min-w-0 > p'),
+          badge: style('.supervisor-profile-header__customer .sc-badge'),
+          metricLabel: style('.supervisor-profile-metric:first-child > span'),
+          metricValue: style('.supervisor-profile-metric:first-child > strong'),
+          pendingValue: style(
+            '.supervisor-profile-metric:nth-child(2) > strong',
+          ),
+          metricFallback: style(
+            '.supervisor-profile-metric:last-child > strong',
+          ),
+          detailLabel: style('.supervisor-profile-details-grid dt'),
+          detailValue: style('.supervisor-profile-details-grid dd'),
+          placeholder: style(
+            '.supervisor-profile-details-grid dd.is-not-provided',
+          ),
+          email: style('.supervisor-profile-details-grid__email'),
+          section: style('#customer-details-card-title'),
+          activitySection: style('#profile-activity-title'),
+          expirySection: style('#profile-expiry-title'),
+          expiryHelper: style('.supervisor-profile-expiry > p:last-child'),
+          event: style('.supervisor-profile-recent-activity__title h4'),
+          timestamp: style('.supervisor-profile-recent-activity__date'),
+          status: style('.supervisor-profile-recent-activity__status'),
+          inactiveTab: style(
+            '.supervisor-profile-tabs button:not([aria-current])',
+          ),
+          activeTab: style(
+            '.supervisor-profile-tabs button[aria-current="page"]',
+          ),
+          search: style('.global-shell-search__control input'),
+          searchButton: style('.global-shell-search__submit'),
+          connection: style('.shell-system-status'),
+          sidebar: style('.shell-nav-link'),
+          activeSidebar: style('.shell-nav-link.is-active'),
+          footer: style('.shell-sidebar-footer-link'),
+          footerMeta: style('.shell-sidebar-footer-meta'),
+        },
+      };
+    });
+    expect(desktopLayout.activity.x).toBeGreaterThan(desktopLayout.details.x);
+    expect(desktopLayout.activity.y).toBe(desktopLayout.details.y);
+    expect(desktopLayout.expiry.x).toBe(desktopLayout.details.x);
+    expect(desktopLayout.expiry.y).toBeGreaterThanOrEqual(
+      desktopLayout.details.y + desktopLayout.details.height,
+    );
+    expect(desktopLayout.paddingTop).toBe('24px');
+    const { typography } = desktopLayout;
+    expect(typography.base).toMatchObject({
+      fontSize: '16px',
+      lineHeight: '24px',
+    });
+    expect(typography.title).toMatchObject({
+      fontSize: '28px',
+      fontWeight: '700',
+      color: 'rgb(17, 24, 39)',
+    });
+    expect(typography.memberSince).toMatchObject({
+      fontSize: '14px',
+      color: 'rgb(75, 85, 99)',
+    });
+    expect(typography.badge).toMatchObject({
+      fontSize: '13px',
+      fontWeight: '600',
+    });
+    expect(typography.metricLabel).toMatchObject({
+      fontSize: '13px',
+      fontWeight: '500',
+      color: 'rgb(107, 114, 128)',
+    });
+    expect(typography.metricValue).toMatchObject({
+      fontSize: '30px',
+      fontWeight: '600',
+      color: 'rgb(17, 24, 39)',
+      fontVariantNumeric: 'tabular-nums',
+    });
+    expect(typography.pendingValue).toMatchObject({
+      fontSize: '30px',
+      fontWeight: '600',
+      fontVariantNumeric: 'tabular-nums',
+    });
+    expect(typography.metricFallback).toMatchObject({
+      fontSize: '14px',
+      fontWeight: '500',
+      color: 'rgb(107, 114, 128)',
+    });
+    expect(typography.detailLabel).toMatchObject({
+      fontSize: '13px',
+      fontWeight: '500',
+    });
+    expect(typography.detailValue).toMatchObject({
+      fontSize: '15px',
+      fontWeight: '500',
+      color: 'rgb(17, 24, 39)',
+    });
+    expect(typography.placeholder).toMatchObject({
+      fontSize: '14px',
+      fontWeight: '400',
+      color: 'rgb(107, 114, 128)',
+    });
+    expect(typography.email).toMatchObject({
+      fontSize: '14px',
+      wordBreak: 'normal',
+      overflowWrap: 'anywhere',
+    });
+    for (const section of [
+      typography.section,
+      typography.activitySection,
+      typography.expirySection,
+    ]) {
+      expect(section).toMatchObject({ fontSize: '18px', fontWeight: '600' });
+    }
+    expect(typography.expiryHelper).toMatchObject({
+      fontSize: '14px',
+      lineHeight: '21px',
+    });
+    expect(typography.event).toMatchObject({
+      fontSize: '15px',
+      fontWeight: '600',
+      lineHeight: '18px',
+    });
+    expect(typography.timestamp.fontSize).toBe('13px');
+    expect(typography.status).toMatchObject({
+      fontSize: '12px',
+      fontWeight: '600',
+    });
+    expect(typography.inactiveTab).toMatchObject({
+      fontSize: '14px',
+      fontWeight: '500',
+      color: 'rgb(75, 85, 99)',
+    });
+    expect(typography.activeTab).toMatchObject({
+      fontSize: '14px',
+      fontWeight: '600',
+      color: 'rgb(255, 255, 255)',
+    });
+    expect(typography.search.fontSize).toBe('13px');
+    expect(typography.searchButton.fontSize).toBe('13px');
+    expect(typography.connection.fontSize).toBe('12px');
+    expect(typography.sidebar).toMatchObject({
+      fontSize: '14px',
+      fontWeight: '500',
+    });
+    expect(typography.activeSidebar.fontWeight).toBe('600');
+    expect(typography.footer).toMatchObject({
+      fontSize: '14px',
+      fontWeight: '500',
+    });
+    expect(
+      Number.parseFloat(typography.footerMeta.fontSize),
+    ).toBeGreaterThanOrEqual(12);
+
+    for (const width of [1280, 1440, 1920]) {
+      await page.setViewportSize({ width, height: 900 });
+      const viewport = await page.evaluate(() => ({
+        viewportWidth: window.innerWidth,
+        documentWidth: document.documentElement.scrollWidth,
+      }));
+      expect(
+        viewport.documentWidth,
+        `horizontal overflow at ${width}px`,
+      ).toBeLessThanOrEqual(viewport.viewportWidth);
+    }
+    await page.setViewportSize({ width: 1440, height: 900 });
+
+    await page.setViewportSize({ width: 390, height: 844 });
+    const mobileLayout = await page.evaluate(() => {
+      const bounds = (selector: string) => {
+        const element = document.querySelector<HTMLElement>(selector);
+        if (!element) throw new Error(`Missing layout element: ${selector}`);
+        const { x, y, width, height } = element.getBoundingClientRect();
+        return { x, y, width, height };
+      };
+      const card = document.querySelector<HTMLElement>(
+        '.supervisor-profile-details-card',
+      );
+      if (!card) throw new Error('Missing read-only customer details card');
+      return {
+        details: bounds('.supervisor-profile-details-card'),
+        activity: bounds('[aria-labelledby="profile-activity-title"]'),
+        expiry: bounds('[aria-labelledby="profile-expiry-title"]'),
+        paddingTop: getComputedStyle(card).paddingTop,
+      };
+    });
+    expect(mobileLayout.details.x).toBe(mobileLayout.expiry.x);
+    expect(mobileLayout.expiry.y).toBeGreaterThanOrEqual(
+      mobileLayout.details.y + mobileLayout.details.height,
+    );
+    expect(mobileLayout.activity.y).toBeGreaterThanOrEqual(
+      mobileLayout.expiry.y + mobileLayout.expiry.height,
+    );
+    expect(mobileLayout.paddingTop).toBe('16px');
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.reload({ waitUntil: 'commit', timeout: 30_000 });
+    const overviewTab = page.getByRole('button', {
+      name: 'Overview',
+      exact: true,
+    });
+    await expect(overviewTab).toBeVisible({ timeout: 15_000 });
+    await overviewTab.click();
+    await expect(detailsCard).toBeVisible();
+    await detailsCard
+      .getByRole('button', { name: 'Edit customer details' })
+      .click();
+    await expect(page.getByLabel('Full name')).toHaveValue('Ada Shopper');
+    await page.getByLabel('Full name').fill('Unsaved Ada');
+    await page.getByRole('button', { name: 'Cancel' }).click();
+    await expect(
+      page.getByRole('heading', { name: 'Discard unsaved changes?' }),
+    ).toBeVisible();
+    await page.getByRole('button', { name: 'Keep editing' }).click();
+    await expect(page.getByLabel('Full name')).toHaveValue('Unsaved Ada');
+    await page.getByRole('button', { name: 'Cancel' }).click();
+    await page.getByRole('button', { name: 'Discard' }).click();
+    await expect(page).toHaveURL(
+      /\/supervisor\/customers\/customer-1(?:\?.*)?$/,
+    );
+    expect(new URL(page.url()).searchParams.get('q')).toBe('Ada');
+    await expect(detailsCard.getByText('Ada Shopper')).toBeVisible();
+  });
+
+  test('shows the issued-card directory by default and preserves direct task URLs', async ({
+    page,
+  }) => {
+    await mockShell(page, 'SUPERVISOR');
+    await page.route('**/api/v1/cards/management/issued*', (route) =>
+      route.fulfill(
+        json({
+          success: true,
+          data: { items: [], nextCursor: null, hasMore: false },
+          meta: meta('/api/v1/cards/management/issued'),
+        }),
+      ),
+    );
+    await page.goto(`${baseUrl}/supervisor/cards`);
+    await expect(page.locator('.shell-loading-screen')).toBeHidden();
+    await expect(
+      page.getByRole('region', { name: 'Issued cards directory' }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole('button', { name: 'Issued cards' }),
+    ).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Assign card' })).toHaveClass(
+      /sc-button--primary/,
+    );
+    await page.goto(`${baseUrl}/supervisor/cards?tab=assign`);
+    const assignmentDialog = page.getByRole('dialog', { name: 'Assign card' });
+    await expect(assignmentDialog).toBeVisible();
+    await expect(
+      assignmentDialog.getByRole('heading', {
+        name: 'Find an existing customer',
+      }),
+    ).toBeVisible();
+    await page.goto(`${baseUrl}/supervisor/cards?tab=issued`);
+    await expect(
+      page.getByRole('region', { name: 'Issued cards directory' }),
+    ).toBeVisible();
+    await page.reload({ waitUntil: 'domcontentloaded', timeout: 15_000 });
+    await expect(
+      page.getByRole('region', { name: 'Issued cards directory' }),
+    ).toBeVisible();
+    await page.goto(`${baseUrl}/supervisor/cards?tab=manage`);
+    await expect(
+      page.getByRole('region', { name: 'Issued cards directory' }),
+    ).toBeVisible();
+    await page.goto(`${baseUrl}/supervisor/cards?tab=invalid`);
+    await expect(
+      page.getByRole('region', { name: 'Issued cards directory' }),
+    ).toBeVisible();
+  });
+
+  test('opens assignment in a popup without changing routes and closes back to the directory', async ({
+    page,
+  }) => {
+    await mockShell(page, 'SUPERVISOR');
+    await page.goto(`${baseUrl}/supervisor/cards`);
+    await expect(page.locator('.shell-loading-screen')).toBeHidden();
+    const directoryUrl = `${baseUrl}/supervisor/cards`;
+    await expect(
+      page.getByRole('button', { name: 'Assign card' }),
+    ).toBeVisible();
+
+    await page.getByRole('button', { name: 'Assign card' }).click();
+    const assignmentDialog = page.getByRole('dialog', { name: 'Assign card' });
+    await expect(assignmentDialog).toBeVisible();
+    await expect(
+      assignmentDialog.getByRole('heading', {
+        name: 'Find an existing customer',
+      }),
+    ).toBeVisible();
+    await expect(page).toHaveURL(directoryUrl);
+
+    await assignmentDialog
+      .getByRole('button', { name: 'Close assignment' })
+      .click();
+    await expect(assignmentDialog).toHaveCount(0);
+    await expect(page).toHaveURL(directoryUrl);
+    await expect(
+      page.getByRole('table', { name: 'Issued cards' }),
+    ).toBeVisible();
+  });
+
+  test('denies Cashier and Admin direct navigation to Supervisor customer and card workflows', async ({
+    page,
+  }) => {
+    const supervisorRoutes = [
+      '/supervisor/customers?tab=manage',
+      '/supervisor/cards?tab=assign',
+    ];
+    for (const role of ['CASHIER', 'ADMIN'] as const) {
+      const permittedRoute = role === 'CASHIER' ? '/cashier' : '/admin';
+      for (const path of supervisorRoutes) {
+        await mockShell(page, role);
+        await page.goto(`${baseUrl}${path}`, { waitUntil: 'domcontentloaded' });
+        await expect(page.locator('.shell-loading-screen')).toBeHidden();
+        await expect(page).toHaveURL(`${baseUrl}${permittedRoute}`);
+        await expect(
+          page.getByRole('heading', { name: 'Hi, Supervisor!' }),
+        ).toHaveCount(0);
+        await expect(
+          page.getByRole('heading', { name: 'Find a customer' }),
+        ).toHaveCount(0);
+        await expect(
+          page.getByRole('heading', { name: 'Find an existing customer' }),
+        ).toHaveCount(0);
+      }
     }
   });
 });
 
+async function expectRoutesAvailable(
+  request: APIRequestContext,
+  hrefs: readonly string[],
+) {
+  const responses = await Promise.all(
+    hrefs.map((href) => request.get(href, { timeout: 30000 })),
+  );
+
+  for (const [index, response] of responses.entries()) {
+    expect(response.status(), hrefs[index]).toBe(200);
+  }
+}
+
+async function mockCashierOperationalConfig(page: Page) {
+  const pathname = '/api/v1/config/operational';
+  await page.route('**/api/v1/config/operational', (route) =>
+    route.fulfill(
+      json({
+        success: true,
+        data: {
+          tenant: { id: 'tenant-1', name: 'ShopCity' },
+          branch: {
+            id: 'branch-1',
+            name: 'Main branch',
+            timezone: 'Africa/Lagos',
+            receiptWeekStartDay: 1,
+          },
+          policies: {
+            defaultEarnRateBps: 500,
+            minRedemptionKobo: 1000,
+            maxRedemptionBasketPercent: 50,
+            purchaseFlagThresholdKobo: 100000,
+            purchaseApprovalThresholdKobo: 200000,
+            redemptionApprovalThresholdKobo: 100000,
+            offlineRedemptionDisabled: false,
+          },
+        },
+        meta: meta(pathname),
+      }),
+    ),
+  );
+}
+
 async function mockShell(
   page: Page,
-  role: 'CASHIER' | 'SUPERVISOR',
+  role: 'CASHIER' | 'SUPERVISOR' | 'ADMIN',
   deviceId: string | null = null,
 ) {
   await page.route('**/api/v1/**', async (route) => {
@@ -334,6 +5683,21 @@ async function mockShell(
                 balanceKobo: 5500,
               },
             ],
+          },
+          meta: meta(pathname),
+        }),
+      );
+    }
+
+    if (pathname === '/api/v1/transactions') {
+      return route.fulfill(
+        json({
+          success: true,
+          data: {
+            items: [],
+            staffOptions: [],
+            nextCursor: null,
+            hasMore: false,
           },
           meta: meta(pathname),
         }),
@@ -439,6 +5803,101 @@ async function mockShell(
                 amountKobo: 2500,
               },
             ],
+          },
+          meta: meta(pathname),
+        }),
+      );
+    }
+
+    if (pathname === '/api/v1/reports/executive-snapshot') {
+      const businessDate =
+        businessDateInTimezone('Africa/Lagos') ??
+        new Date().toISOString().slice(0, 10);
+      return route.fulfill(
+        json({
+          success: true,
+          data: {
+            scope: 'BRANCH',
+            scopeKey: 'branch-1',
+            branchId: 'branch-1',
+            timezone: 'Africa/Lagos',
+            items: [
+              {
+                reportDate: `${businessDate}T00:00:00.000Z`,
+                materializedAt: new Date().toISOString(),
+                transactionCount: 89,
+                creditIssuedKobo: 59_445_200,
+                creditRedeemedKobo: 0,
+              },
+            ],
+          },
+          meta: meta(pathname),
+        }),
+      );
+    }
+
+    if (pathname === '/api/v1/approvals') {
+      const searchQuery = new URL(route.request().url()).searchParams.get(
+        'search',
+      );
+      const pageItems = Array.from({ length: 5 }, (_, index) => ({
+        id: `approval-${index + 1}`,
+        receiptId: `receipt-${index + 1}`,
+        redemptionId: null,
+        targetType: index % 2 === 0 ? 'EARN' : 'REDEEM',
+        status: 'PENDING',
+        reasonCode: 'PURCHASE_ABOVE_APPROVAL_THRESHOLD',
+        requestedAmountKobo: 250_000 + index * 1_000,
+        requestedAt: new Date(Date.now() - index * 60_000).toISOString(),
+        expiresAt: new Date(Date.now() + 60 * 60_000).toISOString(),
+        decidedAt: null,
+        executedAt: null,
+        customer: {
+          id: `customer-${index + 1}`,
+          branchId: 'branch-1',
+          fullName: `Customer ${index + 1}`,
+        },
+        requester: { username: `cashier-${index + 1}`, role: 'CASHIER' },
+        receipt: {
+          id: `receipt-${index + 1}`,
+          customerId: `customer-${index + 1}`,
+          posReceiptNumber: `POS-${index + 1}`,
+          purchaseAmountKobo: 250_000 + index * 1_000,
+          captureStatus: 'PENDING_APPROVAL',
+          reviewStatus: 'PENDING',
+          branchId: 'branch-1',
+        },
+      }));
+      const items = searchQuery
+        ? [
+            {
+              ...pageItems[0],
+              id: 'approval-search-zara',
+              receiptId: 'receipt-search-zara',
+              customer: {
+                id: 'customer-search-zara',
+                branchId: 'branch-1',
+                fullName: 'Zara Customer',
+              },
+              requester: { username: 'cashier-zara', role: 'CASHIER' },
+              receipt: {
+                ...pageItems[0].receipt,
+                id: 'receipt-search-zara',
+                customerId: 'customer-search-zara',
+                posReceiptNumber: 'POS-ZARA',
+              },
+            },
+          ]
+        : pageItems;
+      return route.fulfill(
+        json({
+          success: true,
+          data: {
+            items,
+            totalCount: searchQuery ? 1 : 80,
+            scopeTotalCount: 80,
+            nextCursor: searchQuery ? null : 'overview-more',
+            hasMore: !searchQuery,
           },
           meta: meta(pathname),
         }),

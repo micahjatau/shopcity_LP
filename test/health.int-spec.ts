@@ -11,6 +11,7 @@ import { ApiHealthIndicator } from '../src/modules/health/api-health.indicator';
 import { HealthController } from '../src/modules/health/health.controller';
 import { PrismaHealthIndicator } from '../src/modules/health/prisma-health.indicator';
 import { RedisHealthIndicator } from '../src/modules/health/redis-health.indicator';
+import { PosDeviceTokenKeyHealthIndicator } from '../src/modules/health/pos-device-token-key.health.indicator';
 
 describe('Health readiness (int)', () => {
   let app: NestFastifyApplication;
@@ -42,6 +43,14 @@ describe('Health readiness (int)', () => {
         {
           provide: ApiHealthIndicator,
           useValue: { pingCheck: jest.fn() },
+        },
+        {
+          provide: PosDeviceTokenKeyHealthIndicator,
+          useValue: {
+            check: jest
+              .fn()
+              .mockResolvedValue({ posDeviceTokenKey: { status: 'up' } }),
+          },
         },
       ],
     }).compile();

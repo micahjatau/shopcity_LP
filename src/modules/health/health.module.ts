@@ -7,10 +7,16 @@ import { ApiHealthIndicator } from './api-health.indicator';
 import { HealthController } from './health.controller';
 import { PrismaHealthIndicator } from './prisma-health.indicator';
 import { RedisHealthIndicator } from './redis-health.indicator';
+import { PosDeviceTokenKeyHealthIndicator } from './pos-device-token-key.health.indicator';
 
 @Module({
   imports: [ConfigModule, PrismaModule, RedisModule, TerminusModule],
   controllers: [HealthController],
-  providers: [ApiHealthIndicator, PrismaHealthIndicator, RedisHealthIndicator],
+  providers: [
+    ApiHealthIndicator,
+    PrismaHealthIndicator,
+    RedisHealthIndicator,
+    PosDeviceTokenKeyHealthIndicator,
+  ],
 })
 export class HealthModule {}

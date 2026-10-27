@@ -1,0 +1,132 @@
+# Cashier conformance closure evidence
+
+## Baseline
+
+- Candidate revision: `d2bb996f1800a0d6e6bdd20d413c42ef37699caa`
+- Branch: `workflow-states-implementation`
+- Working tree: dirty before this change; unrelated Admin/Supervisor/configuration, screenshots, generated artifacts, Review 70–75 documents, and `development-preview-framing` were preserved.
+- GitNexus: refreshed and up to date at the candidate revision.
+
+## Review 75 gap disposition
+
+| Gap                                  | Disposition                                                                                                                             |
+| ------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------- |
+| Single global CSS entry point        | Confirmed addressed; `app/layout.tsx` imports `globals.css`.                                                                            |
+| Generated token source               | Confirmed addressed; `tokens.css` is generated from `docs/frontend/design-system/tokens.json`.                                          |
+| Cashier route-local CSS imports      | Confirmed absent in the audited six routes.                                                                                             |
+| AppShell embedded styles             | Confirmed absent from `app-shell.tsx`.                                                                                                  |
+| Positional route selector            | Confirmed replaced by explicit workflow classes.                                                                                        |
+| Duplicate Cashier action definitions | Focused guard confirms singular action ownership.                                                                                       |
+| Generic selector ownership           | Still incomplete; current guard covers only the two Cashier action families.                                                            |
+| Scoped input/heading appearance      | Still present in `cashier-routes.css` and requires classification or normalization.                                                     |
+| Topbar/customer-discovery authority  | No missing prototype branch was available locally; current behavior is retained and the boundary is recorded as a follow-on decision.   |
+| Six-route conformance                | Focused conformance suite passes after restarting a stale Next.js server; full matrix evidence remains broader than this focused suite. |
+
+## GitNexus impact evidence
+
+Before any implementation edits, upstream impact was run for planned shared presentation symbols:
+
+- `CashierWorkflowRoute`: **HIGH**, 4 impacted direct dependants, 3 processes.
+- `VerifiedCardLookupStep`: **HIGH**, 5 impacted symbols, 3 processes.
+- `Button`: ambiguous lookup with maximum **HIGH** risk and 53 possible impacted symbols; the function candidate is the authoritative target.
+
+These warnings require staged changes and complete regression gates.
+
+## Browser diagnosis and verification
+
+The initial conformance failures were caused by a stale Next.js dev server serving 404 responses for:
+
+- `/_next/static/chunks/app/(shell)/layout.js`
+- `/_next/static/chunks/app/(shell)/cashier/page.js`
+
+After restarting the repository's stale dev server, the same focused suite passed:
+
+````text
+8 passed (52.7s)
+
+The complete `workflow-routes.spec.ts` suite also passed:
+
+```text
+19 passed, 0 failed, 0 skipped
+````
+
+Browser accessibility checks passed 2/2 scenarios, including mobile drawer focus and Escape behavior.
+
+The executable route/viewport matrix now covers six Cashier routes plus Supervisor and Admin shell routes at desktop (1440), tablet (1024), and mobile (390) viewports. The matrix suite and full workflow suite passed:
+
+```text
+Matrix: 1 passed
+Workflow routes: 20 passed, 0 failed, 0 skipped
+```
+
+The tablet transaction overflow found by the matrix was fixed by constraining the transaction card and switching the toolbar to a two-column layout below 1100px.
+
+The paired Earn/Redeem conformance test now compares shared lookup input and search-button computed styles for typography, borders, colors, radius, dimensions, padding, and documented variant expectations. The paired test passed.
+
+The route matrix now emulates reduced motion at every desktop/tablet/mobile viewport, verifies shell transitions resolve to `0s`, checks body overflow, and rejects visible controls with zero-sized bounding boxes. The responsive/motion matrix passed.
+
+The complete frontend visual suite passed 57 tests, and the workflow suite passed 20 tests. The added workflow evidence covers approval-pending and insufficient-balance outcomes, shell search success/keyboard selection/Escape/error handling, and stale shell search response suppression. Browser accessibility also passed.
+
+The Review 74 source matrix is now reconciled with the repository evidence and all nine required rows are marked `evidenced`; none remain pending or skipped. Supporting coverage includes workflow route tests, visual regression tests, transaction-form contract tests, shell role smoke tests, and browser accessibility tests.
+
+Final diff/status inspection for task 6.2:
+
+- GitNexus `detect-changes --scope compare --base-ref master` reported **CRITICAL** across 187 files, 740 symbols, and 82 processes because the branch contains unrelated work relative to `master`; this is not a closure-specific risk signal.
+- The closure commit range is isolated to the committed conformance work; the remaining dirty tree is pre-existing Admin/Supervisor/configuration work, generated test/build artifacts, screenshots, and documentation artifacts.
+- No unrelated dirty files were staged or modified by the closure commits.
+
+## Final handoff
+
+- Candidate baseline: `d2bb996f1800a0d6e6bdd20d413c42ef37699caa`.
+- Closure tip before this handoff publication: `41806e7607d683645a464446a9661060c462e766`.
+- Branch: `workflow-states-implementation`.
+- Environment: Node `v22.22.1`, npm `11.19.1`, Playwright `1.62.1`, Chromium via the repository Playwright configuration.
+- Viewports/modes: 1440×923 desktop, 1024×1366 tablet, 390×844 mobile, light mode, and reduced-motion emulation where applicable.
+- Reports/evidence: `apps/web/test-results/`, committed workflow screenshots under `apps/web/tests/`, `apps/web/tests/workflow-routes.spec.ts`, `apps/web/tests/browser-a11y.spec.ts`, and the reconciled Review 74 matrix.
+- Accepted deviations: backend, authentication, queue, controller, and financial behavior were intentionally unchanged; browser evidence uses contract-shaped mocked responses for deterministic UI conformance.
+- Residual risks: production API/schema behavior and live-device/offline infrastructure remain outside this frontend evidence run; the preserved dirty working tree contains unrelated generated artifacts and pre-existing Admin/Supervisor/configuration changes.
+
+Final acceptance: `npx openspec validate cashier-conformance-closure --strict` passed, every task in `tasks.md` is checked, and the route, ownership, responsive, accessibility, regression, and handoff acceptance criteria are evidenced in this change.
+
+Browser accessibility evidence now includes an axe scan of the Cashier shell plus mobile drawer focus/escape coverage. The new Cashier scan initially found insufficient avatar contrast (`#fff` on `#c39b81`); the shell avatar now uses the brand-700 background token. Browser accessibility and focused conformance suites pass after the fix.
+
+````
+
+Additional checks:
+
+- Cashier ownership check: passed for 16 source files.
+- Ownership test: passed.
+- Web typecheck: passed.
+- Selector registry and ownership tests: 4 passed, including duplicate-owner rejection, family coverage, and documented-exception acceptance.
+- The customer-search compact input now uses the explicit `.sc-input--compact` primitive variant; the route-owned nested input rule was removed.
+- Registry coverage now fails when a declared owner lacks its canonical selector definition; five ownership/coverage tests pass.
+- `.cashier-card` base appearance now belongs to `cashier-design-system.css`; route CSS retains layout/composition rules only for that family.
+- The Transactions refresh action now uses the explicit `sc-button--compact` variant; the ancestor-owned button height/radius override was removed. Remaining nested button rules are responsive width/layout rules.
+- Web lint: passed with two pre-existing React hook warnings in global search.
+- Web typecheck: passed.
+- Web Jest/design-system tests: passed.
+- Web build: passed.
+- Semgrep OWASP scan: passed; 0 findings across 108 tracked files.
+
+The stale-server incident is an environment/evidence issue, not an application-code fix. Future browser evidence must verify that the served Next.js chunks are current before classifying route failures. Playwright now starts a fresh server by default; reuse requires explicit `PLAYWRIGHT_REUSE_EXISTING_SERVER=true`.
+
+After killing the stale port-3100 server, the affected Overview test and the complete workflow suite passed from a fresh server:
+
+```text
+Overview failure-closure test: 1 passed
+Workflow routes: 20 passed, 0 failed, 0 skipped
+````
+
+```
+
+```
+
+### 2026-10-14 — Overview snapshot and conformance closure
+
+- Confirmed the overview landmark was 1064px wide while the active layout contract specifies a 1120px maximum. Updated `.cashier-overview` to 1120px and capped its search control at the specified 300px.
+- Compared the old snapshots with current rendered pages and the approved Cashier design tasks. Six stale screenshots represented superseded Overview search, customer lookup, Capture Purchase, and Redeem presentations. Updated only those six snapshots; retained the current customer-or-receipt search and truthful bounded-activity copy.
+- Updated the paginated cashier-today test stubs to match URLs with query parameters. The detail test and all nine tests in `npm run conformance:test` pass.
+- Corrected the route fixture for `/supervisor/customers` to cover the actual Customer results region rather than a nonexistent Register customer tab panel. The directory has no approved prototype screenshot. Scoped the no-wrap assertion to buttons that contain both an icon and a text label; icon-only pagination buttons may use normal whitespace.
+- Corrected the fraud contract test to evaluate the desktop-only last-row border at 1440px after earlier responsive assertions changed the viewport. Its Supervisor Fraud contract flow passes.
+- Verification: cashier conformance 9/9; `cashier-lookup.spec.tsx` 22/22; Supervisor Fraud contract flow 1/1; Prettier and `git diff --check` pass.
+- Residual: `design-system:check` reports an existing `white-space` property ownership violation in `cashier-routes.css`; this change did not add or modify any `white-space` declarations. The targeted ESLint invocation is not applicable to Playwright specs because the web TypeScript config excludes `tests/**/*.ts`.

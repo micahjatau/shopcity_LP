@@ -6,10 +6,23 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Reflector } from '@nestjs/core';
-import { BranchStatus, TenantStatus, UserStatus } from '@prisma/client';
+import {
+  BranchStatus,
+  DeviceAuthBindingMode,
+  DeviceTokenCredentialStatus,
+  SessionPurpose,
+  TenantStatus,
+  UserStatus,
+} from '@prisma/client';
 import { createHash } from 'node:crypto';
 import { PrismaService } from '../../database/prisma.service';
 import { SESSION_COOKIE_NAME } from '../../config/app.constants';
+import {
+  configuredDeviceTokenKeyVersion,
+  DEVICE_TOKEN_COOKIE_NAME,
+  matchesDeviceTokenHash,
+} from './device-token';
+import { isLocalCashierTestSessionEnabledFromConfig } from '../../config/local-cashier-test-session';
 import { PUBLIC_ROUTE_KEY } from './auth.constants';
 import { parseCookies } from './cookie';
 import { AuthContext, AuthenticatedRequest, AuthUser } from './session.types';
@@ -78,7 +91,28 @@ export async function loadAuthContext(
     where: { sessionTokenHash },
     include: {
       user: { include: { tenant: true, branch: true } },
-      device: { include: { branch: true } },
+      device: {
+        include: {
+          branch: true,
+          deviceTokenCredentials: {
+            where: { status: DeviceTokenCredentialStatus.ACTIVE },
+            select: { tokenHash: true, keyVersion: true },
+          },
+        },
+      },
+      deviceCredential: {
+        select: {
+          id: true,
+          tenantId: true,
+          deviceId: true,
+          status: true,
+          authenticatorAttachment: true,
+          backupEligible: true,
+          backedUp: true,
+          attestationTrustResult: true,
+          rpId: true,
+        },
+      },
     },
   });
 
@@ -95,8 +129,40 @@ export async function loadAuthContext(
     return null;
   }
 
-  if (!isSessionDeviceEligible(session)) {
+  const expectedRpId = configService
+    .get<string>('WEBAUTHN_RP_ID')
+    ?.trim()
+    .toLowerCase();
+  if (
+    !isSessionDeviceEligible(
+      session,
+      expectedRpId,
+      isLocalCashierTestSessionEnabledFromConfig(configService),
+    )
+  ) {
     return null;
+  }
+  if (session.device?.authBindingMode === DeviceAuthBindingMode.DEVICE_TOKEN) {
+    const token = parseCookies(request.headers.cookie)[
+      DEVICE_TOKEN_COOKIE_NAME
+    ];
+    const activeCredentials = session.device.deviceTokenCredentials;
+    if (
+      session.user.role !== 'CASHIER' ||
+      activeCredentials.length !== 1 ||
+      activeCredentials[0]?.keyVersion !==
+        configuredDeviceTokenKeyVersion(
+          configService.get<number>('POS_DEVICE_TOKEN_HMAC_KEY_VERSION'),
+        ) ||
+      !token ||
+      !matchesDeviceTokenHash(
+        token,
+        activeCredentials[0].tokenHash,
+        configService.get<string>('POS_DEVICE_TOKEN_HMAC_KEY'),
+      )
+    ) {
+      return null;
+    }
   }
 
   // Device-bound users may not have a persisted branch assignment. In that
@@ -165,18 +231,42 @@ export function isAuthUserEligible(user: AuthUser): boolean {
   return true;
 }
 
-export function isSessionDeviceEligible(session: {
-  deviceId: string | null;
-  user: AuthUser;
-  device?: {
-    tenantId: string;
-    status: string;
-    branchId: string;
-    branch?: { status: string };
-  } | null;
-}): boolean {
+export function isSessionDeviceEligible(
+  session: {
+    deviceId: string | null;
+    deviceCredentialId?: string | null;
+    purpose: SessionPurpose;
+    user: AuthUser;
+    device?: {
+      tenantId: string;
+      status: string;
+      branchId: string;
+      authBindingMode?: string;
+      branch?: { status: string };
+    } | null;
+    deviceCredential?: {
+      id: string;
+      tenantId: string;
+      deviceId: string;
+      status: string;
+      authenticatorAttachment: string | null;
+      backupEligible: boolean;
+      backedUp: boolean;
+      attestationTrustResult: string;
+      rpId: string;
+    } | null;
+  },
+  expectedRpId?: string,
+  allowLocalCashierTestSession = false,
+): boolean {
+  const isCashier = session.user.role === 'CASHIER';
+  const isSmokeSession = session.purpose === SessionPurpose.SMOKE;
   if (!session.deviceId) {
-    return true;
+    return !isCashier && session.deviceCredentialId == null;
+  }
+
+  if (isCashier && session.purpose !== SessionPurpose.USER && !isSmokeSession) {
+    return false;
   }
 
   if (
@@ -195,5 +285,42 @@ export function isSessionDeviceEligible(session: {
     return false;
   }
 
+  if (
+    isCashier &&
+    isSmokeSession &&
+    allowLocalCashierTestSession &&
+    session.device.authBindingMode === 'UNPAIRED' &&
+    session.deviceCredentialId == null
+  ) {
+    return true;
+  }
+
+  if (session.device.authBindingMode === 'WEBAUTHN') {
+    const credential = session.deviceCredential;
+    return Boolean(
+      session.user.role === 'CASHIER' &&
+      session.deviceCredentialId &&
+      credential &&
+      credential.id === session.deviceCredentialId &&
+      credential.tenantId === session.user.tenantId &&
+      credential.deviceId === session.deviceId &&
+      credential.status === 'ACTIVE' &&
+      credential.attestationTrustResult === 'TRUSTED' &&
+      credential.authenticatorAttachment === 'platform' &&
+      !credential.backupEligible &&
+      !credential.backedUp &&
+      expectedRpId &&
+      credential.rpId === expectedRpId,
+    );
+  }
+
+  if (session.deviceCredentialId != null) return false;
+  if (isCashier) {
+    return (
+      (session.purpose === SessionPurpose.USER || isSmokeSession) &&
+      (session.device.authBindingMode === 'HMAC_LEGACY' ||
+        session.device.authBindingMode === 'DEVICE_TOKEN')
+    );
+  }
   return true;
 }

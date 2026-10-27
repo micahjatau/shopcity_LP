@@ -1,4 +1,5 @@
 import * as Sentry from '@sentry/node';
+import { resolveReleaseSha } from '../../config/release';
 
 export interface SentryInitOptions {
   runtime: 'api' | 'worker';
@@ -29,7 +30,7 @@ export function initializeSentryIfConfigured(
     const sentryOptions = {
       dsn,
       environment: env.NODE_ENV ?? 'development',
-      release: env.RELEASE_SHA?.trim() || undefined,
+      release: resolveReleaseSha(env),
       sendDefaultPii: false,
       beforeSend(event: SanitizableSentryEvent): SanitizableSentryEvent {
         if (event.request?.headers) {
@@ -47,7 +48,7 @@ export function initializeSentryIfConfigured(
 
     sentry.setTag('shopcity.runtime', options.runtime);
     sentry.setTag('shopcity.release.version', env.RELEASE_VERSION ?? 'unknown');
-    sentry.setTag('shopcity.release.sha', env.RELEASE_SHA ?? 'dev');
+    sentry.setTag('shopcity.release.sha', resolveReleaseSha(env));
     initialized = true;
     return true;
   } catch (error) {

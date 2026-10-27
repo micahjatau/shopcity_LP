@@ -1,60 +1,277 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { LoginForm } from '../components/auth/login-form';
-import { loginWithCredentials } from '../lib/api';
+import {
+  createLocalCashierTestSession,
+  loginWithCredentials,
+} from '../lib/api';
+import { authControllerCompleteCashierLoginV1 } from '../lib/api/generated-client';
 
 const mockReplace = jest.fn();
-
 jest.mock('next/navigation', () => ({
-  useRouter: () => ({ replace: mockReplace }),
+  useRouter: () => ({ replace: mockReplace, refresh: jest.fn() }),
 }));
-
 jest.mock('../lib/api', () => ({
+  createLocalCashierTestSession: jest.fn(),
   loginWithCredentials: jest.fn(),
 }));
+jest.mock('../lib/api/generated-client', () => ({
+  authControllerCompleteCashierLoginV1: jest.fn(),
+}));
 
-describe('LoginForm device secret handling', () => {
+describe('LoginForm', () => {
   beforeEach(() => {
     window.localStorage.clear();
     mockReplace.mockReset();
+    jest.mocked(createLocalCashierTestSession).mockReset();
     jest.mocked(loginWithCredentials).mockReset();
+    jest.mocked(authControllerCompleteCashierLoginV1).mockReset();
   });
 
-  it('does not persist the raw device secret in browser storage', () => {
-    render(<LoginForm />);
-
-    fireEvent.change(screen.getByLabelText('Device attestation secret'), {
-      target: { value: 'one-time-secret' },
-    });
-
-    expect(
-      window.localStorage.getItem('shopcity:device-attestation-secret'),
-    ).toBe(null);
-  });
-
-  it('clears the raw device secret after a sign-in attempt', async () => {
-    jest.mocked(loginWithCredentials).mockResolvedValue({
+  it('starts an explicitly enabled local cashier test session without pairing', async () => {
+    const previousNodeEnv = process.env.NODE_ENV;
+    const previousFlag =
+      process.env.NEXT_PUBLIC_DEV_CASHIER_TEST_SESSION_ENABLED;
+    process.env.NODE_ENV = 'development';
+    process.env.NEXT_PUBLIC_DEV_CASHIER_TEST_SESSION_ENABLED = 'true';
+    jest.mocked(createLocalCashierTestSession).mockResolvedValue({
       status: 200,
       data: { data: { user: { role: 'CASHIER' } } },
+    });
+
+    try {
+      render(<LoginForm />);
+      expect(screen.getByText(/expires after one hour/i)).toBeInTheDocument();
+      fireEvent.change(screen.getByLabelText('Email Address'), {
+        target: { value: 'cashier@example.test' },
+      });
+      fireEvent.click(
+        screen.getByRole('button', {
+          name: 'Start local cashier test session',
+        }),
+      );
+      await waitFor(() =>
+        expect(createLocalCashierTestSession).toHaveBeenCalledWith(
+          'cashier@example.test',
+        ),
+      );
+      await waitFor(() => expect(mockReplace).toHaveBeenCalledWith('/cashier'));
+      expect(loginWithCredentials).not.toHaveBeenCalled();
+    } finally {
+      process.env.NODE_ENV = previousNodeEnv;
+      if (previousFlag === undefined) {
+        delete process.env.NEXT_PUBLIC_DEV_CASHIER_TEST_SESSION_ENABLED;
+      } else {
+        process.env.NEXT_PUBLIC_DEV_CASHIER_TEST_SESSION_ENABLED = previousFlag;
+      }
+    }
+  });
+
+  it('does not show the local cashier test path outside development', () => {
+    const previousNodeEnv = process.env.NODE_ENV;
+    const previousFlag =
+      process.env.NEXT_PUBLIC_DEV_CASHIER_TEST_SESSION_ENABLED;
+    process.env.NODE_ENV = 'production';
+    process.env.NEXT_PUBLIC_DEV_CASHIER_TEST_SESSION_ENABLED = 'true';
+    try {
+      render(<LoginForm />);
+      expect(
+        screen.queryByRole('button', {
+          name: 'Start local cashier test session',
+        }),
+      ).not.toBeInTheDocument();
+    } finally {
+      process.env.NODE_ENV = previousNodeEnv;
+      if (previousFlag === undefined) {
+        delete process.env.NEXT_PUBLIC_DEV_CASHIER_TEST_SESSION_ENABLED;
+      } else {
+        process.env.NEXT_PUBLIC_DEV_CASHIER_TEST_SESSION_ENABLED = previousFlag;
+      }
+    }
+  });
+
+  it('keeps WebAuthn compatibility opt-in and local-development-only', async () => {
+    const previousNodeEnv = process.env.NODE_ENV;
+    const previousFlag =
+      process.env.NEXT_PUBLIC_SHOPCITY_LEGACY_DEVICE_AUTH_ENABLED;
+    process.env.NODE_ENV = 'development';
+    process.env.NEXT_PUBLIC_SHOPCITY_LEGACY_DEVICE_AUTH_ENABLED = 'true';
+    window.localStorage.setItem('shopcity:paired-device-id', 'legacy-device');
+    jest.mocked(loginWithCredentials).mockResolvedValue({
+      status: 200,
+      data: { data: { user: { role: 'ADMIN' } } },
     } as never);
 
+    try {
+      render(<LoginForm />);
+      fireEvent.click(screen.getByRole('button', { name: 'Sign In' }));
+      await waitFor(() =>
+        expect(loginWithCredentials).toHaveBeenCalledWith(
+          { username: '', password: '' },
+          { headers: { 'x-device-id': 'legacy-device' } },
+        ),
+      );
+    } finally {
+      process.env.NODE_ENV = previousNodeEnv;
+      if (previousFlag === undefined) {
+        delete process.env.NEXT_PUBLIC_SHOPCITY_LEGACY_DEVICE_AUTH_ENABLED;
+      } else {
+        process.env.NEXT_PUBLIC_SHOPCITY_LEGACY_DEVICE_AUTH_ENABLED =
+          previousFlag;
+      }
+    }
+  });
+
+  it('completes the assertion before navigating to an authenticated route', async () => {
+    window.localStorage.setItem('shopcity:paired-device-id', 'device-locator');
+    jest.mocked(loginWithCredentials).mockResolvedValue({
+      status: 202,
+      data: {
+        data: {
+          code: 'DEVICE_ASSERTION_REQUIRED',
+          attemptToken: 'ephemeral-token',
+          options: {
+            challenge: 'AQ',
+            rpId: 'localhost',
+            allowCredentials: [],
+          },
+        },
+      },
+    } as never);
+    const credential = {
+      id: 'cred',
+      rawId: new Uint8Array([1]).buffer,
+      type: 'public-key',
+      response: {
+        clientDataJSON: new Uint8Array([1]).buffer,
+        authenticatorData: new Uint8Array([2]).buffer,
+        signature: new Uint8Array([3]).buffer,
+        userHandle: null,
+      },
+      getClientExtensionResults: () => ({}),
+    };
+    Object.defineProperty(navigator, 'credentials', {
+      configurable: true,
+      value: { get: jest.fn().mockResolvedValue(credential) },
+    });
+    let complete!: (value: unknown) => void;
+    jest.mocked(authControllerCompleteCashierLoginV1).mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          complete = resolve;
+        }) as never,
+    );
     render(<LoginForm />);
-    fireEvent.change(screen.getByLabelText('Tenant / email / username'), {
+    fireEvent.change(screen.getByLabelText('Email Address'), {
       target: { value: 'cashier@example.test' },
     });
     fireEvent.change(screen.getByLabelText('Password'), {
-      target: { value: 'password' },
+      target: { value: 'private-password' },
     });
-    fireEvent.change(screen.getByLabelText('Device attestation secret'), {
-      target: { value: 'one-time-secret' },
-    });
+    fireEvent.click(screen.getByRole('button', { name: 'Sign In' }));
+    await waitFor(() =>
+      expect(authControllerCompleteCashierLoginV1).toHaveBeenCalled(),
+    );
+    expect(mockReplace).not.toHaveBeenCalled();
+    expect(window.localStorage.getItem('shopcity:paired-device-id')).toBe(
+      'device-locator',
+    );
+    expect(window.localStorage.getItem('attemptToken')).toBeNull();
+    complete({ status: 200, data: { data: { user: { role: 'CASHIER' } } } });
+    await waitFor(() => expect(mockReplace).toHaveBeenCalledWith('/cashier'));
+    expect(window.localStorage.getItem('private-password')).toBeNull();
+  });
 
-    fireEvent.submit(screen.getByRole('button', { name: 'Sign in' }));
+  it('uses role-neutral sign-in without requiring or presenting a device locator', async () => {
+    window.localStorage.setItem('shopcity:paired-device-id', 'device-locator');
+    jest.mocked(loginWithCredentials).mockResolvedValue({
+      status: 200,
+      data: { data: { user: { role: 'SUPERVISOR' } } },
+    } as never);
+    render(<LoginForm />);
 
-    await waitFor(() => {
-      expect(screen.getByLabelText('Device attestation secret')).toHaveValue(
-        '',
-      );
+    expect(screen.queryByRole('radio')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Sign In' }));
+
+    await waitFor(() =>
+      expect(mockReplace).toHaveBeenCalledWith('/supervisor'),
+    );
+    expect(loginWithCredentials).toHaveBeenCalledWith(
+      { username: '', password: '' },
+      { headers: {} },
+    );
+  });
+
+  it('does not navigate when assertion completion fails', async () => {
+    window.localStorage.setItem('shopcity:paired-device-id', 'device-locator');
+    jest.mocked(loginWithCredentials).mockResolvedValue({
+      status: 202,
+      data: {
+        data: {
+          code: 'DEVICE_ASSERTION_REQUIRED',
+          attemptToken: 'short-lived',
+          options: { challenge: 'AQ', rpId: 'localhost' },
+        },
+      },
+    } as never);
+    Object.defineProperty(navigator, 'credentials', {
+      configurable: true,
+      value: {
+        get: jest
+          .fn()
+          .mockRejectedValue(
+            Object.assign(new Error(), { name: 'NotAllowedError' }),
+          ),
+      },
     });
-    expect(mockReplace).toHaveBeenCalledWith('/cashier');
+    render(<LoginForm />);
+    fireEvent.click(screen.getByRole('button', { name: 'Sign In' }));
+    expect(await screen.findByText(/cancelled or timed out/i)).toBeVisible();
+    expect(mockReplace).not.toHaveBeenCalled();
+    expect(window.localStorage.getItem('short-lived')).toBeNull();
+  });
+
+  it('does not send a client-supplied device locator when the backend role is Admin', async () => {
+    window.localStorage.setItem('shopcity:paired-device-id', 'device-locator');
+    jest.mocked(loginWithCredentials).mockResolvedValue({
+      status: 200,
+      data: { data: { user: { role: 'ADMIN' } } },
+    } as never);
+    render(<LoginForm />);
+    fireEvent.click(screen.getByRole('button', { name: 'Sign In' }));
+    await waitFor(() => expect(mockReplace).toHaveBeenCalledWith('/admin'));
+    expect(loginWithCredentials).toHaveBeenCalledWith(
+      { username: '', password: '' },
+      { headers: {} },
+    );
+  });
+
+  it('shows a support reference for rejected credentials without revealing account state', async () => {
+    jest.mocked(loginWithCredentials).mockResolvedValue({
+      status: 401,
+      data: {
+        success: false,
+        error: { code: 'DEVICE_AUTH_FAILED', statusCode: 401 },
+        meta: { requestId: 'req-login-123' },
+      },
+    } as never);
+    render(<LoginForm />);
+    fireEvent.click(screen.getByRole('button', { name: 'Sign In' }));
+
+    expect(await screen.findByText(/Reference: req-login-123/i)).toBeVisible();
+    expect(mockReplace).not.toHaveBeenCalled();
+  });
+
+  it('does not route unknown or internal roles to the cashier workspace', async () => {
+    jest.mocked(loginWithCredentials).mockResolvedValue({
+      status: 200,
+      data: { data: { user: { role: 'SYSTEM' } } },
+    } as never);
+    render(<LoginForm />);
+    fireEvent.click(screen.getByRole('button', { name: 'Sign In' }));
+
+    expect(
+      await screen.findByText(/contact your administrator/i),
+    ).toBeVisible();
+    expect(mockReplace).not.toHaveBeenCalled();
   });
 });

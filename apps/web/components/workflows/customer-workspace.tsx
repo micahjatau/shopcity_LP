@@ -8,23 +8,34 @@ import {
   cardsControllerCreateCardV1,
   cardsControllerReplaceCardV1,
   cardsControllerUpdateStatusV1,
-  customersControllerCreateCustomerV1,
   customersControllerGetCustomerV1,
   customersControllerListCustomersV1,
-  customersControllerUpdateCustomerV1,
   customersControllerUpdateStatusV1,
   loyaltyControllerGetCustomerLedgerV1,
-  type CreateCustomerDto,
   type CustomersControllerListCustomersV1Params,
   type LoyaltyControllerGetCustomerLedgerV1Params,
-  type UpdateCustomerDto,
   type LoyaltyControllerGetCustomerLedgerV1200Data,
   type UpdateCardStatusDtoStatus,
   type UpdateCustomerStatusDtoStatus,
 } from '../../lib/api/generated-client';
 import { createApiRequest } from '../../lib/api/request';
-import { Alert, Button, Input, RadioGroup, Table } from '../../components/ui';
-import { Money, StatusBadge } from '../../components/shopcity';
+import {
+  Alert,
+  Button,
+  Checkbox,
+  Input,
+  RadioGroup,
+  Table,
+} from '../../components/ui';
+import {
+  CashierPageHeader,
+  Money,
+  StatusBadge,
+} from '../../components/shopcity';
+import {
+  useCustomerRegistrationController,
+  type CustomerRegistrationFormState,
+} from './use-customer-registration-controller';
 
 type CustomerRecord = Record<string, unknown> & {
   id?: string;
@@ -71,9 +82,11 @@ const pageNotes = [
 export function CustomerWorkspace({
   canManage = false,
   mode = 'customer',
+  presentation = 'default',
 }: Readonly<{
   canManage?: boolean;
   mode?: 'customer' | 'card';
+  presentation?: 'default' | 'supervisor';
 }> = {}) {
   const isCardMode = mode === 'card';
   const isCashier = !canManage;
@@ -107,12 +120,16 @@ export function CustomerWorkspace({
     string,
     unknown
   > | null>(null);
-  const [customerForm, setCustomerForm] = useState<
-    CreateCustomerDto & UpdateCustomerDto
-  >({ fullName: '', phone: '', email: '' });
-  const [customerFormMessage, setCustomerFormMessage] = useState(
-    'Register a customer or select one to edit their profile.',
-  );
+  const [customerForm, setCustomerForm] =
+    useState<CustomerRegistrationFormState>({
+      fullName: '',
+      phone: '',
+      email: '',
+      cardSerialNumber: '',
+      isStaff: false,
+      loyaltyConsent: false,
+      marketingOptIn: false,
+    });
 
   const linkedCards = useMemo(() => extractCustomerCards(customer), [customer]);
   const selectedCard = useMemo(
@@ -123,6 +140,19 @@ export function CustomerWorkspace({
     [linkedCards, selectedCardId],
   );
   const selectedCustomer = customer;
+  const {
+    busy: registrationBusy,
+    message: customerFormMessage,
+    saveCustomer,
+    setMessage: setCustomerFormMessage,
+  } = useCustomerRegistrationController({
+    form: customerForm,
+    setForm: setCustomerForm,
+    selectedId,
+    setSelectedId,
+    search,
+    reloadSelectedCustomer,
+  });
 
   useEffect(() => {
     if (!selectedId) {
@@ -160,6 +190,10 @@ export function CustomerWorkspace({
             fullName: String(nextCustomer.fullName ?? nextCustomer.name ?? ''),
             phone: String(nextCustomer.phoneE164 ?? nextCustomer.phone ?? ''),
             email: String(nextCustomer.email ?? ''),
+            cardSerialNumber: '',
+            isStaff: nextCustomer.isStaff === true,
+            loyaltyConsent: false,
+            marketingOptIn: false,
           });
           setCustomerStatus(
             (nextCustomer.status as UpdateCustomerStatusDtoStatus) ?? 'ACTIVE',
@@ -356,74 +390,6 @@ export function CustomerWorkspace({
     }
   }
 
-  async function saveCustomer(mode: 'create' | 'update') {
-    const payload = {
-      fullName: customerForm.fullName.trim(),
-      phone: customerForm.phone.trim(),
-      ...(customerForm.email?.trim()
-        ? { email: customerForm.email.trim() }
-        : {}),
-    } satisfies CreateCustomerDto & UpdateCustomerDto;
-
-    if (!payload.fullName || !payload.phone) {
-      setCustomerFormMessage('Full name and phone are required.');
-      return;
-    }
-    if (mode === 'update' && !selectedId) {
-      setCustomerFormMessage('Select a customer before editing.');
-      return;
-    }
-
-    setBusy(true);
-    setCustomerFormMessage(
-      mode === 'create' ? 'Registering customer…' : 'Saving customer profile…',
-    );
-    try {
-      const response =
-        mode === 'create'
-          ? await customersControllerCreateCustomerV1(
-              payload,
-              createApiRequest({
-                csrf: true,
-                idempotencyKey: crypto.randomUUID(),
-              }),
-            )
-          : await customersControllerUpdateCustomerV1(
-              selectedId!,
-              payload,
-              createApiRequest({
-                csrf: true,
-                idempotencyKey: crypto.randomUUID(),
-              }),
-            );
-      const successStatus = mode === 'create' ? 201 : 200;
-      if (response.status !== successStatus) {
-        setCustomerFormMessage(
-          `${mode === 'create' ? 'Registration' : 'Profile update'} unavailable (${response.status}).`,
-        );
-        return;
-      }
-
-      const record = response.data.data as CustomerRecord;
-      setCustomerFormMessage(
-        mode === 'create' ? 'Customer registered.' : 'Customer profile saved.',
-      );
-      if (mode === 'create' && record.id) {
-        setSelectedId(record.id);
-      }
-      await search();
-      if (mode === 'update') {
-        await reloadSelectedCustomer();
-      }
-    } catch {
-      setCustomerFormMessage(
-        `${mode === 'create' ? 'Registration' : 'Profile update'} unavailable.`,
-      );
-    } finally {
-      setBusy(false);
-    }
-  }
-
   async function updateCustomerStatus() {
     if (!selectedId) {
       setMessage('Select a customer first.');
@@ -472,6 +438,10 @@ export function CustomerWorkspace({
       if (response.status === 200) {
         const nextCustomer = response.data.data as CustomerRecord;
         setCustomer(nextCustomer);
+        setCustomerForm((current) => ({
+          ...current,
+          isStaff: nextCustomer.isStaff === true,
+        }));
         setCustomerStatus(
           (nextCustomer.status as UpdateCustomerStatusDtoStatus) ?? 'ACTIVE',
         );
@@ -506,33 +476,56 @@ export function CustomerWorkspace({
     : [];
 
   return (
-    <section style={{ display: 'grid', gap: 'var(--sc-spacing-4)' }}>
-      <header style={{ display: 'grid', gap: 'var(--sc-spacing-2)' }}>
-        <h1 style={{ margin: 0 }}>{isCardMode ? 'Cards' : 'Customers'}</h1>
-        <p
-          style={{ margin: 0, color: 'var(--sc-color-semantic-textSecondary)' }}
-        >
-          {isCardMode
-            ? 'Find a customer, then assign, replace, or update card state.'
-            : canManage
-              ? 'Search, inspect, and manage customer profiles and card state.'
-              : 'Search, inspect, and trace customer balance, history, and card state.'}
-        </p>
-        <p
-          style={{ margin: 0, color: 'var(--sc-color-semantic-textSecondary)' }}
-        >
-          Use the shell navigation for cashier, sync, and supervisor routes.
-        </p>
-      </header>
+    <section
+      className={presentation === 'supervisor' ? 'supervisor-page' : undefined}
+      style={{ display: 'grid', gap: 'var(--sc-spacing-4)' }}
+    >
+      {presentation === 'supervisor' ? (
+        <CashierPageHeader
+          className="cashier-route-header supervisor-page__header"
+          title={isCardMode ? 'Manage cards' : 'Manage customers'}
+          description={
+            isCardMode
+              ? 'Find a customer to assign, replace, or update card status.'
+              : 'Find customer profiles, review account details, and manage linked cards.'
+          }
+        />
+      ) : (
+        <>
+          <header style={{ display: 'grid', gap: 'var(--sc-spacing-2)' }}>
+            <h1 style={{ margin: 0 }}>{isCardMode ? 'Cards' : 'Customers'}</h1>
+            <p
+              style={{
+                margin: 0,
+                color: 'var(--sc-color-semantic-textSecondary)',
+              }}
+            >
+              {isCardMode
+                ? 'Find a customer, then assign, replace, or update card state.'
+                : canManage
+                  ? 'Search, inspect, and manage customer profiles and card state.'
+                  : 'Search, inspect, and trace customer balance, history, and card state.'}
+            </p>
+            <p
+              style={{
+                margin: 0,
+                color: 'var(--sc-color-semantic-textSecondary)',
+              }}
+            >
+              Use the shell navigation for cashier, sync, and supervisor routes.
+            </p>
+          </header>
 
-      <Alert
-        tone="info"
-        title={isCardMode ? 'Card route context' : 'Customer route context'}
-      >
-        {isCardMode
-          ? 'Select a customer to manage card assignment, replacement, and status.'
-          : 'Use this route for customer detail, profile editing, card assignment, replacement, and status changes.'}
-      </Alert>
+          <Alert
+            tone="info"
+            title={isCardMode ? 'Card route context' : 'Customer route context'}
+          >
+            {isCardMode
+              ? 'Select a customer to manage card assignment, replacement, and status.'
+              : 'Use this route for customer detail, profile editing, card assignment, replacement, and status changes.'}
+          </Alert>
+        </>
+      )}
 
       <div style={summaryRow}>
         <StatusBadge label="Detail-led" tone="success" />
@@ -592,9 +585,31 @@ export function CustomerWorkspace({
 
       {canManage && !isCardMode ? (
         <section
-          style={cardStyle}
+          style={{
+            ...cardStyle,
+            maxWidth: 760,
+            marginInline: 'auto',
+          }}
           aria-labelledby="customer-profile-form-title"
+          data-od-id="register-flow"
         >
+          {!selectedCustomer ? (
+            <nav
+              aria-label="Registration steps"
+              style={{
+                display: 'flex',
+                gap: 'var(--sc-spacing-3)',
+                color: 'var(--sc-color-semantic-textSecondary)',
+                fontSize: 'var(--sc-font-size-sm)',
+              }}
+            >
+              <span>Customer information</span>
+              <span aria-hidden="true">→</span>
+              <span>Initial card</span>
+              <span aria-hidden="true">→</span>
+              <span>Review</span>
+            </nav>
+          ) : null}
           <h2 id="customer-profile-form-title" style={{ marginTop: 0 }}>
             {selectedCustomer ? 'Edit customer profile' : 'Register customer'}
           </h2>
@@ -605,6 +620,7 @@ export function CustomerWorkspace({
               gap: 'var(--sc-spacing-3)',
               gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
             }}
+            data-od-id="registration-information"
           >
             <Input
               aria-label="Customer full name"
@@ -640,7 +656,98 @@ export function CustomerWorkspace({
                 }))
               }
             />
+            {selectedCustomer ? (
+              <label
+                htmlFor="customer-is-staff"
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 'var(--sc-spacing-2)',
+                }}
+              >
+                <Checkbox
+                  id="customer-is-staff"
+                  aria-label="Customer is staff"
+                  checked={customerForm.isStaff}
+                  onChange={(event) =>
+                    setCustomerForm((current) => ({
+                      ...current,
+                      isStaff: event.target.checked,
+                    }))
+                  }
+                />
+                Mark as staff (not eligible to earn)
+              </label>
+            ) : null}
+            {!selectedCustomer ? (
+              <fieldset className="customer-registration-consent-options">
+                <legend>Customer consent · v1.2 · privacy v2.0</legend>
+                <label htmlFor="workspace-loyalty-consent">
+                  <Checkbox
+                    id="workspace-loyalty-consent"
+                    aria-label="Loyalty service consent (required)"
+                    checked={customerForm.loyaltyConsent}
+                    onChange={(event) =>
+                      setCustomerForm((current) => ({
+                        ...current,
+                        loyaltyConsent: event.target.checked,
+                      }))
+                    }
+                  />
+                  I confirm the customer agrees to ShopCity holding purchase and
+                  wallet records to operate ShopCity Credit.
+                </label>
+                <label htmlFor="workspace-marketing-opt-in">
+                  <Checkbox
+                    id="workspace-marketing-opt-in"
+                    aria-label="Marketing opt-in (optional)"
+                    checked={customerForm.marketingOptIn}
+                    onChange={(event) =>
+                      setCustomerForm((current) => ({
+                        ...current,
+                        marketingOptIn: event.target.checked,
+                      }))
+                    }
+                  />
+                  Optional: offers and campaign messages by WhatsApp or SMS
+                </label>
+              </fieldset>
+            ) : null}
+            {!selectedCustomer ? (
+              <div data-od-id="registration-card">
+                <Input
+                  aria-label="Initial card serial number"
+                  placeholder="Initial card serial number"
+                  value={customerForm.cardSerialNumber}
+                  onChange={(event) =>
+                    setCustomerForm((current) => ({
+                      ...current,
+                      cardSerialNumber: event.target.value,
+                    }))
+                  }
+                />
+              </div>
+            ) : null}
           </div>
+          {!selectedCustomer ? (
+            <div
+              data-od-id="registration-review"
+              style={{
+                display: 'grid',
+                gap: 'var(--sc-spacing-2)',
+                padding: 'var(--sc-spacing-3)',
+                borderRadius: 'var(--sc-radius-md)',
+                background: 'var(--sc-color-semantic-surfaceSubtle)',
+              }}
+            >
+              <strong>Review registration</strong>
+              <span>{customerForm.fullName || 'Full name pending'}</span>
+              <span>{customerForm.phone || 'Phone pending'}</span>
+              <span>
+                {customerForm.cardSerialNumber || 'Initial card pending'}
+              </span>
+            </div>
+          ) : null}
           <div
             style={{
               display: 'flex',
@@ -653,7 +760,7 @@ export function CustomerWorkspace({
               onClick={() =>
                 void saveCustomer(selectedCustomer ? 'update' : 'create')
               }
-              loading={busy}
+              loading={registrationBusy}
             >
               {selectedCustomer ? 'Save profile' : 'Register customer'}
             </Button>
@@ -662,7 +769,15 @@ export function CustomerWorkspace({
                 variant="secondary"
                 onClick={() => {
                   setSelectedId(null);
-                  setCustomerForm({ fullName: '', phone: '', email: '' });
+                  setCustomerForm({
+                    fullName: '',
+                    phone: '',
+                    email: '',
+                    cardSerialNumber: '',
+                    isStaff: false,
+                    loyaltyConsent: false,
+                    marketingOptIn: false,
+                  });
                   setCustomerFormMessage(
                     'Register a customer or select one to edit their profile.',
                   );
@@ -705,6 +820,7 @@ export function CustomerWorkspace({
                     <tr key={item.id ?? item.phoneE164 ?? item.fullName}>
                       <td>
                         <button
+                          className="sc-row-action"
                           type="button"
                           onClick={() => setSelectedId(item.id ?? null)}
                           style={rowButton}
@@ -882,6 +998,7 @@ export function CustomerWorkspace({
                   <tr key={card.id ?? card.serialNumber}>
                     <td>
                       <button
+                        className="sc-row-action"
                         type="button"
                         onClick={() => {
                           setSelectedCardId(card.id ?? null);
