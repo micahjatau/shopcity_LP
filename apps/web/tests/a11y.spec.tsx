@@ -289,6 +289,16 @@ describe('frontend accessibility gates', () => {
         level: 1,
       }),
     ).toBeInTheDocument();
+    expect(
+      screen.getByRole('img', {
+        name: 'Example ShopCity virtual rewards card',
+      }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByAltText('ShopCity Supermarket logo'),
+    ).toBeInTheDocument();
+    expect(screen.getAllByText(/No\. 35, Yakubu Gowon Way/)).toHaveLength(1);
+    expect(screen.getByText(/All rights reserved/i)).toBeInTheDocument();
     expect(screen.getByRole('link', { name: /sign in/i })).toBeInTheDocument();
     expect(await runAxe(document.body)).toHaveLength(0);
     unmount();

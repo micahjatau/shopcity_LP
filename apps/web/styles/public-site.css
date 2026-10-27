@@ -2,19 +2,21 @@
   --public-ink: #222421;
   --public-muted: #5d625e;
   --public-red: #a51d25;
+  --public-navy: #10213f;
   min-height: 100dvh;
   color: var(--public-ink);
   background: #fbfbf8;
 }
-.public-header,
-.public-footer {
+.public-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 24px;
-  max-width: 1200px;
-  margin: 0 auto;
-  padding: 22px 32px;
+  width: 100%;
+  margin: 0;
+  padding: 16px max(32px, calc((100% - 1136px) / 2));
+  background: var(--public-red);
+  color: #fff;
 }
 .public-brand img {
   display: block;
@@ -29,19 +31,23 @@
   gap: 30px;
 }
 .public-nav a,
-.public-footer a {
+.public-contact address a {
   color: inherit;
   text-decoration: none;
 }
 .public-nav a:hover,
-.public-footer a:hover {
+.public-contact address a:hover {
   text-decoration: underline;
 }
 .public-nav-cta {
-  border: 1px solid #d2d4cf;
+  border: 1px solid rgb(255 255 255 / 70%);
   border-radius: 999px;
   padding: 10px 20px;
   font-weight: 650;
+}
+.public-nav .public-nav-cta:hover {
+  background: rgb(255 255 255 / 12%);
+  text-decoration: none;
 }
 .public-hero {
   display: grid;
@@ -105,9 +111,12 @@
   transform: translateY(-2px);
 }
 .public-button:focus-visible,
-.public-nav a:focus-visible,
 .public-actions a:focus-visible {
   outline: 3px solid #222;
+  outline-offset: 4px;
+}
+.public-header a:focus-visible {
+  outline: 3px solid #fff;
   outline-offset: 4px;
 }
 .public-text-link {
@@ -125,16 +134,14 @@
   background: #f0efea;
   overflow: hidden;
 }
-.public-hero-art img {
-  width: min(76%, 380px);
-  height: auto;
+.public-hero-art > figure {
+  max-width: min(100%, 380px);
 }
-.public-art-note {
-  position: absolute;
-  right: 20px;
-  bottom: 18px;
-  color: #51534f;
-  font-size: 0.85rem;
+.public-hero-art > figure > div > p:first-child {
+  font-size: 0.875rem;
+}
+.public-hero-art > figure > div > p + p {
+  font-size: 0.75rem;
 }
 .public-about {
   display: grid;
@@ -196,7 +203,7 @@
   grid-template-columns: 1.1fr 0.9fr;
   gap: 50px;
   padding: 64px max(32px, calc((100% - 1136px) / 2));
-  background: #272b28;
+  background: var(--public-navy);
   color: #fff;
 }
 .public-contact .public-kicker {
@@ -207,7 +214,7 @@
 }
 .public-button-light {
   background: #fff;
-  color: #272b28;
+  color: var(--public-navy);
 }
 .public-button-light:hover {
   background: #ededeb;
@@ -227,19 +234,17 @@
 .public-contact address strong {
   color: white;
 }
-.public-footer {
-  align-items: flex-start;
-  flex-wrap: wrap;
-  color: var(--public-muted);
+.public-contact-footer {
+  grid-column: 1 / -1;
+  display: flex;
+  justify-content: flex-end;
+  padding-top: 18px;
+  border-top: 1px solid rgb(255 255 255 / 20%);
+  color: #e1e7f0;
   font-size: 0.82rem;
 }
-.public-footer small {
-  flex-basis: 100%;
-  padding-top: 8px;
-}
 @media (max-width: 760px) {
-  .public-header,
-  .public-footer {
+  .public-header {
     padding: 18px 20px;
   }
   .public-brand img {
@@ -280,12 +285,23 @@
     gap: 34px;
     padding: 46px 20px;
   }
-  .public-footer {
-    display: grid;
-    gap: 10px;
+  .public-contact-footer {
+    justify-content: flex-start;
   }
-  .public-footer small {
-    padding-top: 0;
+}
+@media (max-width: 420px) {
+  .public-header {
+    gap: 12px;
+  }
+  .public-brand img {
+    width: 96px;
+  }
+  .public-nav {
+    gap: 10px;
+    font-size: 0.8rem;
+  }
+  .public-nav-cta {
+    padding: 8px 9px;
   }
 }
 @media (prefers-reduced-motion: reduce) {

@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import Image from 'next/image';
 import Link from 'next/link';
+import { SupervisorVirtualCardPreview } from '../components/workflows/supervisor-virtual-card-preview';
 
 export const metadata: Metadata = {
   title: 'ShopCity Supermarket | Shop and Earn Rewards',
@@ -74,15 +75,14 @@ export default function HomePage() {
             </a>
           </div>
         </div>
-        <div className="public-hero-art" aria-hidden="true">
-          <Image
-            src="/brand/shopcity-card.svg"
-            alt=""
-            width={380}
-            height={300}
-            priority
+        <div className="public-hero-art">
+          <SupervisorVirtualCardPreview
+            customerName="Member"
+            serialNumber="Rewards card"
+            status="Preview"
+            compact
+            ariaLabel="Example ShopCity virtual rewards card"
           />
-          <span className="public-art-note">Shop. Earn. Redeem.</span>
         </div>
       </section>
 
@@ -138,16 +138,12 @@ export default function HomePage() {
           <a href={`tel:${phone.replaceAll(' ', '')}`}>{phone}</a>
           <span>{address}</span>
         </address>
+        <footer className="public-contact-footer">
+          <small>
+            © {new Date().getFullYear()} ShopCity. All rights reserved.
+          </small>
+        </footer>
       </section>
-
-      <footer className="public-footer">
-        <span>{businessName}</span>
-        <a href={`mailto:${email}`}>{email}</a>
-        <span>{address}</span>
-        <small>
-          © {new Date().getFullYear()} ShopCity. All rights reserved.
-        </small>
-      </footer>
     </main>
   );
 }
