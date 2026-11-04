@@ -17826,6 +17826,315 @@ export type ReportsControllerGetPilotOperationsSummaryV1503 = {
   meta: ReportsControllerGetPilotOperationsSummaryV1503Meta;
 };
 
+export type ReportsControllerGetPilotOperationsHistoryV1Params = {
+  /**
+   * Hourly history window; defaults to 7d
+   */
+  window?: ReportsControllerGetPilotOperationsHistoryV1Window;
+};
+
+export type ReportsControllerGetPilotOperationsHistoryV1Window =
+  (typeof ReportsControllerGetPilotOperationsHistoryV1Window)[keyof typeof ReportsControllerGetPilotOperationsHistoryV1Window];
+
+export const ReportsControllerGetPilotOperationsHistoryV1Window = {
+  '24h': '24h',
+  '7d': '7d',
+  '30d': '30d',
+} as const;
+
+export type ReportsControllerGetPilotOperationsHistoryV1200DataWindow =
+  (typeof ReportsControllerGetPilotOperationsHistoryV1200DataWindow)[keyof typeof ReportsControllerGetPilotOperationsHistoryV1200DataWindow];
+
+export const ReportsControllerGetPilotOperationsHistoryV1200DataWindow = {
+  '24h': '24h',
+  '7d': '7d',
+  '30d': '30d',
+} as const;
+
+export type ReportsControllerGetPilotOperationsHistoryV1200DataItemsItemOutbox =
+  {
+    /** @minimum 0 */
+    backlogCount: number;
+    /** @minimum 0 */
+    staleCount: number;
+  };
+
+export type ReportsControllerGetPilotOperationsHistoryV1200DataItemsItemSms = {
+  /** @minimum 0 */
+  failedCount: number;
+};
+
+export type ReportsControllerGetPilotOperationsHistoryV1200DataItemsItemOfflineSync =
+  {
+    /** @minimum 0 */
+    failureCount: number;
+  };
+
+export type ReportsControllerGetPilotOperationsHistoryV1200DataItemsItemFraud =
+  {
+    /** @minimum 0 */
+    openCount: number;
+  };
+
+export type ReportsControllerGetPilotOperationsHistoryV1200DataItemsItemReports =
+  {
+    /** @minimum 0 */
+    staleCount: number;
+  };
+
+export type ReportsControllerGetPilotOperationsHistoryV1200DataItemsItemReconciliation =
+  {
+    healthy: boolean;
+    /** @minimum 0 */
+    mismatchCount: number;
+  };
+
+export type ReportsControllerGetPilotOperationsHistoryV1200DataItemsItem = {
+  bucketStart: string;
+  capturedAt: string;
+  outbox: ReportsControllerGetPilotOperationsHistoryV1200DataItemsItemOutbox;
+  sms: ReportsControllerGetPilotOperationsHistoryV1200DataItemsItemSms;
+  offlineSync: ReportsControllerGetPilotOperationsHistoryV1200DataItemsItemOfflineSync;
+  fraud: ReportsControllerGetPilotOperationsHistoryV1200DataItemsItemFraud;
+  reports: ReportsControllerGetPilotOperationsHistoryV1200DataItemsItemReports;
+  reconciliation: ReportsControllerGetPilotOperationsHistoryV1200DataItemsItemReconciliation;
+};
+
+export type ReportsControllerGetPilotOperationsHistoryV1200Data = {
+  window: ReportsControllerGetPilotOperationsHistoryV1200DataWindow;
+  generatedAt: string;
+  /** @maxItems 720 */
+  items: ReportsControllerGetPilotOperationsHistoryV1200DataItemsItem[];
+};
+
+export type ReportsControllerGetPilotOperationsHistoryV1200Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type ReportsControllerGetPilotOperationsHistoryV1200 = {
+  success: boolean;
+  data: ReportsControllerGetPilotOperationsHistoryV1200Data;
+  meta: ReportsControllerGetPilotOperationsHistoryV1200Meta;
+};
+
+/**
+ * @nullable
+ */
+export type ReportsControllerGetPilotOperationsHistoryV1400ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type ReportsControllerGetPilotOperationsHistoryV1400Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: ReportsControllerGetPilotOperationsHistoryV1400ErrorDetails;
+};
+
+export type ReportsControllerGetPilotOperationsHistoryV1400Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type ReportsControllerGetPilotOperationsHistoryV1400 = {
+  success: boolean;
+  error: ReportsControllerGetPilotOperationsHistoryV1400Error;
+  meta: ReportsControllerGetPilotOperationsHistoryV1400Meta;
+};
+
+/**
+ * @nullable
+ */
+export type ReportsControllerGetPilotOperationsHistoryV1401ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type ReportsControllerGetPilotOperationsHistoryV1401Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: ReportsControllerGetPilotOperationsHistoryV1401ErrorDetails;
+};
+
+export type ReportsControllerGetPilotOperationsHistoryV1401Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type ReportsControllerGetPilotOperationsHistoryV1401 = {
+  success: boolean;
+  error: ReportsControllerGetPilotOperationsHistoryV1401Error;
+  meta: ReportsControllerGetPilotOperationsHistoryV1401Meta;
+};
+
+/**
+ * @nullable
+ */
+export type ReportsControllerGetPilotOperationsHistoryV1403ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type ReportsControllerGetPilotOperationsHistoryV1403Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: ReportsControllerGetPilotOperationsHistoryV1403ErrorDetails;
+};
+
+export type ReportsControllerGetPilotOperationsHistoryV1403Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type ReportsControllerGetPilotOperationsHistoryV1403 = {
+  success: boolean;
+  error: ReportsControllerGetPilotOperationsHistoryV1403Error;
+  meta: ReportsControllerGetPilotOperationsHistoryV1403Meta;
+};
+
+/**
+ * @nullable
+ */
+export type ReportsControllerGetPilotOperationsHistoryV1404ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type ReportsControllerGetPilotOperationsHistoryV1404Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: ReportsControllerGetPilotOperationsHistoryV1404ErrorDetails;
+};
+
+export type ReportsControllerGetPilotOperationsHistoryV1404Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type ReportsControllerGetPilotOperationsHistoryV1404 = {
+  success: boolean;
+  error: ReportsControllerGetPilotOperationsHistoryV1404Error;
+  meta: ReportsControllerGetPilotOperationsHistoryV1404Meta;
+};
+
+/**
+ * @nullable
+ */
+export type ReportsControllerGetPilotOperationsHistoryV1409ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type ReportsControllerGetPilotOperationsHistoryV1409Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: ReportsControllerGetPilotOperationsHistoryV1409ErrorDetails;
+};
+
+export type ReportsControllerGetPilotOperationsHistoryV1409Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type ReportsControllerGetPilotOperationsHistoryV1409 = {
+  success: boolean;
+  error: ReportsControllerGetPilotOperationsHistoryV1409Error;
+  meta: ReportsControllerGetPilotOperationsHistoryV1409Meta;
+};
+
+/**
+ * @nullable
+ */
+export type ReportsControllerGetPilotOperationsHistoryV1422ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type ReportsControllerGetPilotOperationsHistoryV1422Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: ReportsControllerGetPilotOperationsHistoryV1422ErrorDetails;
+};
+
+export type ReportsControllerGetPilotOperationsHistoryV1422Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type ReportsControllerGetPilotOperationsHistoryV1422 = {
+  success: boolean;
+  error: ReportsControllerGetPilotOperationsHistoryV1422Error;
+  meta: ReportsControllerGetPilotOperationsHistoryV1422Meta;
+};
+
+/**
+ * @nullable
+ */
+export type ReportsControllerGetPilotOperationsHistoryV1429ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type ReportsControllerGetPilotOperationsHistoryV1429Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: ReportsControllerGetPilotOperationsHistoryV1429ErrorDetails;
+};
+
+export type ReportsControllerGetPilotOperationsHistoryV1429Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type ReportsControllerGetPilotOperationsHistoryV1429 = {
+  success: boolean;
+  error: ReportsControllerGetPilotOperationsHistoryV1429Error;
+  meta: ReportsControllerGetPilotOperationsHistoryV1429Meta;
+};
+
+/**
+ * @nullable
+ */
+export type ReportsControllerGetPilotOperationsHistoryV1503ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type ReportsControllerGetPilotOperationsHistoryV1503Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: ReportsControllerGetPilotOperationsHistoryV1503ErrorDetails;
+};
+
+export type ReportsControllerGetPilotOperationsHistoryV1503Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type ReportsControllerGetPilotOperationsHistoryV1503 = {
+  success: boolean;
+  error: ReportsControllerGetPilotOperationsHistoryV1503Error;
+  meta: ReportsControllerGetPilotOperationsHistoryV1503Meta;
+};
+
 export type ReportsControllerListMaterializationStateV1Params = {
   branchId?: string;
   timezone?: string;
@@ -26829,6 +27138,117 @@ export const reportsControllerGetPilotOperationsSummaryV1 = async (
     status: res.status,
     headers: res.headers,
   } as reportsControllerGetPilotOperationsSummaryV1Response;
+};
+
+export type reportsControllerGetPilotOperationsHistoryV1Response200 = {
+  data: ReportsControllerGetPilotOperationsHistoryV1200;
+  status: 200;
+};
+
+export type reportsControllerGetPilotOperationsHistoryV1Response400 = {
+  data: ReportsControllerGetPilotOperationsHistoryV1400;
+  status: 400;
+};
+
+export type reportsControllerGetPilotOperationsHistoryV1Response401 = {
+  data: ReportsControllerGetPilotOperationsHistoryV1401;
+  status: 401;
+};
+
+export type reportsControllerGetPilotOperationsHistoryV1Response403 = {
+  data: ReportsControllerGetPilotOperationsHistoryV1403;
+  status: 403;
+};
+
+export type reportsControllerGetPilotOperationsHistoryV1Response404 = {
+  data: ReportsControllerGetPilotOperationsHistoryV1404;
+  status: 404;
+};
+
+export type reportsControllerGetPilotOperationsHistoryV1Response409 = {
+  data: ReportsControllerGetPilotOperationsHistoryV1409;
+  status: 409;
+};
+
+export type reportsControllerGetPilotOperationsHistoryV1Response422 = {
+  data: ReportsControllerGetPilotOperationsHistoryV1422;
+  status: 422;
+};
+
+export type reportsControllerGetPilotOperationsHistoryV1Response429 = {
+  data: ReportsControllerGetPilotOperationsHistoryV1429;
+  status: 429;
+};
+
+export type reportsControllerGetPilotOperationsHistoryV1Response503 = {
+  data: ReportsControllerGetPilotOperationsHistoryV1503;
+  status: 503;
+};
+
+export type reportsControllerGetPilotOperationsHistoryV1ResponseSuccess =
+  reportsControllerGetPilotOperationsHistoryV1Response200 & {
+    headers: Headers;
+  };
+export type reportsControllerGetPilotOperationsHistoryV1ResponseError = (
+  | reportsControllerGetPilotOperationsHistoryV1Response400
+  | reportsControllerGetPilotOperationsHistoryV1Response401
+  | reportsControllerGetPilotOperationsHistoryV1Response403
+  | reportsControllerGetPilotOperationsHistoryV1Response404
+  | reportsControllerGetPilotOperationsHistoryV1Response409
+  | reportsControllerGetPilotOperationsHistoryV1Response422
+  | reportsControllerGetPilotOperationsHistoryV1Response429
+  | reportsControllerGetPilotOperationsHistoryV1Response503
+) & {
+  headers: Headers;
+};
+
+export type reportsControllerGetPilotOperationsHistoryV1Response =
+  | reportsControllerGetPilotOperationsHistoryV1ResponseSuccess
+  | reportsControllerGetPilotOperationsHistoryV1ResponseError;
+
+export const getReportsControllerGetPilotOperationsHistoryV1Url = (
+  params?: ReportsControllerGetPilotOperationsHistoryV1Params,
+) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value));
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/v1/reports/pilot-operations-history?${stringifiedParams}`
+    : `/api/v1/reports/pilot-operations-history`;
+};
+
+/**
+ * Get pilot operations health history
+ * @summary Get pilot operations health history
+ */
+export const reportsControllerGetPilotOperationsHistoryV1 = async (
+  params?: ReportsControllerGetPilotOperationsHistoryV1Params,
+  options?: RequestInit,
+): Promise<reportsControllerGetPilotOperationsHistoryV1Response> => {
+  const res = await fetch(
+    getReportsControllerGetPilotOperationsHistoryV1Url(params),
+    {
+      ...options,
+      method: 'GET',
+    },
+  );
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: reportsControllerGetPilotOperationsHistoryV1Response['data'] =
+    body ? JSON.parse(body) : {};
+  return {
+    data,
+    status: res.status,
+    headers: res.headers,
+  } as reportsControllerGetPilotOperationsHistoryV1Response;
 };
 
 export type reportsControllerListMaterializationStateV1Response200 = {

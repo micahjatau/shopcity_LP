@@ -1,0 +1,4 @@
+schema: spec-driven
+created: 2026-11-01
+goal: Persist tenant-scoped hourly operational health snapshots and provide an
+  Admin-only health trend chart on the Admin Operations Overview.

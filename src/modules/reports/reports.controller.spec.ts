@@ -85,6 +85,24 @@ describe('ReportsController', () => {
     );
   });
 
+  it('delegates pilot operations history with session tenant scope', async () => {
+    const { service, getPilotOperationsHistory } = reportsServiceStub();
+    const controller = new ReportsController(
+      service,
+      exportServiceStub().service,
+    );
+    const context = adminContext();
+
+    await expect(
+      controller.getPilotOperationsHistory(context, '30d'),
+    ).resolves.toMatchObject({ window: '30d', items: [] });
+    expect(getPilotOperationsHistory).toHaveBeenCalledWith(
+      'tenant-1',
+      context,
+      '30d',
+    );
+  });
+
   it('schedules a Supervisor branch dashboard refresh', async () => {
     const exportService = exportServiceStub();
     const controller = new ReportsController(
@@ -155,6 +173,7 @@ function adminContext() {
 function reportsServiceStub(): {
   service: ReportsService;
   getPilotOperationsSummary: jest.Mock;
+  getPilotOperationsHistory: jest.Mock;
   listCashierToday: jest.Mock;
 } {
   const listCashierToday = jest.fn().mockResolvedValue({
@@ -176,6 +195,11 @@ function reportsServiceStub(): {
     reports: { staleCount: 0 },
     reconciliation: { healthy: true, mismatchCount: 0 },
   });
+  const getPilotOperationsHistory = jest.fn().mockResolvedValue({
+    window: '30d',
+    generatedAt: '2026-08-13T00:00:00.000Z',
+    items: [],
+  });
 
   return {
     service: {
@@ -187,12 +211,14 @@ function reportsServiceStub(): {
         items: [],
       }),
       getPilotOperationsSummary,
+      getPilotOperationsHistory,
       listCashierToday,
       listLiabilityAgeing: jest.fn(),
       listCustomerPerformance: jest.fn(),
       listMaterializationState: jest.fn(),
     } as unknown as ReportsService,
     getPilotOperationsSummary,
+    getPilotOperationsHistory,
     listCashierToday,
   };
 }

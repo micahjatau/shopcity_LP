@@ -232,6 +232,7 @@ model Tenant {
   deviceAttestations                DeviceAttestation[]
   offlineSyncAttempts               OfflineSyncAttempt[]
   fraudFlags                        FraudFlag[]
+  pilotOperationsSnapshots          PilotOperationsSnapshot[]
   policyConfigurations              PolicyConfiguration[]
 }
 
@@ -978,6 +979,25 @@ model FraudFlag {
   @@index([tenantId, receiptId])
   @@index([tenantId, ledgerEntryId])
   @@index([tenantId, redemptionId])
+}
+
+model PilotOperationsSnapshot {
+  id                          String   @id @default(uuid())
+  tenantId                    String
+  bucketStart                 DateTime
+  capturedAt                  DateTime
+  outboxBacklogCount          Int
+  outboxStaleCount            Int
+  smsFailedCount              Int
+  offlineSyncFailureCount     Int
+  fraudOpenCount              Int
+  staleReportCount            Int
+  reconciliationHealthy       Boolean
+  reconciliationMismatchCount Int
+  tenant                      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+
+  @@unique([tenantId, bucketStart])
+  @@index([capturedAt])
 }
 
 model ReportMaterializationState {

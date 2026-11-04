@@ -4,6 +4,7 @@ import { ConfigService } from '@nestjs/config';
 import { PrismaService } from './database/prisma.service';
 import { AuditService } from './modules/audit/audit.service';
 import { ReportMaterializerService } from './modules/reports/report-materializer.service';
+import { ReportsService } from './modules/reports/reports.service';
 import {
   loadWorkerConfig,
   OutboxWorkerRuntime,
@@ -18,6 +19,7 @@ import {
   loadReportMaterializationWorkerConfig,
   ReportMaterializationWorkerRuntime,
 } from './jobs/report-materialization.worker';
+import { PilotOperationsHistoryWorkerRuntime } from './jobs/pilot-operations-history.worker';
 import { CreditExpiryService } from './modules/credit-expiry/credit-expiry.service';
 import { ExpiryReminderService } from './modules/credit-expiry/expiry-reminder.service';
 import { initializeSentryIfConfigured } from './common/observability/sentry';
@@ -35,10 +37,14 @@ export async function bootstrap() {
   const config = loadWorkerConfig(process.env);
   const smsProvider = createSmsProvider(process.env);
   const prisma = new PrismaService();
+  const configService = new ConfigService(
+    process.env as Record<string, string | undefined>,
+  );
   const reportMaterializer = new ReportMaterializerService(
     prisma,
-    new ConfigService(process.env as Record<string, string | undefined>),
+    configService,
   );
+  const reportsService = new ReportsService(prisma, configService);
   const reportConfig = loadReportMaterializationWorkerConfig();
   const runtime = new OutboxWorkerRuntime(
     prisma,
@@ -61,6 +67,10 @@ export async function bootstrap() {
     reportMaterializer,
     reportConfig,
   );
+  const pilotOperationsHistoryRuntime = new PilotOperationsHistoryWorkerRuntime(
+    prisma,
+    reportsService,
+  );
   const approvalExpiryRuntime = new ApprovalExpiryWorkerRuntime(
     prisma,
     new AuditService(prisma),
@@ -70,6 +80,7 @@ export async function bootstrap() {
     await Promise.allSettled([
       runtime.stop(),
       reportMaterializationRuntime.stop(),
+      pilotOperationsHistoryRuntime.stop(),
       approvalExpiryRuntime.stop(),
       creditExpiryRuntime.stop(),
     ]);
@@ -87,6 +98,7 @@ export async function bootstrap() {
     await prisma.$connect();
     await runtime.start();
     await reportMaterializationRuntime.start();
+    pilotOperationsHistoryRuntime.start();
     await approvalExpiryRuntime.start();
     await creditExpiryRuntime.start();
     const releaseSha = resolveReleaseSha(process.env);

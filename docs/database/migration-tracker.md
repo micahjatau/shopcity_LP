@@ -172,3 +172,10 @@ Use these buckets in each migration row so local deploy checks, CI proof, shared
 - Applied all three pending migrations with `prisma migrate deploy` on 2026-10-20 around 11:34 UTC. Prisma reported all three successful.
 - Postflight: `prisma migrate status` reports 57 migrations found and the database schema up to date. Read-only probes confirm `DeviceTokenCredential`, `SmsMessage.nextDeliveryReportPollAt`, and both typed ledger uniqueness indexes exist; duplicate typed-effect groups remain 0.
 - No backup was taken for this apply. The migrations did not rewrite financial rows; the atomic settlement migration changed ledger index constraints after its duplicate guard and preflight passed.
+
+## 2026-11-01 Pilot Operations health history (local only; not shared)
+
+- Migration: `prisma/migrations/20261101120000_pilot_operations_health_history/migration.sql` adds only the tenant-scoped `PilotOperationsSnapshot` telemetry table, a unique `(tenantId, bucketStart)` constraint, a captured-time index, a restrictive tenant foreign key, and RLS with no browser/Data API policy. It has no backfill and does not alter financial, audit, or source rows.
+- Local application DB: on 2026-11-02, `prisma migrate deploy` applied this additive migration to the confirmed local Docker Postgres database `127.0.0.1:5432/shopcity`. A subsequent Prisma status check reported the database up to date; catalog inspection confirmed RLS enabled and the tenant/hour unique index. No backup was taken because the migration creates a new empty telemetry table and does not rewrite existing rows. This local apply does not authorize or imply a shared/remote rollout.
+- Local disposable verification: the full 59-migration Prisma chain, including this migration, also deployed to a fresh temporary database on the local Supabase PostgreSQL container; catalog checks found RLS enabled, zero policies, and no `anon` SELECT privilege. The temporary database and separate constraint-check schema were dropped.
+- CI/fresh-chain integration: pending. Shared/remote apply: not applied. Backup/restore rehearsal: pending before any shared rollout.

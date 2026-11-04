@@ -60,13 +60,7 @@ interface ReportScopeResolution {
   timezone: string;
 }
 
-export interface PilotOperationsSummary {
-  release: {
-    version: string;
-    sha: string;
-    sentryConfigured: boolean;
-  };
-  generatedAt: string;
+export interface PilotOperationsMetrics {
   outbox: {
     backlogCount: number;
     staleCount: number;
@@ -87,6 +81,54 @@ export interface PilotOperationsSummary {
     healthy: boolean;
     mismatchCount: number;
   };
+}
+
+export interface PilotOperationsSummary extends PilotOperationsMetrics {
+  release: {
+    version: string;
+    sha: string;
+    sentryConfigured: boolean;
+  };
+  generatedAt: string;
+}
+
+export type PilotOperationsHistoryWindow = '24h' | '7d' | '30d';
+
+export interface PilotOperationsHistoryItem extends PilotOperationsMetrics {
+  bucketStart: string;
+  capturedAt: string;
+}
+
+export interface PilotOperationsHistory {
+  window: PilotOperationsHistoryWindow;
+  generatedAt: string;
+  items: PilotOperationsHistoryItem[];
+}
+
+const PILOT_OPERATIONS_HISTORY_BUCKETS: Record<
+  PilotOperationsHistoryWindow,
+  number
+> = {
+  '24h': 24,
+  '7d': 24 * 7,
+  '30d': 24 * 30,
+};
+
+const PILOT_OPERATIONS_HISTORY_HOUR_MS = 60 * 60 * 1_000;
+
+function parsePilotOperationsHistoryWindow(
+  value?: string,
+): PilotOperationsHistoryWindow {
+  if (value === undefined || value === '') return '7d';
+  if (
+    Object.prototype.hasOwnProperty.call(
+      PILOT_OPERATIONS_HISTORY_BUCKETS,
+      value,
+    )
+  ) {
+    return value as PilotOperationsHistoryWindow;
+  }
+  throw new BadRequestException('History window must be 24h, 7d, or 30d');
 }
 
 export interface ReportCollection<T> {
@@ -732,21 +774,131 @@ export class ReportsService {
     tenantId: string,
     context: AuthContext,
   ): Promise<PilotOperationsSummary> {
-    if (context.user.role !== UserRole.ADMIN) {
-      throw new ForbiddenException('Pilot operations summary is admin-only');
-    }
+    this.assertPilotOperationsAdmin(context);
 
-    const now = new Date();
+    const generatedAt = new Date();
+    const metrics = await this.getPilotOperationsMetrics(tenantId, generatedAt);
+
+    return {
+      release: {
+        version:
+          this.configService.get<string>('RELEASE_VERSION') ?? '0.0.0-dev',
+        sha: resolveReleaseSha({
+          VERCEL_GIT_COMMIT_SHA: this.configService.get<string>(
+            'VERCEL_GIT_COMMIT_SHA',
+          ),
+          GITHUB_SHA: this.configService.get<string>('GITHUB_SHA'),
+          RELEASE_SHA: this.configService.get<string>('RELEASE_SHA'),
+        }),
+        sentryConfigured: Boolean(this.configService.get<string>('SENTRY_DSN')),
+      },
+      generatedAt: generatedAt.toISOString(),
+      ...metrics,
+    };
+  }
+
+  async getPilotOperationsHistory(
+    tenantId: string,
+    context: AuthContext,
+    requestedWindow?: string,
+  ): Promise<PilotOperationsHistory> {
+    this.assertPilotOperationsAdmin(
+      context,
+      'Pilot operations history is admin-only',
+    );
+
+    const window = parsePilotOperationsHistoryWindow(requestedWindow);
+    const bucketCount = PILOT_OPERATIONS_HISTORY_BUCKETS[window];
+    const generatedAt = new Date();
+    const currentBucketStart = new Date(
+      Math.floor(generatedAt.getTime() / PILOT_OPERATIONS_HISTORY_HOUR_MS) *
+        PILOT_OPERATIONS_HISTORY_HOUR_MS,
+    );
+    const firstBucketStart = new Date(
+      currentBucketStart.getTime() -
+        (bucketCount - 1) * PILOT_OPERATIONS_HISTORY_HOUR_MS,
+    );
+    const snapshots = await this.prisma.pilotOperationsSnapshot.findMany({
+      where: {
+        tenantId,
+        bucketStart: { gte: firstBucketStart, lte: currentBucketStart },
+      },
+      orderBy: { bucketStart: 'asc' },
+      take: bucketCount,
+    });
+
+    return {
+      window,
+      generatedAt: generatedAt.toISOString(),
+      items: snapshots.map((snapshot) => ({
+        bucketStart: snapshot.bucketStart.toISOString(),
+        capturedAt: snapshot.capturedAt.toISOString(),
+        outbox: {
+          backlogCount: snapshot.outboxBacklogCount,
+          staleCount: snapshot.outboxStaleCount,
+        },
+        sms: { failedCount: snapshot.smsFailedCount },
+        offlineSync: { failureCount: snapshot.offlineSyncFailureCount },
+        fraud: { openCount: snapshot.fraudOpenCount },
+        reports: { staleCount: snapshot.staleReportCount },
+        reconciliation: {
+          healthy: snapshot.reconciliationHealthy,
+          mismatchCount: snapshot.reconciliationMismatchCount,
+        },
+      })),
+    };
+  }
+
+  async recordPilotOperationsSnapshot(
+    tenantId: string,
+    capturedAt: Date = new Date(),
+  ): Promise<void> {
+    const metrics = await this.getPilotOperationsMetrics(tenantId, capturedAt);
+    const bucketStart = new Date(
+      Math.floor(capturedAt.getTime() / PILOT_OPERATIONS_HISTORY_HOUR_MS) *
+        PILOT_OPERATIONS_HISTORY_HOUR_MS,
+    );
+    const data = {
+      outboxBacklogCount: metrics.outbox.backlogCount,
+      outboxStaleCount: metrics.outbox.staleCount,
+      smsFailedCount: metrics.sms.failedCount,
+      offlineSyncFailureCount: metrics.offlineSync.failureCount,
+      fraudOpenCount: metrics.fraud.openCount,
+      staleReportCount: metrics.reports.staleCount,
+      reconciliationHealthy: metrics.reconciliation.healthy,
+      reconciliationMismatchCount: metrics.reconciliation.mismatchCount,
+    };
+
+    await this.prisma.pilotOperationsSnapshot.upsert({
+      where: { tenantId_bucketStart: { tenantId, bucketStart } },
+      create: { tenantId, bucketStart, capturedAt, ...data },
+      update: { capturedAt, ...data },
+    });
+  }
+
+  private assertPilotOperationsAdmin(
+    context: AuthContext,
+    message = 'Pilot operations summary is admin-only',
+  ): void {
+    if (context.user.role !== UserRole.ADMIN) {
+      throw new ForbiddenException(message);
+    }
+  }
+
+  private async getPilotOperationsMetrics(
+    tenantId: string,
+    asOf: Date,
+  ): Promise<PilotOperationsMetrics> {
     const outboxStaleThresholdMinutes =
       this.configService.get<number>('OUTBOX_STALE_THRESHOLD_MINUTES') ?? 30;
     const reportStalenessThresholdMinutes =
       this.configService.get<number>('REPORT_STALENESS_THRESHOLD_MINUTES') ??
       180;
     const staleOutboxBefore = new Date(
-      now.getTime() - outboxStaleThresholdMinutes * 60_000,
+      asOf.getTime() - outboxStaleThresholdMinutes * 60_000,
     );
     const staleReportsBefore = new Date(
-      now.getTime() - reportStalenessThresholdMinutes * 60_000,
+      asOf.getTime() - reportStalenessThresholdMinutes * 60_000,
     );
 
     const [
@@ -814,35 +966,11 @@ export class ReportsService {
     ]);
 
     return {
-      release: {
-        version:
-          this.configService.get<string>('RELEASE_VERSION') ?? '0.0.0-dev',
-        sha: resolveReleaseSha({
-          VERCEL_GIT_COMMIT_SHA: this.configService.get<string>(
-            'VERCEL_GIT_COMMIT_SHA',
-          ),
-          GITHUB_SHA: this.configService.get<string>('GITHUB_SHA'),
-          RELEASE_SHA: this.configService.get<string>('RELEASE_SHA'),
-        }),
-        sentryConfigured: Boolean(this.configService.get<string>('SENTRY_DSN')),
-      },
-      generatedAt: now.toISOString(),
-      outbox: {
-        backlogCount,
-        staleCount,
-      },
-      sms: {
-        failedCount: failedSmsCount,
-      },
-      offlineSync: {
-        failureCount: offlineFailureCount,
-      },
-      fraud: {
-        openCount: fraudOpenCount,
-      },
-      reports: {
-        staleCount: staleReportCount,
-      },
+      outbox: { backlogCount, staleCount },
+      sms: { failedCount: failedSmsCount },
+      offlineSync: { failureCount: offlineFailureCount },
+      fraud: { openCount: fraudOpenCount },
+      reports: { staleCount: staleReportCount },
       reconciliation: {
         healthy: mismatchCount === 0,
         mismatchCount,

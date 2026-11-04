@@ -263,6 +263,147 @@ describe('ReportsService', () => {
     ).rejects.toBeInstanceOf(ForbiddenException);
   });
 
+  it('returns bounded, ordered history for only the authenticated tenant', async () => {
+    type HistoryFindManyArgs = {
+      where: {
+        tenantId: string;
+        bucketStart: { gte: Date; lte: Date };
+      };
+      orderBy: { bucketStart: 'asc' };
+      take: number;
+    };
+    const bucketStart = new Date('2026-11-01T11:00:00.000Z');
+    const capturedAt = new Date('2026-11-01T11:05:00.000Z');
+    const findMany = jest
+      .fn<Promise<unknown[]>, [HistoryFindManyArgs]>()
+      .mockResolvedValue([
+        {
+          bucketStart,
+          capturedAt,
+          outboxBacklogCount: 3,
+          outboxStaleCount: 1,
+          smsFailedCount: 2,
+          offlineSyncFailureCount: 4,
+          fraudOpenCount: 5,
+          staleReportCount: 1,
+          reconciliationHealthy: false,
+          reconciliationMismatchCount: 2,
+        },
+      ]);
+    const service = new ReportsService(
+      {
+        pilotOperationsSnapshot: { findMany },
+      } as unknown as PrismaService,
+      configService(),
+    );
+
+    await expect(
+      service.getPilotOperationsHistory('tenant-1', adminContext(), '24h'),
+    ).resolves.toMatchObject({
+      window: '24h',
+      items: [
+        {
+          bucketStart: bucketStart.toISOString(),
+          capturedAt: capturedAt.toISOString(),
+          outbox: { backlogCount: 3, staleCount: 1 },
+          sms: { failedCount: 2 },
+          offlineSync: { failureCount: 4 },
+          fraud: { openCount: 5 },
+          reports: { staleCount: 1 },
+          reconciliation: { healthy: false, mismatchCount: 2 },
+        },
+      ],
+    });
+    const query = findMany.mock.calls[0]?.[0];
+    expect(query).toBeDefined();
+    expect(query?.where.tenantId).toBe('tenant-1');
+    expect(query?.where.bucketStart.gte).toBeInstanceOf(Date);
+    expect(query?.where.bucketStart.lte).toBeInstanceOf(Date);
+    expect(query?.orderBy).toEqual({ bucketStart: 'asc' });
+    expect(query?.take).toBe(24);
+  });
+
+  it('defaults history to seven days and rejects unsupported windows', async () => {
+    const findMany = jest.fn().mockResolvedValue([]);
+    const service = new ReportsService(
+      {
+        pilotOperationsSnapshot: { findMany },
+      } as unknown as PrismaService,
+      configService(),
+    );
+
+    await expect(
+      service.getPilotOperationsHistory('tenant-1', adminContext()),
+    ).resolves.toMatchObject({ window: '7d', items: [] });
+    expect(findMany).toHaveBeenLastCalledWith(
+      expect.objectContaining({ take: 24 * 7 }),
+    );
+
+    await expect(
+      service.getPilotOperationsHistory('tenant-1', adminContext(), '90d'),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    expect(findMany).toHaveBeenCalledTimes(1);
+  });
+
+  it('rejects history requests from non-admin callers', async () => {
+    const service = new ReportsService(prismaStub(), configService());
+
+    await expect(
+      service.getPilotOperationsHistory('tenant-1', supervisorContext()),
+    ).rejects.toBeInstanceOf(ForbiddenException);
+  });
+
+  it('upserts a snapshot into its UTC-hour bucket using canonical metrics', async () => {
+    const upsert = jest.fn().mockResolvedValue(undefined);
+    const prisma = {
+      outboxEvent: {
+        count: jest.fn().mockResolvedValueOnce(3).mockResolvedValueOnce(1),
+      },
+      smsMessage: { count: jest.fn().mockResolvedValue(2) },
+      offlineSyncAttempt: { count: jest.fn().mockResolvedValue(4) },
+      fraudFlag: { count: jest.fn().mockResolvedValue(5) },
+      reportMaterializationState: { count: jest.fn().mockResolvedValue(1) },
+      creditLot: { findMany: jest.fn().mockResolvedValue([]) },
+      redemptionAllocation: { groupBy: jest.fn().mockResolvedValue([]) },
+      creditExpiry: { groupBy: jest.fn().mockResolvedValue([]) },
+      allocationRestoration: { findMany: jest.fn().mockResolvedValue([]) },
+      pilotOperationsSnapshot: { upsert },
+    } as unknown as PrismaService;
+    const service = new ReportsService(prisma, configService());
+    const capturedAt = new Date('2026-11-01T12:34:56.000Z');
+    const bucketStart = new Date('2026-11-01T12:00:00.000Z');
+
+    await service.recordPilotOperationsSnapshot('tenant-1', capturedAt);
+
+    expect(upsert).toHaveBeenCalledWith({
+      where: { tenantId_bucketStart: { tenantId: 'tenant-1', bucketStart } },
+      create: {
+        tenantId: 'tenant-1',
+        bucketStart,
+        capturedAt,
+        outboxBacklogCount: 3,
+        outboxStaleCount: 1,
+        smsFailedCount: 2,
+        offlineSyncFailureCount: 4,
+        fraudOpenCount: 5,
+        staleReportCount: 1,
+        reconciliationHealthy: true,
+        reconciliationMismatchCount: 0,
+      },
+      update: {
+        capturedAt,
+        outboxBacklogCount: 3,
+        outboxStaleCount: 1,
+        smsFailedCount: 2,
+        offlineSyncFailureCount: 4,
+        fraudOpenCount: 5,
+        staleReportCount: 1,
+        reconciliationHealthy: true,
+        reconciliationMismatchCount: 0,
+      },
+    });
+  });
+
   it('blocks supervisors from cross-branch report access', async () => {
     const service = new ReportsService(prismaStub(), configService());
 
