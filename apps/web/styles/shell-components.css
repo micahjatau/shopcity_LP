@@ -648,9 +648,11 @@
   background-repeat: no-repeat;
 }
 
-/* Crop the 20px transparent right gutter in the 264px role artboards. */
+/* Crop the transparent right gutter and clip fallback/image paint to the artwork's rounded corners. */
 .shell-sidebar--admin,
 .shell-sidebar--cashier {
+  border-radius: 0 16px 16px 0;
+  background-clip: padding-box;
   background-position: left center;
   background-size: calc(100% + 8.2%) 100%;
 }

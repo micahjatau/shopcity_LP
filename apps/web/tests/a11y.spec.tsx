@@ -321,7 +321,10 @@ describe('frontend accessibility gates', () => {
       screen.getByRole('heading', { name: 'Hi, Supervisor!', level: 1 }),
     ).toBeInTheDocument();
     expect(
-      screen.getByRole('heading', { name: /admin shell/i, level: 1 }),
+      screen.getByRole('heading', { name: 'Overview', level: 1 }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('heading', { name: 'Credit issued vs redeemed' }),
     ).toBeInTheDocument();
     expect(
       await screen.findByRole('row', { name: /Customer 1/ }),
