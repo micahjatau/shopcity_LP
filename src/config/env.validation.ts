@@ -312,7 +312,7 @@ export const envValidationSchema = Joi.object({
     .max(1000)
     .default(100),
   SMS_PROVIDER_VENDOR: Joi.string()
-    .valid('ebulksms', 'arkesel', 'africastalking', 'twilio')
+    .valid('ebulksms', 'arkesel', 'africastalking', 'twilio', 'termii')
     .default('ebulksms'),
   SMS_PROVIDER_MODE: Joi.string()
     .valid('deterministic', 'sandbox', 'real')
@@ -413,6 +413,33 @@ export const envValidationSchema = Joi.object({
     .uri({ scheme: ['https'] })
     .default('https://sms.arkesel.com/api/v2'),
   ARKESEL_SANDBOX: Joi.boolean().truthy('true').falsy('false').default(false),
+  TERMII_API_KEY: Joi.string()
+    .trim()
+    .min(1)
+    .when('SMS_PROVIDER_VENDOR', {
+      is: 'termii',
+      then: Joi.when('SMS_PROVIDER_MODE', {
+        is: 'real',
+        then: Joi.required(),
+        otherwise: Joi.optional(),
+      }),
+      otherwise: Joi.optional(),
+    }),
+  TERMII_SENDER_ID: Joi.string()
+    .trim()
+    .pattern(/^[A-Za-z0-9]{3,11}$/)
+    .when('SMS_PROVIDER_VENDOR', {
+      is: 'termii',
+      then: Joi.when('SMS_PROVIDER_MODE', {
+        is: 'real',
+        then: Joi.required(),
+        otherwise: Joi.optional(),
+      }),
+      otherwise: Joi.optional(),
+    }),
+  TERMII_API_URL: Joi.string()
+    .uri({ scheme: ['https'] })
+    .default('https://api.ng.termii.com/api/sms/send'),
   SMS_PROVIDER_TIMEOUT_MS: Joi.number().integer().min(1000).default(10000),
   ALLOW_FAKE_SMS_IN_PRODUCTION: Joi.boolean()
     .truthy('true')
@@ -480,17 +507,18 @@ export const envValidationSchema = Joi.object({
       envFlags.SMS_PROVIDER_API_KEY,
       envFlags.SMS_PROVIDER_SENDER_ID,
       envFlags.ARKESEL_API_KEY,
+      envFlags.TERMII_API_KEY,
       envFlags.AFRICASTALKING_LIVE_API_KEY,
       envFlags.AFRICASTALKING_SANDBOX_API_KEY,
       envFlags.TWILIO_API_SECRET,
       envFlags.SHOPCITY_BFF_SHARED_SECRET,
     ].filter((secret): secret is string => typeof secret === 'string');
 
-    if (attestationKek.trim().length < 32) {
+    if (attestationKek && attestationKek.trim().length < 32) {
       return helpers.error('any.invalid');
     }
 
-    if (secretValues.includes(attestationKek)) {
+    if (attestationKek && secretValues.includes(attestationKek)) {
       return helpers.error('any.invalid');
     }
 
@@ -667,3 +695,8 @@ export const envValidationSchema = Joi.object({
     return env;
   })
   .unknown(true);
+
+export const workerEnvValidationSchema = envValidationSchema.fork(
+  ['DEVICE_ATTESTATION_KEK'],
+  (schema) => schema.optional(),
+);

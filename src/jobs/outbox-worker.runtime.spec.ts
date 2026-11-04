@@ -1,8 +1,31 @@
 import type { PrismaService } from '../database/prisma.service';
-import { OutboxWorkerRuntime } from './outbox-worker.runtime';
+import { loadWorkerConfig, OutboxWorkerRuntime } from './outbox-worker.runtime';
 import type { OutboxJobPayload } from './outbox.worker';
 
 describe('OutboxWorkerRuntime', () => {
+  it('loads Termii worker configuration without device-attestation KEK', () => {
+    const config = loadWorkerConfig({
+      NODE_ENV: 'development',
+      DATABASE_URL: 'postgresql://example',
+      REDIS_URL: 'redis://127.0.0.1:6379',
+      SESSION_SECRET: 'session-secret',
+      CSRF_SECRET: 'csrf-secret',
+      DEFAULT_PUBLIC_TENANT_ID: '00000000-0000-4000-8000-000000000001',
+      DEFAULT_PUBLIC_BRANCH_ID: '00000000-0000-4000-8000-000000000002',
+      CORS_ORIGIN_ALLOWLIST: 'http://localhost:3000',
+      SUPABASE_URL: 'http://127.0.0.1:54321',
+      SUPABASE_ANON_KEY: 'anon',
+      SUPABASE_SERVICE_ROLE_KEY: 'service',
+      SMS_PROVIDER_MODE: 'real',
+      SMS_PROVIDER_VENDOR: 'termii',
+      TERMII_API_KEY: 'termii-test-key',
+      TERMII_SENDER_ID: 'ShopCity',
+      TERMII_API_URL: 'https://v4.api.termii.com/api/sms/send',
+    });
+
+    expect(config.redisUrl).toBe('redis://127.0.0.1:6379');
+  });
+
   it('keeps provider DLR lookups off the outbox recovery path', async () => {
     const findMany = jest.fn();
     const runtime = runtimeWithRecovery(
@@ -632,7 +655,7 @@ describe('OutboxWorkerRuntime', () => {
     });
   });
 
-  it('reserves a Twilio outbox event before calling the provider', async () => {
+  it('reserves a provider outbox event before calling the provider', async () => {
     const updateMany = jest.fn().mockResolvedValue({ count: 1 });
     const prisma = prismaStub({
       outboxEvent: submissionReservationEvent(),
@@ -673,7 +696,7 @@ describe('OutboxWorkerRuntime', () => {
     );
   });
 
-  it('does not send when a Twilio reservation compare-and-set loses a race', async () => {
+  it('does not send when a provider reservation compare-and-set loses a race', async () => {
     const updateMany = jest.fn().mockResolvedValue({ count: 0 });
     const prisma = prismaStub({
       outboxEvent: submissionReservationEvent(),
@@ -696,7 +719,7 @@ describe('OutboxWorkerRuntime', () => {
     expect(job.discard).toHaveBeenCalledTimes(1);
   });
 
-  it('does not resend while another Twilio submission reservation is fresh', async () => {
+  it('does not resend while another provider submission reservation is fresh', async () => {
     const lastAttemptAt = new Date();
     const prisma = prismaStub({
       outboxEvent: submissionReservationEvent({
@@ -751,7 +774,7 @@ describe('OutboxWorkerRuntime', () => {
     expect(job.discard).toHaveBeenCalledTimes(1);
   });
 
-  it('dead-letters stale Twilio reservations without replaying the send', async () => {
+  it('dead-letters stale provider reservations without replaying the send', async () => {
     const lastAttemptAt = new Date(
       Date.now() - runtimeConfig().recoveryThresholdMs - 1,
     );
@@ -798,7 +821,41 @@ describe('OutboxWorkerRuntime', () => {
     expect(job.discard).toHaveBeenCalledTimes(1);
   });
 
-  it('clears the Twilio reservation into a retryable state after HTTP 429', async () => {
+  it('marks an ambiguous reserved provider result as outcome unknown', async () => {
+    const updateMany = jest.fn().mockResolvedValue({ count: 1 });
+    const prisma = prismaStub({
+      outboxEvent: submissionReservationEvent(),
+      smsMessage: { updateMany },
+    });
+    const send = jest.fn().mockResolvedValue({
+      status: 'FAILED',
+      errorMessage: 'SMS provider outcome is unknown; verify provider history',
+      failureCategory: 'terminal',
+      outcomeUnknown: true,
+    });
+    const job: TestJob = {
+      data: { id: 'outbox-1', tenantId: 'tenant-1' },
+      discard: jest.fn(),
+    };
+    const runtime = new OutboxWorkerRuntime(prisma, runtimeConfig(), {
+      send,
+      requiresLocalSubmissionReservation: true,
+    });
+
+    await runtimeWithHandleJob(runtime).handleJob(job);
+
+    expect(send).toHaveBeenCalledTimes(1);
+    expect(prisma.smsMessageUpdateCalls[0]?.data.failureCategory).toBe(
+      'dead-lettered',
+    );
+    expect(prisma.smsMessageUpdateCalls[0]?.data.status).toBe('FAILED');
+    expect(
+      lastOutboxUpdate(prisma.outboxEventUpdateCalls)?.data.failureCategory,
+    ).toBe('provider-outcome-unknown');
+    expect(job.discard).toHaveBeenCalledTimes(1);
+  });
+
+  it('clears a provider reservation into a retryable state after HTTP 429', async () => {
     const updateMany = jest.fn().mockResolvedValue({ count: 1 });
     const prisma = prismaStub({
       outboxEvent: submissionReservationEvent(),

@@ -1,16 +1,17 @@
-import { envValidationSchema } from '../config/env.validation';
+import { workerEnvValidationSchema } from '../config/env.validation';
 import {
   AfricaTalkingSmsProvider,
   ArkeselSmsProvider,
   DeterministicSmsProvider,
   EbulkSmsProvider,
   SandboxSmsProvider,
+  TermiiSmsProvider,
   TwilioSmsProvider,
   type SmsProvider,
 } from './sms.provider';
 
 export function createSmsProvider(env = process.env): SmsProvider {
-  const result = envValidationSchema.validate(env, {
+  const result = workerEnvValidationSchema.validate(env, {
     allowUnknown: true,
     abortEarly: false,
   });
@@ -90,6 +91,28 @@ export function createSmsProvider(env = process.env): SmsProvider {
           username,
           apiKey,
           senderId: senderId || undefined,
+          timeoutMs,
+        });
+      }
+
+      if (vendor === 'termii') {
+        const apiKey = readString(values, 'TERMII_API_KEY').trim();
+        const senderId = readString(values, 'TERMII_SENDER_ID').trim();
+        if (!apiKey) {
+          throw new Error('TERMII_API_KEY is required for real Termii mode');
+        }
+        if (!senderId) {
+          throw new Error('TERMII_SENDER_ID is required for real Termii mode');
+        }
+
+        return new TermiiSmsProvider({
+          endpoint: readString(
+            values,
+            'TERMII_API_URL',
+            'https://api.ng.termii.com/api/sms/send',
+          ).trim(),
+          apiKey,
+          senderId,
           timeoutMs,
         });
       }

@@ -1,5 +1,5 @@
 import { Logger } from '@nestjs/common';
-import { envValidationSchema } from '../config/env.validation';
+import { workerEnvValidationSchema } from '../config/env.validation';
 import { CreditExpiryService } from '../modules/credit-expiry/credit-expiry.service';
 import { ExpiryReminderService } from '../modules/credit-expiry/expiry-reminder.service';
 
@@ -13,7 +13,7 @@ export interface CreditExpiryWorkerConfig {
 export function loadCreditExpiryWorkerConfig(
   env = process.env,
 ): CreditExpiryWorkerConfig {
-  const result = envValidationSchema.validate(env, {
+  const result = workerEnvValidationSchema.validate(env, {
     allowUnknown: true,
     abortEarly: false,
   });

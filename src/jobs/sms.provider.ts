@@ -21,6 +21,7 @@ export interface SmsSendResult {
   providerMessageId?: string;
   errorMessage?: string;
   failureCategory?: 'retryable' | 'terminal';
+  outcomeUnknown?: boolean;
 }
 
 export interface SmsDeliveryReport {
@@ -295,6 +296,13 @@ export interface AfricaTalkingSmsProviderConfig {
   timeoutMs: number;
 }
 
+export interface TermiiSmsProviderConfig {
+  endpoint: string;
+  apiKey: string;
+  senderId: string;
+  timeoutMs: number;
+}
+
 export class ArkeselSmsProvider implements SmsProvider {
   constructor(private readonly config: ArkeselSmsProviderConfig) {}
 
@@ -458,6 +466,80 @@ export class AfricaTalkingSmsProvider implements SmsProvider {
   }
 }
 
+export class TermiiSmsProvider implements SmsProvider {
+  readonly requiresLocalSubmissionReservation = true;
+
+  get submissionReservationWindowMs(): number {
+    return this.config.timeoutMs + 5_000;
+  }
+
+  constructor(private readonly config: TermiiSmsProviderConfig) {}
+
+  async send(input: SmsSendInput): Promise<SmsSendResult> {
+    if (!/^\+[1-9]\d{7,14}$/.test(input.phoneE164)) {
+      return {
+        status: 'FAILED',
+        errorMessage: 'Termii recipient must be a valid E.164 phone number',
+        failureCategory: 'terminal',
+      };
+    }
+
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), this.config.timeoutMs);
+    timeout.unref?.();
+
+    try {
+      const response = await fetch(this.config.endpoint, {
+        method: 'POST',
+        headers: {
+          accept: 'application/json',
+          'content-type': 'application/json',
+        },
+        body: JSON.stringify({
+          api_key: this.config.apiKey,
+          to: input.phoneE164.slice(1),
+          from: this.config.senderId,
+          sms: renderSmsMessage(input),
+          type: 'plain',
+          channel: 'dnd',
+        }),
+        signal: controller.signal,
+      });
+
+      if (!response.ok) {
+        const outcomeUnknown = response.status >= 500;
+        return {
+          status: 'FAILED',
+          errorMessage: outcomeUnknown
+            ? `Termii outcome is unknown (HTTP ${response.status}); verify provider history before retry`
+            : `Termii request failed with ${response.status}`,
+          failureCategory: response.status === 429 ? 'retryable' : 'terminal',
+          ...(outcomeUnknown ? { outcomeUnknown: true } : {}),
+        };
+      }
+
+      return mapTermiiSmsResponse(
+        await parseResponseBody(response, controller.signal),
+      );
+    } catch (error) {
+      const outcomeUnknown = !(error instanceof SmsPayloadError);
+      return {
+        status: 'FAILED',
+        errorMessage:
+          error instanceof SmsPayloadError
+            ? 'Termii request payload is invalid'
+            : isAbortError(error)
+              ? 'Termii request timed out; verify provider history before retry'
+              : 'Termii outcome is unknown; verify provider history before retry',
+        failureCategory: 'terminal',
+        ...(outcomeUnknown ? { outcomeUnknown: true } : {}),
+      };
+    } finally {
+      clearTimeout(timeout);
+    }
+  }
+}
+
 function normalizeArkeselRecipient(phoneE164: string): string | null {
   if (!/^\+[1-9]\d{7,14}$/.test(phoneE164)) return null;
   return phoneE164.slice(1);
@@ -530,6 +612,29 @@ function mapArkeselDeliveryReport(
   return {
     status: normalizedStatus,
     providerMessageId: requestedMessageId,
+  };
+}
+
+function mapTermiiSmsResponse(body: unknown): SmsSendResult {
+  const responseCode = readResponseString(body, 'code')?.toLowerCase();
+  if (responseCode !== 'ok') {
+    const outcomeUnknown = responseCode === undefined;
+    return {
+      status: 'FAILED',
+      errorMessage: outcomeUnknown
+        ? 'Termii returned an invalid response; verify provider history before replay'
+        : 'Termii returned an unsuccessful response',
+      failureCategory: 'terminal',
+      ...(outcomeUnknown ? { outcomeUnknown: true } : {}),
+    };
+  }
+
+  const providerMessageId =
+    readResponseString(body, 'message_id_str') ??
+    readResponseString(body, 'message_id');
+  return {
+    status: 'SENT',
+    ...(providerMessageId ? { providerMessageId } : {}),
   };
 }
 
