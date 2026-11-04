@@ -17,6 +17,7 @@ import {
 } from 'react';
 import type { CSSProperties, ReactNode } from 'react';
 import {
+  branchesControllerListBranchesV1,
   getReportsControllerExportReportV1Url,
   reportsControllerGetPilotOperationsSummaryV1,
   reportsControllerListAuditReportV1,
@@ -39,7 +40,7 @@ import {
   reportProblemFromSettled,
   type ReportProblem,
 } from '../../lib/reports/report-errors';
-import { Alert, Button, Input, Select, Table } from '../ui';
+import { Alert, Button, Dialog, Input, Select, Table } from '../ui';
 import { StatusBadge } from '../shopcity';
 import {
   CopyableChip,
@@ -49,6 +50,8 @@ import {
   ReportProblemNotice,
   SupervisorReportValue,
 } from './report-ui';
+
+type OperationsDatePreset = 'all' | 'week' | 'month' | 'custom';
 
 type ReportKey =
   | 'executive-summary'
@@ -67,12 +70,18 @@ type ReportsWorkspaceProps = {
   canUsePilotOperationsSummary?: boolean;
   canUseAuditReport?: boolean;
   canUseMaterializationState?: boolean;
+  /** Load tenant branches and replace manual branch/timezone filters with a selector. */
+  loadTenantBranchOptions?: boolean;
   /** Parent-selected period, shared with the supervisor KPI dashboard. */
   period?: { from: string; to: string };
   /** Supervisor branch and period are enforced outside this low-level report UI. */
   hideScopeInputs?: boolean;
   /** Selects the role-aware operational report presentation for report routes. */
   presentation?: 'default' | 'supervisor' | 'admin';
+  /** Hides visual status pills for callers that already provide status context. */
+  showStatusBadges?: boolean;
+  /** Opts into a combined results surface with selected-item details in a dialog. */
+  summaryItemsPresentation?: 'cards' | 'table-dialog';
   /** Parent-applied scope used by the operational dashboard routes. */
   scopeFilters?: { branchId?: string; timezone?: string };
   /** Display name for the active branch; branch IDs remain the API scope key. */
@@ -83,6 +92,24 @@ type ReportsWorkspaceProps = {
 };
 
 type ReportItem = Record<string, unknown>;
+
+type ReportBranchOption = { id: string; name: string; timezone: string };
+
+function isReportBranchOption(value: unknown): value is ReportBranchOption {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return false;
+  }
+
+  const branch = value as Record<string, unknown>;
+  return (
+    typeof branch.id === 'string' &&
+    branch.id.trim().length > 0 &&
+    typeof branch.name === 'string' &&
+    branch.name.trim().length > 0 &&
+    typeof branch.timezone === 'string' &&
+    branch.timezone.trim().length > 0
+  );
+}
 
 type PilotSummary = {
   release?: { version?: string; sha?: string };
@@ -124,6 +151,16 @@ type ReportSummary = {
     items?: unknown[];
   };
 };
+
+const operationsDatePresetOptions: Array<{
+  value: OperationsDatePreset;
+  label: string;
+}> = [
+  { value: 'all', label: 'All dates' },
+  { value: 'week', label: 'Last 7 days' },
+  { value: 'month', label: 'Last 30 days' },
+  { value: 'custom', label: 'Custom dates' },
+];
 
 const reportOptions: Array<{ value: ReportKey; label: string }> = [
   { value: 'executive-summary', label: 'Executive summary' },
@@ -380,8 +417,11 @@ export function ReportsWorkspace({
   canUseAuditReport = true,
   canUseMaterializationState = true,
   period,
+  loadTenantBranchOptions = false,
   hideScopeInputs = false,
   presentation = 'default',
+  showStatusBadges = true,
+  summaryItemsPresentation = 'cards',
   scopeFilters,
   branchName,
   rateLimitSeconds = 0,
@@ -390,8 +430,18 @@ export function ReportsWorkspace({
   const [report, setReport] = useState<ReportKey>('executive-summary');
   const [branchId, setBranchId] = useState('');
   const [timezone, setTimezone] = useState('');
+  const [branches, setBranches] = useState<ReportBranchOption[]>([]);
+  const [branchesLoading, setBranchesLoading] = useState(
+    loadTenantBranchOptions,
+  );
+  const [branchesUnavailable, setBranchesUnavailable] = useState(false);
   const [from, setFrom] = useState('');
   const [to, setTo] = useState('');
+  const [operationsDatePreset, setOperationsDatePreset] =
+    useState<OperationsDatePreset>('all');
+  const [draftFrom, setDraftFrom] = useState('');
+  const [draftTo, setDraftTo] = useState('');
+  const [dateValidation, setDateValidation] = useState('');
   const [summary, setSummary] = useState<ReportSummary | PilotSummary | null>(
     null,
   );
@@ -405,6 +455,7 @@ export function ReportsWorkspace({
     'load' | 'refresh' | 'export' | 'sms' | null
   >(null);
   const [selectedItemIndex, setSelectedItemIndex] = useState(0);
+  const [selectedItemDialogOpen, setSelectedItemDialogOpen] = useState(false);
   const [pageSize, setPageSize] = useState(10);
   const [currentPage, setCurrentPage] = useState(1);
   const [customerSort, setCustomerSort] = useState<
@@ -412,6 +463,51 @@ export function ReportsWorkspace({
   >('spend');
   const [smsTransactionId, setSmsTransactionId] = useState('');
   const reportLoadGeneration = useRef(0);
+  const customFromId = useId();
+  const customToId = useId();
+
+  useEffect(() => {
+    if (!loadTenantBranchOptions) return;
+
+    let active = true;
+    setBranchesLoading(true);
+    setBranchesUnavailable(false);
+
+    void branchesControllerListBranchesV1(createApiRequest({ csrf: true }))
+      .then((response) => {
+        if (!active) return;
+        if (response.status !== 200) {
+          setBranches([]);
+          setBranchesUnavailable(true);
+          return;
+        }
+
+        const branchData = response.data.data;
+        if (
+          !Array.isArray(branchData) ||
+          !branchData.every(isReportBranchOption)
+        ) {
+          setBranches([]);
+          setBranchesUnavailable(true);
+          return;
+        }
+
+        setBranches(branchData);
+      })
+      .catch(() => {
+        if (active) {
+          setBranches([]);
+          setBranchesUnavailable(true);
+        }
+      })
+      .finally(() => {
+        if (active) setBranchesLoading(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [loadTenantBranchOptions]);
 
   const availableReportOptions = useMemo(
     () =>
@@ -434,6 +530,39 @@ export function ReportsWorkspace({
     string,
     unknown
   > | null>(null);
+  const reportTimezone = loadTenantBranchOptions
+    ? (branches.find((branch) => branch.id === branchId)?.timezone ?? '')
+    : timezone;
+
+  useEffect(() => {
+    if (
+      !loadTenantBranchOptions ||
+      (operationsDatePreset !== 'week' && operationsDatePreset !== 'month')
+    ) {
+      return;
+    }
+    const range = operationsReportDateRange(
+      operationsDatePreset === 'week' ? 7 : 30,
+      reportTimezone || 'Africa/Lagos',
+    );
+    setFrom(range.from);
+    setTo(range.to);
+    setDraftFrom(range.from);
+    setDraftTo(range.to);
+    setCurrentPage(1);
+  }, [loadTenantBranchOptions, operationsDatePreset, reportTimezone]);
+
+  const branchFilterOptions = [
+    {
+      value: '',
+      label: branchesLoading
+        ? 'Loading branches…'
+        : branchesUnavailable
+          ? 'Branch list unavailable'
+          : 'All branches',
+    },
+    ...branches.map((branch) => ({ value: branch.id, label: branch.name })),
+  ];
 
   const params = useMemo<ReportsControllerListExecutiveSummaryV1Params>(
     () => ({
@@ -441,7 +570,7 @@ export function ReportsWorkspace({
         report === 'audit-report'
           ? undefined
           : (scopeFilters?.branchId ?? branchId) || undefined,
-      timezone: (scopeFilters?.timezone ?? timezone) || undefined,
+      timezone: (scopeFilters?.timezone ?? reportTimezone) || undefined,
       from: (period?.from ?? from) || undefined,
       to: (period?.to ?? to) || undefined,
     }),
@@ -451,7 +580,7 @@ export function ReportsWorkspace({
       report,
       scopeFilters?.branchId,
       scopeFilters?.timezone,
-      timezone,
+      reportTimezone,
       to,
       period?.from,
       period?.to,
@@ -463,16 +592,53 @@ export function ReportsWorkspace({
         report === 'audit-report'
           ? undefined
           : (scopeFilters?.branchId ?? branchId) || undefined,
-      timezone: (scopeFilters?.timezone ?? timezone) || 'UTC',
+      timezone: (scopeFilters?.timezone ?? reportTimezone) || 'UTC',
     }),
     [
       branchId,
       report,
       scopeFilters?.branchId,
       scopeFilters?.timezone,
-      timezone,
+      reportTimezone,
     ],
   );
+  function selectOperationsDatePreset(preset: OperationsDatePreset) {
+    setOperationsDatePreset(preset);
+    setDateValidation('');
+    setCurrentPage(1);
+
+    if (preset === 'all') {
+      setFrom('');
+      setTo('');
+      setDraftFrom('');
+      setDraftTo('');
+    } else if (preset === 'week' || preset === 'month') {
+      const range = operationsReportDateRange(
+        preset === 'week' ? 7 : 30,
+        reportTimezone || 'Africa/Lagos',
+      );
+      setFrom(range.from);
+      setTo(range.to);
+      setDraftFrom(range.from);
+      setDraftTo(range.to);
+    } else {
+      setDraftFrom(from);
+      setDraftTo(to);
+    }
+  }
+
+  function applyOperationsCustomDateRange() {
+    if (!draftFrom || !draftTo || draftFrom > draftTo) {
+      setDateValidation('Choose a valid start date on or before the end date.');
+      return;
+    }
+    setDateValidation('');
+    setOperationsDatePreset('custom');
+    setFrom(draftFrom);
+    setTo(draftTo);
+    setCurrentPage(1);
+  }
+
   const exportParams = useMemo<ReportsControllerExportReportV1Params>(
     () => ({
       branchId: params.branchId,
@@ -533,6 +699,16 @@ export function ReportsWorkspace({
       ...displayColumns.filter((field) => !ordered.includes(field)),
     ].slice(0, 6);
   }, [columns, report]);
+  const summaryTableColumns = visibleColumns.length
+    ? visibleColumns
+    : columns.slice(0, 6);
+  const numericReportColumns = new Set(
+    summaryTableColumns.filter((field) =>
+      items.some((item) => typeof item[field] === 'number'),
+    ),
+  );
+  const summaryDisplayTimezone =
+    reportTimezone || reportSummary?.timezone || 'Africa/Lagos';
   const pageCount = Math.max(1, Math.ceil(items.length / pageSize));
   const visibleItems = items.slice(
     (currentPage - 1) * pageSize,
@@ -548,6 +724,7 @@ export function ReportsWorkspace({
   useEffect(() => {
     if (selectedItemIndex >= items.length) {
       setSelectedItemIndex(0);
+      setSelectedItemDialogOpen(false);
     }
   }, [items.length, selectedItemIndex]);
 
@@ -838,11 +1015,22 @@ export function ReportsWorkspace({
           reportSummary,
           report,
           branchId,
-          timezone,
+          reportTimezone,
           params.from ?? '',
           params.to ?? '',
         )
       : 'No report loaded yet.';
+  const operationsFilterSubtext = describeOperationsReportFilters({
+    report,
+    summary: reportSummary,
+    branchId,
+    branchName,
+    branches,
+    timezone: reportTimezone,
+    from: params.from ?? '',
+    to: params.to ?? '',
+  });
+  const operationsStatusMessage = humanizeOperationsReportMessage(message);
 
   if (presentation !== 'default') {
     const reportLabel =
@@ -1485,38 +1673,94 @@ export function ReportsWorkspace({
     );
   }
 
+  const currentReportContext = (
+    <>
+      {summaryItemsPresentation === 'table-dialog' ? (
+        <div className="reports-workspace__summary-context">
+          <p className="reports-workspace__summary-subtext">
+            {operationsFilterSubtext}
+          </p>
+          <p
+            className="reports-workspace__summary-status"
+            role="status"
+            aria-live="polite"
+          >
+            {operationsStatusMessage}
+          </p>
+        </div>
+      ) : (
+        <>
+          <p style={mutedText}>{message}</p>
+          <Alert tone="info" title="Current filters">
+            {selectedSummary}
+          </Alert>
+        </>
+      )}
+      {actionMessage ? (
+        <Alert tone="info" title="Report action">
+          {actionMessage}
+        </Alert>
+      ) : null}
+      {report === 'sms-operations' ? (
+        <Alert tone="warning" title="SMS lifecycle">
+          eBulkSMS status reflects provider submission; handset delivery is not
+          confirmed by this report.
+        </Alert>
+      ) : null}
+      {actionResult ? (
+        <Table className="reports-workspace__action-result-table">
+          <tbody>
+            {Object.entries(actionResult)
+              .slice(0, 8)
+              .map(([key, value]) => (
+                <tr key={key}>
+                  <th scope="row">{key}</th>
+                  <td>{renderValue(value)}</td>
+                </tr>
+              ))}
+          </tbody>
+        </Table>
+      ) : null}
+    </>
+  );
+
   return (
     <section style={workspaceGrid}>
       <section style={cardStyle} aria-label="Report controls">
-        <div style={toolbarRow}>
-          <StatusBadge label={reportSummary?.scope ?? report} tone="info" />
-          <StatusBadge
-            label={(reportSummary?.branchId ?? branchId) || 'Tenant-wide'}
-            tone="neutral"
-          />
-          <StatusBadge
-            label={(reportSummary?.timezone ?? timezone) || 'Timezone pending'}
-            tone="success"
-          />
-          {reportSummary?.materializationState ? (
+        {showStatusBadges ? (
+          <div style={toolbarRow}>
+            <StatusBadge label={reportSummary?.scope ?? report} tone="info" />
             <StatusBadge
-              label={reportSummary.materializationState}
-              tone="warning"
+              label={(reportSummary?.branchId ?? branchId) || 'Tenant-wide'}
+              tone="neutral"
             />
-          ) : null}
-          {typeof reportSummary?.freshCount === 'number' ? (
             <StatusBadge
-              label={`Fresh ${reportSummary.freshCount}`}
+              label={
+                (reportSummary?.timezone ?? reportTimezone) ||
+                'Timezone pending'
+              }
               tone="success"
             />
-          ) : null}
-          {typeof reportSummary?.staleCount === 'number' ? (
-            <StatusBadge
-              label={`Stale ${reportSummary.staleCount}`}
-              tone="warning"
-            />
-          ) : null}
-        </div>
+            {reportSummary?.materializationState ? (
+              <StatusBadge
+                label={reportSummary.materializationState}
+                tone="warning"
+              />
+            ) : null}
+            {typeof reportSummary?.freshCount === 'number' ? (
+              <StatusBadge
+                label={`Fresh ${reportSummary.freshCount}`}
+                tone="success"
+              />
+            ) : null}
+            {typeof reportSummary?.staleCount === 'number' ? (
+              <StatusBadge
+                label={`Stale ${reportSummary.staleCount}`}
+                tone="warning"
+              />
+            ) : null}
+          </div>
+        ) : null}
 
         <Select
           aria-label="Report"
@@ -1559,32 +1803,141 @@ export function ReportsWorkspace({
           </p>
         ) : (
           <div style={filterGrid}>
-            <Input
-              aria-label="Branch filter"
-              placeholder="Branch ID"
-              value={branchId}
-              onChange={(event) => setBranchId(event.target.value)}
-            />
-            <Input
-              aria-label="Timezone filter"
-              placeholder="Timezone"
-              value={timezone}
-              onChange={(event) => setTimezone(event.target.value)}
-            />
-            <Input
-              aria-label="From date"
-              type="date"
-              value={from}
-              onChange={(event) => setFrom(event.target.value)}
-            />
-            <Input
-              aria-label="To date"
-              type="date"
-              value={to}
-              onChange={(event) => setTo(event.target.value)}
-            />
+            {loadTenantBranchOptions ? (
+              <div className="reports-workspace__field">
+                <span>Branch</span>
+                <Select
+                  aria-label="Branch filter"
+                  value={branchId}
+                  onChange={(event) => {
+                    setBranchId(event.target.value);
+                    setCurrentPage(1);
+                  }}
+                  options={branchFilterOptions}
+                  disabled={branchesLoading || branchesUnavailable}
+                />
+              </div>
+            ) : (
+              <Input
+                aria-label="Branch filter"
+                placeholder="Branch ID"
+                value={branchId}
+                onChange={(event) => setBranchId(event.target.value)}
+              />
+            )}
+            {!loadTenantBranchOptions ? (
+              <Input
+                aria-label="Timezone filter"
+                placeholder="Timezone"
+                value={timezone}
+                onChange={(event) => setTimezone(event.target.value)}
+              />
+            ) : null}
+            {summaryItemsPresentation !== 'table-dialog' || period ? (
+              <>
+                <Input
+                  aria-label="From date"
+                  type="date"
+                  value={from}
+                  onChange={(event) => setFrom(event.target.value)}
+                />
+                <Input
+                  aria-label="To date"
+                  type="date"
+                  value={to}
+                  onChange={(event) => setTo(event.target.value)}
+                />
+              </>
+            ) : null}
           </div>
         )}
+        {summaryItemsPresentation === 'table-dialog' && !period ? (
+          <>
+            <div className="supervisor-reports-period__bar reports-workspace__date-preset-bar">
+              <strong>Date range</strong>
+              <div
+                className="supervisor-reports-period__buttons"
+                role="group"
+                aria-label="Reporting period presets"
+              >
+                {operationsDatePresetOptions.map(({ value, label }) => (
+                  <Button
+                    key={value}
+                    type="button"
+                    variant={
+                      operationsDatePreset === value ? 'primary' : 'secondary'
+                    }
+                    aria-pressed={operationsDatePreset === value}
+                    onClick={() => selectOperationsDatePreset(value)}
+                  >
+                    {label}
+                  </Button>
+                ))}
+              </div>
+              <Select
+                className="supervisor-reports-period__responsive-select"
+                aria-label="Reporting period menu"
+                value={operationsDatePreset}
+                onChange={(event) =>
+                  selectOperationsDatePreset(
+                    event.target.value as OperationsDatePreset,
+                  )
+                }
+                options={operationsDatePresetOptions}
+              />
+            </div>
+            {operationsDatePreset === 'custom' ? (
+              <div className="supervisor-reports-period__custom">
+                <label htmlFor={customFromId}>
+                  <span>From</span>
+                  <Input
+                    id={customFromId}
+                    type="date"
+                    aria-label="From date"
+                    value={draftFrom}
+                    onChange={(event) => {
+                      setDraftFrom(event.target.value);
+                      setDateValidation('');
+                    }}
+                  />
+                </label>
+                <label htmlFor={customToId}>
+                  <span>To</span>
+                  <Input
+                    id={customToId}
+                    type="date"
+                    aria-label="To date"
+                    value={draftTo}
+                    onChange={(event) => {
+                      setDraftTo(event.target.value);
+                      setDateValidation('');
+                    }}
+                  />
+                </label>
+                <Button type="button" onClick={applyOperationsCustomDateRange}>
+                  Apply dates
+                </Button>
+                {dateValidation ? (
+                  <p
+                    className="reports-workspace__date-validation"
+                    role="alert"
+                  >
+                    {dateValidation}
+                  </p>
+                ) : null}
+              </div>
+            ) : null}
+          </>
+        ) : null}
+        {loadTenantBranchOptions &&
+        !branchesLoading &&
+        (branchesUnavailable || branches.length === 0) ? (
+          <p style={mutedText} role="status" aria-live="polite">
+            {branchesUnavailable
+              ? 'Branch options are unavailable. The report scope remains all branches.'
+              : 'No branches are available. The report scope remains all branches.'}
+          </p>
+        ) : null}
         <div style={toolbarRow}>
           <Button onClick={() => void refresh()}>
             {report === 'pilot-operations-summary'
@@ -1620,38 +1973,12 @@ export function ReportsWorkspace({
         </div>
       </section>
 
-      <section style={cardStyle} aria-label="Report status">
-        <h2 style={{ marginTop: 0 }}>Current report</h2>
-        <p style={mutedText}>{message}</p>
-        {actionMessage ? (
-          <Alert tone="info" title="Report action">
-            {actionMessage}
-          </Alert>
-        ) : null}
-        <Alert tone="info" title="Current filters">
-          {selectedSummary}
-        </Alert>
-        {report === 'sms-operations' ? (
-          <Alert tone="warning" title="SMS lifecycle">
-            eBulkSMS status reflects provider submission; handset delivery is
-            not confirmed by this report.
-          </Alert>
-        ) : null}
-        {actionResult ? (
-          <Table>
-            <tbody>
-              {Object.entries(actionResult)
-                .slice(0, 8)
-                .map(([key, value]) => (
-                  <tr key={key}>
-                    <th scope="row">{key}</th>
-                    <td>{renderValue(value)}</td>
-                  </tr>
-                ))}
-            </tbody>
-          </Table>
-        ) : null}
-      </section>
+      {summaryItemsPresentation === 'cards' ? (
+        <section style={cardStyle} aria-label="Report status">
+          <h2 style={{ marginTop: 0 }}>Current report</h2>
+          {currentReportContext}
+        </section>
+      ) : null}
 
       {pilotSummary ? (
         <section style={cardStyle} aria-label="Pilot operations summary">
@@ -1714,49 +2041,247 @@ export function ReportsWorkspace({
       ) : null}
 
       <div style={workspaceGrid}>
-        <section style={cardStyle} aria-label="Report summary items">
+        <section
+          style={cardStyle}
+          aria-label={
+            summaryItemsPresentation === 'table-dialog'
+              ? 'Report results'
+              : 'Report summary items'
+          }
+        >
           <h2 style={{ marginTop: 0 }}>Summary items</h2>
+          {summaryItemsPresentation === 'table-dialog'
+            ? currentReportContext
+            : null}
           {items.length > 0 ? (
-            <div style={itemsGrid}>
-              {items.slice(0, 6).map((item, index) => {
-                const entries = Object.entries(item);
-                const [label, value] = entries[0] ?? [
-                  `item-${index + 1}`,
-                  'Unknown',
-                ];
-                const selected = index === selectedItemIndex;
-                return (
-                  <button
-                    key={`${label}-${index}`}
-                    type="button"
-                    onClick={() => setSelectedItemIndex(index)}
-                    style={{
-                      textAlign: 'left',
-                      padding: 'var(--sc-spacing-4)',
-                      borderRadius: 'var(--sc-radius-lg)',
-                      border: `1px solid ${selected ? 'var(--sc-color-brand-600)' : 'var(--sc-color-semantic-border)'}`,
-                      background: 'var(--sc-color-neutral-0)',
-                    }}
+            summaryItemsPresentation === 'table-dialog' ? (
+              <>
+                <div className="reports-workspace__table-scroll">
+                  <Table
+                    className="reports-workspace__summary-table"
+                    aria-label="Summary items"
                   >
-                    <div style={listHeaderRow}>
-                      <strong>{formatReportFieldLabel(label)}</strong>
-                      <StatusBadge
-                        label={selected ? 'Selected' : 'Item'}
-                        tone={selected ? 'success' : 'neutral'}
+                    <caption className="report-sr-only">
+                      {reportOptions.find((option) => option.value === report)
+                        ?.label ?? report}{' '}
+                      report rows
+                    </caption>
+                    <thead>
+                      <tr>
+                        {summaryTableColumns.length ? (
+                          summaryTableColumns.map((field) => (
+                            <th
+                              key={field}
+                              scope="col"
+                              data-numeric={
+                                numericReportColumns.has(field)
+                                  ? 'true'
+                                  : undefined
+                              }
+                            >
+                              {formatOperationsReportFieldLabel(field)}
+                            </th>
+                          ))
+                        ) : (
+                          <th scope="col">Report item</th>
+                        )}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {visibleItems.map((item, pageIndex) => {
+                        const itemIndex =
+                          (currentPage - 1) * pageSize + pageIndex;
+                        const selected =
+                          selectedItemDialogOpen &&
+                          itemIndex === selectedItemIndex;
+                        if (!summaryTableColumns.length) {
+                          const itemLabel = `Report item ${itemIndex + 1}`;
+                          return (
+                            <tr
+                              key={`${report}-${itemIndex}`}
+                              data-selected={selected || undefined}
+                            >
+                              <th scope="row">
+                                <Button
+                                  type="button"
+                                  variant="link"
+                                  className="reports-workspace__summary-row-trigger"
+                                  aria-label={`View details for ${itemLabel}`}
+                                  aria-haspopup="dialog"
+                                  aria-expanded={selected}
+                                  onClick={() => {
+                                    setSelectedItemIndex(itemIndex);
+                                    setSelectedItemDialogOpen(true);
+                                  }}
+                                >
+                                  {itemLabel}
+                                </Button>
+                              </th>
+                            </tr>
+                          );
+                        }
+
+                        return (
+                          <tr
+                            key={`${report}-${itemIndex}`}
+                            data-selected={selected || undefined}
+                          >
+                            {summaryTableColumns.map((field, columnIndex) => {
+                              const value =
+                                field === 'customerName' && !item.customerName
+                                  ? item.customerId
+                                  : field === 'cashierEmail' &&
+                                      !item.cashierEmail
+                                    ? item.cashierId
+                                    : item[field];
+                              const label =
+                                formatOperationsReportFieldLabel(field);
+                              const numeric = numericReportColumns.has(field);
+                              const valueContent = (
+                                <OperationsReportValue
+                                  field={field}
+                                  value={value}
+                                  timezone={summaryDisplayTimezone}
+                                />
+                              );
+                              return columnIndex === 0 ? (
+                                <th
+                                  key={field}
+                                  scope="row"
+                                  data-numeric={numeric ? 'true' : undefined}
+                                >
+                                  <Button
+                                    type="button"
+                                    variant="link"
+                                    className={`reports-workspace__summary-row-trigger${numeric ? ' is-numeric' : ''}`}
+                                    aria-label={`View details for ${label}: ${renderValue(value)}`}
+                                    aria-haspopup="dialog"
+                                    aria-expanded={selected}
+                                    onClick={() => {
+                                      setSelectedItemIndex(itemIndex);
+                                      setSelectedItemDialogOpen(true);
+                                    }}
+                                  >
+                                    {valueContent}
+                                  </Button>
+                                </th>
+                              ) : (
+                                <td
+                                  key={field}
+                                  data-numeric={numeric ? 'true' : undefined}
+                                >
+                                  {valueContent}
+                                </td>
+                              );
+                            })}
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </Table>
+                </div>
+                <div className="reports-workspace__pagination">
+                  <div className="reports-workspace__pagination-summary">
+                    <div className="reports-workspace__field">
+                      <span>Rows per page</span>
+                      <Select
+                        aria-label="Rows per page"
+                        value={String(pageSize)}
+                        onChange={(event) => {
+                          setPageSize(Number(event.target.value));
+                          setCurrentPage(1);
+                        }}
+                        options={[
+                          { value: '10', label: '10 rows' },
+                          { value: '25', label: '25 rows' },
+                          { value: '50', label: '50 rows' },
+                        ]}
                       />
                     </div>
-                    <p style={listBodyText}>{renderValue(value)}</p>
-                    <div style={chipRow}>
-                      <StatusBadge label={report} tone="info" />
-                      <StatusBadge
-                        label={branchId || 'Tenant-wide'}
-                        tone="neutral"
-                      />
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
+                    <p aria-live="polite">
+                      Showing {(currentPage - 1) * pageSize + 1}–
+                      {Math.min(currentPage * pageSize, items.length)} of{' '}
+                      {items.length} loaded rows
+                    </p>
+                  </div>
+                  <div className="reports-workspace__pagination-controls">
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      size="compact"
+                      onClick={() =>
+                        setCurrentPage((page) => Math.max(1, page - 1))
+                      }
+                      disabled={currentPage <= 1}
+                      aria-label="Previous report page"
+                    >
+                      <ChevronLeft size={16} aria-hidden="true" />
+                    </Button>
+                    <span aria-live="polite">
+                      Page {currentPage} of {pageCount}
+                    </span>
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      size="compact"
+                      onClick={() =>
+                        setCurrentPage((page) => Math.min(pageCount, page + 1))
+                      }
+                      disabled={currentPage >= pageCount}
+                      aria-label="Next report page"
+                    >
+                      <ChevronRight size={16} aria-hidden="true" />
+                    </Button>
+                  </div>
+                </div>
+              </>
+            ) : (
+              <div style={itemsGrid}>
+                {items.slice(0, 6).map((item, index) => {
+                  const entries = Object.entries(item);
+                  const [label, value] = entries[0] ?? [
+                    `item-${index + 1}`,
+                    'Unknown',
+                  ];
+                  const selected = index === selectedItemIndex;
+                  return (
+                    <button
+                      key={`${label}-${index}`}
+                      type="button"
+                      aria-pressed={selected}
+                      onClick={() => setSelectedItemIndex(index)}
+                      style={{
+                        textAlign: 'left',
+                        padding: 'var(--sc-spacing-4)',
+                        borderRadius: 'var(--sc-radius-lg)',
+                        border: `1px solid ${selected ? 'var(--sc-color-brand-600)' : 'var(--sc-color-semantic-border)'}`,
+                        background: 'var(--sc-color-neutral-0)',
+                      }}
+                    >
+                      <div style={listHeaderRow}>
+                        <strong>{formatReportFieldLabel(label)}</strong>
+                        {showStatusBadges ? (
+                          <StatusBadge
+                            label={selected ? 'Selected' : 'Item'}
+                            tone={selected ? 'success' : 'neutral'}
+                          />
+                        ) : null}
+                      </div>
+                      <p style={listBodyText}>{renderValue(value)}</p>
+                      {showStatusBadges ? (
+                        <div style={chipRow}>
+                          <StatusBadge label={report} tone="info" />
+                          <StatusBadge
+                            label={branchId || 'Tenant-wide'}
+                            tone="neutral"
+                          />
+                        </div>
+                      ) : null}
+                    </button>
+                  );
+                })}
+              </div>
+            )
           ) : (
             <Alert tone="warning" title="No report rows">
               The selected report returned no rows for the current filters.
@@ -1764,33 +2289,86 @@ export function ReportsWorkspace({
           )}
         </section>
 
-        <section style={cardStyle} aria-label="Selected report item">
-          <h2 style={{ marginTop: 0 }}>Selected item</h2>
+        {summaryItemsPresentation === 'cards' ? (
+          <section style={cardStyle} aria-label="Selected report item">
+            <h2 style={{ marginTop: 0 }}>Selected item</h2>
+            {selectedItem ? (
+              <>
+                <Alert tone="info" title="Item context">
+                  {describeSelectedItem(selectedItem)}
+                </Alert>
+                <Table>
+                  <tbody>
+                    {Object.entries(selectedItem)
+                      .slice(0, 10)
+                      .map(([key, value]) => (
+                        <tr key={key}>
+                          <th scope="row">{formatReportFieldLabel(key)}</th>
+                          <td>{renderValue(value)}</td>
+                        </tr>
+                      ))}
+                  </tbody>
+                </Table>
+              </>
+            ) : (
+              <Alert tone="warning" title="No item selected">
+                Select a summary row to inspect its full values.
+              </Alert>
+            )}
+          </section>
+        ) : null}
+      </div>
+
+      {summaryItemsPresentation === 'table-dialog' ? (
+        <Dialog
+          open={selectedItemDialogOpen && selectedItem !== null}
+          title="Selected item"
+          onClose={() => setSelectedItemDialogOpen(false)}
+        >
+          <Button
+            type="button"
+            variant="ghost"
+            className="reports-workspace__dialog-close"
+            aria-label="Close selected item details"
+            onClick={() => setSelectedItemDialogOpen(false)}
+          >
+            Close
+          </Button>
           {selectedItem ? (
             <>
               <Alert tone="info" title="Item context">
-                {describeSelectedItem(selectedItem)}
+                <OperationsSelectedItemContext
+                  item={selectedItem}
+                  timezone={summaryDisplayTimezone}
+                />
               </Alert>
-              <Table>
+              <Table
+                className="reports-workspace__selected-item-table"
+                aria-label="Selected item details"
+              >
                 <tbody>
                   {Object.entries(selectedItem)
                     .slice(0, 10)
                     .map(([key, value]) => (
                       <tr key={key}>
-                        <th scope="row">{formatReportFieldLabel(key)}</th>
-                        <td>{renderValue(value)}</td>
+                        <th scope="row">
+                          {formatOperationsReportFieldLabel(key)}
+                        </th>
+                        <td>
+                          <OperationsReportValue
+                            field={key}
+                            value={value}
+                            timezone={summaryDisplayTimezone}
+                          />
+                        </td>
                       </tr>
                     ))}
                 </tbody>
               </Table>
             </>
-          ) : (
-            <Alert tone="warning" title="No item selected">
-              Select a summary row to inspect its full values.
-            </Alert>
-          )}
-        </section>
-      </div>
+          ) : null}
+        </Dialog>
+      ) : null}
 
       {smsOperationalDrilldown ? (
         <section style={cardStyle} aria-label="SMS operational drilldown">
@@ -1990,6 +2568,147 @@ function describeReportContext(
     `window ${from || 'start'} → ${to || 'now'}`,
   ];
   return parts.join(' · ');
+}
+
+function describeOperationsReportFilters({
+  report,
+  summary,
+  branchId,
+  branchName,
+  branches,
+  timezone,
+  from,
+  to,
+}: {
+  report: ReportKey;
+  summary: ReportSummary | null;
+  branchId: string;
+  branchName?: string | null;
+  branches: readonly ReportBranchOption[];
+  timezone: string;
+  from: string;
+  to: string;
+}) {
+  const dateRange =
+    from && to
+      ? `${from} to ${to}`
+      : from
+        ? `From ${from}`
+        : to
+          ? `Through ${to}`
+          : 'Default report window';
+
+  if (report === 'pilot-operations-summary') {
+    return 'Tenant-wide summary · Branch and date filters do not apply.';
+  }
+  if (report === 'audit-report') {
+    return `Tenant-wide audit · Branch selection does not apply · Date range: ${dateRange}`;
+  }
+
+  const selectedBranchId = branchId || summary?.branchId || '';
+  const selectedBranch = branches.find(
+    (branch) => branch.id === selectedBranchId,
+  );
+  const branchLabel = selectedBranchId
+    ? (selectedBranch?.name ?? branchName?.trim() ?? 'Selected branch')
+    : summary?.scope === 'BRANCH'
+      ? 'Assigned branch'
+      : 'All branches';
+  const selectedTimezone = timezone || summary?.timezone;
+  const timezoneLabel = selectedTimezone
+    ? `Time zone: ${selectedTimezone}`
+    : 'Time zone not provided';
+
+  return `Selected filters: ${branchLabel} · ${timezoneLabel} · Date range: ${dateRange}`;
+}
+
+function humanizeOperationsReportMessage(message: string) {
+  if (message === 'Loading report summary…') return 'Loading report…';
+
+  const loadedReport = /^Report summary loaded for (.+)\.$/.exec(message)?.[1];
+  if (!loadedReport) return message;
+
+  const reportLabel = reportOptions.find(
+    (option) => option.value === loadedReport,
+  )?.label;
+  return reportLabel ? `${reportLabel} loaded.` : 'Report loaded.';
+}
+
+function operationsReportDateRange(days: 7 | 30, timezone: string) {
+  const today = businessDateInTimezone(new Date(), timezone);
+  return {
+    from: shiftOperationsDate(today, 1 - days),
+    to: today,
+  };
+}
+
+function businessDateInTimezone(date: Date, timezone: string) {
+  const formatForTimezone = (timeZone: string) => {
+    const parts = new Intl.DateTimeFormat('en-GB', {
+      timeZone,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    }).formatToParts(date);
+    const value = (type: string) =>
+      parts.find((part) => part.type === type)?.value ?? '';
+    return `${value('year')}-${value('month')}-${value('day')}`;
+  };
+
+  try {
+    return formatForTimezone(timezone || 'Africa/Lagos');
+  } catch {
+    return formatForTimezone('Africa/Lagos');
+  }
+}
+
+function shiftOperationsDate(day: string, delta: number) {
+  const [year, month, date] = day.split('-').map(Number);
+  return new Date(Date.UTC(year, month - 1, date + delta, 12))
+    .toISOString()
+    .slice(0, 10);
+}
+
+function formatOperationsReportFieldLabel(field: string) {
+  if (field === 'salesValueKobo') return 'Sales value';
+  if (field === 'outstandingKobo') return 'Outstanding value';
+  return formatSupervisorReportFieldLabel(field).replace(/\\s+Kobo$/i, '');
+}
+
+function OperationsReportValue({
+  field,
+  value,
+  timezone,
+}: Readonly<{ field: string; value: unknown; timezone: string }>) {
+  if (
+    typeof value === 'string' &&
+    /(?:Date$|^from$|^to$|^asOf$)/i.test(field)
+  ) {
+    return <>{formatReportBusinessDate(value, timezone)}</>;
+  }
+  if (
+    typeof value === 'string' &&
+    /(?:At|Timestamp|GeneratedAt|OccurredAt)$/i.test(field)
+  ) {
+    return <>{formatReportTimestamp(value, timezone)}</>;
+  }
+  return <SupervisorReportValue field={field} value={value} />;
+}
+
+function OperationsSelectedItemContext({
+  item,
+  timezone,
+}: Readonly<{ item: ReportItem; timezone: string }>) {
+  const firstEntry = Object.entries(item)[0];
+  if (!firstEntry) return <>No item fields were returned.</>;
+
+  const [field, value] = firstEntry;
+  return (
+    <>
+      <strong>{formatOperationsReportFieldLabel(field)}:</strong>{' '}
+      <OperationsReportValue field={field} value={value} timezone={timezone} />
+    </>
+  );
 }
 
 function describePilotSummaryContext(summary: PilotSummary) {

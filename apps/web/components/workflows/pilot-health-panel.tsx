@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { reportsControllerGetPilotOperationsSummaryV1 } from '../../lib/api/generated-client';
 import { createApiRequest } from '../../lib/api/request';
 import { StatusBadge } from '../shopcity';
+import { AdminOperationsHealthTrend } from './admin-operations-health-trend';
 
 const routeLinks = [
   ['/admin/operations', 'Admin operations'],
@@ -14,7 +15,18 @@ const routeLinks = [
   ['/supervisor/reports', 'Supervisor reports'],
 ] as const;
 
+type PilotHealthPanelProps = {
+  compact?: boolean;
+  cardStyleVariant?: 'default' | 'adminOverview';
+};
+
 type PilotSummary = {
+  generatedAt?: string;
+  release?: {
+    version?: string;
+    sha?: string;
+    sentryConfigured?: boolean;
+  };
   outbox?: { backlogCount?: number; staleCount?: number };
   sms?: { failedCount?: number };
   offlineSync?: { failureCount?: number };
@@ -23,9 +35,119 @@ type PilotSummary = {
   reconciliation?: { healthy?: boolean; mismatchCount?: number };
 };
 
+type OperationalAttention = {
+  active: string[];
+  unavailable: string[];
+};
+
+function isNonNegativeCount(value: unknown): value is number {
+  return Number.isSafeInteger(value) && typeof value === 'number' && value >= 0;
+}
+
+function formatGeneratedAt(value: unknown): string | null {
+  if (typeof value !== 'string' || value.trim().length === 0) return null;
+
+  const date = new Date(value);
+  if (Number.isNaN(date.valueOf())) return null;
+
+  return new Intl.DateTimeFormat('en-NG', {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+    timeZone: 'Africa/Lagos',
+    timeZoneName: 'short',
+  }).format(date);
+}
+
+function summarizeOperationalAttention(
+  summary: PilotSummary,
+): OperationalAttention {
+  const active: string[] = [];
+  const unavailable: string[] = [];
+  const addCount = (
+    value: unknown,
+    unavailableLabel: string,
+    describe: (count: number) => string,
+  ) => {
+    if (!isNonNegativeCount(value)) {
+      unavailable.push(unavailableLabel);
+      return;
+    }
+    if (value > 0) active.push(describe(value));
+  };
+
+  addCount(summary.outbox?.backlogCount, 'outbox backlog', (count) =>
+    count === 1 ? '1 pending outbox event' : `${count} pending outbox events`,
+  );
+  addCount(summary.outbox?.staleCount, 'stale outbox count', (count) =>
+    count === 1 ? '1 stale outbox event' : `${count} stale outbox events`,
+  );
+  addCount(summary.sms?.failedCount, 'SMS failures', (count) =>
+    count === 1 ? '1 failed SMS message' : `${count} failed SMS messages`,
+  );
+  addCount(
+    summary.offlineSync?.failureCount,
+    'offline sync failures',
+    (count) =>
+      count === 1 ? '1 offline sync failure' : `${count} offline sync failures`,
+  );
+  addCount(summary.fraud?.openCount, 'open fraud count', (count) =>
+    count === 1 ? '1 open fraud flag' : `${count} open fraud flags`,
+  );
+  addCount(summary.reports?.staleCount, 'stale reports', (count) =>
+    count === 1
+      ? '1 stale report materialization'
+      : `${count} stale report materializations`,
+  );
+
+  const mismatchCount = summary.reconciliation?.mismatchCount;
+  if (isNonNegativeCount(mismatchCount)) {
+    if (mismatchCount > 0) {
+      active.push(
+        mismatchCount === 1
+          ? '1 reconciliation mismatch'
+          : `${mismatchCount} reconciliation mismatches`,
+      );
+    } else if (summary.reconciliation?.healthy === false) {
+      active.push('Reconciliation requires review');
+    }
+  } else {
+    unavailable.push('reconciliation mismatch count');
+    if (summary.reconciliation?.healthy === false) {
+      active.push('Reconciliation requires review');
+    }
+  }
+  if (typeof summary.reconciliation?.healthy !== 'boolean') {
+    unavailable.push('reconciliation status');
+  }
+
+  return { active, unavailable: [...new Set(unavailable)] };
+}
+
+function getReleaseMetadata(release: PilotSummary['release']): string[] {
+  if (!release) return [];
+
+  const metadata: string[] = [];
+  if (typeof release.version === 'string' && release.version.trim()) {
+    metadata.push(`Version ${release.version.trim()}`);
+  }
+  if (typeof release.sha === 'string' && release.sha.trim()) {
+    metadata.push(`Commit ${release.sha.trim().slice(0, 7)}`);
+  }
+  if (typeof release.sentryConfigured === 'boolean') {
+    metadata.push(
+      `Sentry DSN ${release.sentryConfigured ? 'configured' : 'not configured'}`,
+    );
+  }
+  return metadata;
+}
+
 export function PilotHealthPanel({
   compact = false,
-}: { compact?: boolean } = {}) {
+  cardStyleVariant = 'default',
+}: PilotHealthPanelProps = {}) {
   const [summary, setSummary] = useState<PilotSummary | null>(null);
   const [message, setMessage] = useState('Loading pilot health…');
 
@@ -160,6 +282,10 @@ export function PilotHealthPanel({
     ],
   );
 
+  const attention = summary ? summarizeOperationalAttention(summary) : null;
+  const lastChecked = summary ? formatGeneratedAt(summary.generatedAt) : null;
+  const releaseMetadata = summary ? getReleaseMetadata(summary.release) : [];
+
   const overallTone = useMemo(() => {
     if (!summary) return 'neutral' as const;
     if (
@@ -182,41 +308,96 @@ export function PilotHealthPanel({
   ]);
 
   return (
-    <section style={compact ? compactCardStyle : cardStyle}>
+    <section
+      style={
+        cardStyleVariant === 'adminOverview'
+          ? adminOverviewPanelCardStyle
+          : compact
+            ? compactCardStyle
+            : cardStyle
+      }
+    >
       <header
         style={{
           display: 'grid',
           gap: compact ? 'var(--sc-spacing-1)' : 'var(--sc-spacing-2)',
         }}
       >
-        <div
-          style={{
-            display: 'flex',
-            gap: 'var(--sc-spacing-3)',
-            flexWrap: 'wrap',
-          }}
-        >
-          <StatusBadge
-            label={summary ? 'Live' : 'Loading'}
-            tone={overallTone}
-          />
-          {summary?.reconciliation ? (
+        {cardStyleVariant === 'adminOverview' ? null : (
+          <div
+            style={{
+              display: 'flex',
+              gap: 'var(--sc-spacing-3)',
+              flexWrap: 'wrap',
+            }}
+          >
             <StatusBadge
-              label={reconciliationHealthy ? 'Reconciled' : 'Mismatch'}
-              tone={reconciliationHealthy ? 'success' : 'danger'}
+              label={summary ? 'Live' : 'Loading'}
+              tone={overallTone}
             />
-          ) : null}
-        </div>
+            {summary?.reconciliation ? (
+              <StatusBadge
+                label={reconciliationHealthy ? 'Reconciled' : 'Mismatch'}
+                tone={reconciliationHealthy ? 'success' : 'danger'}
+              />
+            ) : null}
+          </div>
+        )}
         <h2 style={{ margin: 0 }}>Pilot health</h2>
         <p
-          style={{
-            margin: 'var(--sc-spacing-1) 0 0',
-            color: 'var(--sc-color-semantic-textSecondary)',
-          }}
+          style={
+            cardStyleVariant === 'adminOverview'
+              ? adminOverviewPanelSubtitleStyle
+              : {
+                  margin: 'var(--sc-spacing-1) 0 0',
+                  color: 'var(--sc-color-semantic-textSecondary)',
+                }
+          }
         >
-          {message}
+          {cardStyleVariant === 'adminOverview' && lastChecked && summary ? (
+            <>
+              Last checked:{' '}
+              <time dateTime={summary.generatedAt}>{lastChecked}</time>
+            </>
+          ) : (
+            message
+          )}
         </p>
       </header>
+
+      {cardStyleVariant === 'adminOverview' && attention ? (
+        <aside
+          aria-label="Operational attention"
+          aria-live="polite"
+          style={
+            attention.active.length > 0
+              ? adminOverviewAttentionWarningStyle
+              : adminOverviewAttentionStyle
+          }
+        >
+          <h3 style={adminOverviewAttentionHeadingStyle}>
+            {attention.active.length > 0
+              ? 'Needs attention'
+              : 'Operational attention'}
+          </h3>
+          {attention.active.length > 0 ? (
+            <ul style={adminOverviewAttentionListStyle}>
+              {attention.active.map((item) => (
+                <li key={item}>{item}</li>
+              ))}
+            </ul>
+          ) : attention.unavailable.length === 0 ? (
+            <p style={adminOverviewCardSubtextStyle}>
+              No active operational alerts.
+            </p>
+          ) : null}
+          {attention.unavailable.length > 0 ? (
+            <p style={adminOverviewCardSubtextStyle}>
+              Unable to assess: {attention.unavailable.join(', ')}.
+            </p>
+          ) : null}
+        </aside>
+      ) : null}
 
       {compact ? null : (
         <div style={routeRow}>
@@ -238,7 +419,13 @@ export function PilotHealthPanel({
         {items.length === 0 ? (
           <div style={compact ? compactEmptyStateStyle : emptyStateStyle}>
             <strong>Waiting for live operations data</strong>
-            <p style={muted}>
+            <p
+              style={
+                cardStyleVariant === 'adminOverview'
+                  ? adminOverviewCardSubtextStyle
+                  : muted
+              }
+            >
               Health, queue, and report signals will appear once the backend
               responds.
             </p>
@@ -247,7 +434,13 @@ export function PilotHealthPanel({
           items.map((item) => (
             <article
               key={item.label}
-              style={compact ? compactMetricCardStyle : metricCardStyle}
+              style={
+                cardStyleVariant === 'adminOverview'
+                  ? adminOverviewMetricCardStyle
+                  : compact
+                    ? compactMetricCardStyle
+                    : metricCardStyle
+              }
             >
               <p
                 style={{
@@ -259,22 +452,45 @@ export function PilotHealthPanel({
               </p>
               <div style={metricRow}>
                 <strong>{String(item.value)}</strong>
-                <StatusBadge
-                  label={
-                    item.tone === 'warning'
-                      ? 'Review'
-                      : item.tone === 'danger'
-                        ? 'Unhealthy'
-                        : 'Healthy'
-                  }
-                  tone={item.tone}
-                />
+                {cardStyleVariant === 'adminOverview' ? null : (
+                  <StatusBadge
+                    label={
+                      item.tone === 'warning'
+                        ? 'Review'
+                        : item.tone === 'danger'
+                          ? 'Unhealthy'
+                          : 'Healthy'
+                    }
+                    tone={item.tone}
+                  />
+                )}
               </div>
-              <p style={muted}>{item.detail}</p>
+              <p
+                style={
+                  cardStyleVariant === 'adminOverview'
+                    ? adminOverviewCardSubtextStyle
+                    : muted
+                }
+              >
+                {item.detail}
+              </p>
             </article>
           ))
         )}
       </div>
+
+      {cardStyleVariant === 'adminOverview' ? (
+        <AdminOperationsHealthTrend />
+      ) : null}
+
+      {cardStyleVariant === 'adminOverview' && releaseMetadata.length > 0 ? (
+        <p
+          aria-label="Deployment configuration"
+          style={adminOverviewCardSubtextStyle}
+        >
+          {releaseMetadata.join(' · ')}
+        </p>
+      ) : null}
     </section>
   );
 }
@@ -287,6 +503,52 @@ const cardStyle: CSSProperties = {
   boxShadow: 'var(--sc-shadow-level1)',
   display: 'grid',
   gap: 'var(--sc-spacing-3)',
+};
+
+const adminOverviewAttentionStyle: CSSProperties = {
+  border: '1px solid #e4e4e4',
+  borderLeft: '3px solid #969696',
+  borderRadius: '12px',
+  padding: '12px 14px',
+  background: '#f8f8f8',
+  display: 'grid',
+  gap: '8px',
+};
+
+const adminOverviewAttentionWarningStyle: CSSProperties = {
+  ...adminOverviewAttentionStyle,
+  borderColor: '#f0cccc',
+  borderLeftColor: '#a62424',
+  background: '#fff8f8',
+};
+
+const adminOverviewAttentionHeadingStyle: CSSProperties = {
+  margin: 0,
+  color: '#414141',
+  fontSize: '14px',
+  fontWeight: 600,
+  lineHeight: 1.3,
+};
+
+const adminOverviewAttentionListStyle: CSSProperties = {
+  display: 'grid',
+  gap: '4px',
+  margin: 0,
+  paddingLeft: '18px',
+  color: '#414141',
+  fontSize: '12px',
+  lineHeight: 1.45,
+};
+
+const adminOverviewPanelCardStyle: CSSProperties = {
+  minWidth: 0,
+  border: '1px solid #e4e4e4',
+  borderRadius: '16px',
+  padding: '16px 20px',
+  background: '#fff',
+  boxShadow: 'none',
+  display: 'grid',
+  gap: '12px',
 };
 
 const compactCardStyle: CSSProperties = {
@@ -331,6 +593,19 @@ const metricCardStyle: CSSProperties = {
   gap: 'var(--sc-spacing-1)',
 };
 
+const adminOverviewMetricCardStyle: CSSProperties = {
+  minWidth: 0,
+  border: '1px solid #e4e4e4',
+  borderRadius: '16px',
+  background: '#fff',
+  display: 'flex',
+  minHeight: '121px',
+  flexDirection: 'column',
+  justifyContent: 'center',
+  gap: '8px',
+  padding: '14px 16px',
+};
+
 const compactMetricCardStyle: CSSProperties = {
   ...metricCardStyle,
   padding: 'var(--sc-spacing-2)',
@@ -341,6 +616,23 @@ const metricRow: CSSProperties = {
   alignItems: 'center',
   justifyContent: 'space-between',
   gap: 'var(--sc-spacing-2)',
+};
+
+const adminOverviewSupportingTextStyle: CSSProperties = {
+  color: '#676767',
+  fontSize: '12px',
+  fontWeight: 400,
+  lineHeight: 1.45,
+};
+
+const adminOverviewPanelSubtitleStyle: CSSProperties = {
+  ...adminOverviewSupportingTextStyle,
+  margin: 'var(--sc-spacing-1) 0 0',
+};
+
+const adminOverviewCardSubtextStyle: CSSProperties = {
+  ...adminOverviewSupportingTextStyle,
+  margin: 0,
 };
 
 const muted: CSSProperties = {

@@ -11,6 +11,176 @@ Use this tracker when preparing a spec proposal. Run `npm run proposal:impact --
 
 ## Findings
 
+### 2026-11-02 — Operations date presets, controls, and summary columns
+
+Fresh `ReportsWorkspace` upstream impact returned LOW/exact with 6 impacted symbols, 2 direct dependants, and no indexed processes/modules. `AdminOperationsTabs` remains unindexed (UNKNOWN), and prior Operations-route analysis recorded HIGH, so graph coverage is incomplete. The extension remains behind the existing Operations-only `table-dialog` opt-in: add date presets using the selected branch timezone, Supervisor pill controls, and populated report-field columns with pagination/alignment. The Load report gradient and other callers' date/filter behavior remain unchanged; no API/data/role changes.
+
+```text
+npm run proposal:impact -- --file apps/web/components/workflows/reports-workspace.tsx ReportsWorkspace
+```
+
+### 2026-11-02 — Operations report button and filter-copy refinement
+
+A fresh `ReportsWorkspace` upstream query returned LOW/exact with 6 impacted symbols and 2 direct dependants; no indexed processes/modules were affected. `AdminOperationsTabs` remains unindexed (UNKNOWN), and previous analysis recorded HIGH when the Operations route was included, so coverage remains incomplete. Changes remain opt-in: Operations will inherit the existing Supervisor Reports button treatment, keep its standard dropdown control override, and present truthful filter text as subtext in the combined summary surface. No report data, API, or role behavior changes.
+
+```text
+npm run proposal:impact -- --file apps/web/components/workflows/reports-workspace.tsx ReportsWorkspace
+npm run proposal:impact -- --file apps/web/components/workflows/admin-operations-tabs.tsx AdminOperationsTabs
+```
+
+### 2026-11-02 — Operations report summary table/dialog and controls (scope update)
+
+A fresh `ReportsWorkspace` upstream query returned LOW/exact with 6 impacted symbols, 2 direct dependants, and no indexed processes/modules. `AdminOperationsTabs` remains unindexed (UNKNOWN); a previous badge-removal analysis recorded HIGH with the Operations route included, so index coverage remains incomplete. The new result-table/dialog presentation and sidebar/control styling are enabled only through an explicit Operations prop and wrapper class; shared card-based callers and dedicated Admin/Supervisor Reports routes retain their current presentation. No API, data, or role behavior changes are planned.
+
+```text
+npm run proposal:impact -- --file apps/web/components/workflows/reports-workspace.tsx ReportsWorkspace
+npm run proposal:impact -- --file apps/web/components/workflows/admin-operations-tabs.tsx AdminOperationsTabs
+```
+
+### 2026-11-02 — Tenant branch selector for Operations Reports (scope update)
+
+A fresh `ReportsWorkspace` upstream query returned LOW/exact with 6 impacted symbols and 2 direct dependants; deeper indexed results include the dedicated Admin/Supervisor Reports callers. `AdminOperationsTabs` remains unindexed (UNKNOWN). As recorded below, the lower count does not include the Operations caller, so coverage is incomplete. The Operations-only opt-in uses the existing Admin-only `GET /api/v1/branches` endpoint, which scopes results by the authenticated tenant and returns each Branch's persisted timezone. No endpoint, contract, role, database, or migration changes are planned; date filters and default behavior on other Reports callers remain unchanged.
+
+```text
+npm run proposal:impact -- --file apps/web/components/workflows/reports-workspace.tsx ReportsWorkspace
+npm run proposal:impact -- --file apps/web/components/workflows/admin-operations-tabs.tsx AdminOperationsTabs
+```
+
+### 2026-11-02 — Operations Reports typography alignment (scope update)
+
+A fresh `ReportsWorkspace` upstream query returned LOW/exact with 6 impacted symbols, 2 direct dependants, and no indexed processes/modules. The direct indexed dependants are `reports-workspace.spec.tsx` and `OperationalReportsDashboard`; deeper results include the dedicated Admin and Supervisor reports callers. `AdminOperationsTabs` is still not indexed, so its target impact is UNKNOWN. The prior badge-removal finding also recorded a HIGH result with the Operations route included; treat the current lower count as incomplete rather than a reduced real blast radius. The change keeps the existing ReportsWorkspace layout and data/action behavior, adds the established report style wrapper only in Operations, and scopes typography rules to the current report, summary-item, and selected-item cards. Dedicated Admin/Supervisor callers remain unmodified.
+
+```text
+node scripts/gitnexus.cjs impact --repo shopcity_LP --file apps/web/components/workflows/reports-workspace.tsx --direction upstream --include-tests ReportsWorkspace
+npm run proposal:impact -- --file apps/web/components/workflows/admin-operations-tabs.tsx AdminOperationsTabs
+```
+
+### 2026-11-02 — Remove badges from Operations Reports tab (scope update)
+
+`npm run proposal:impact -- --file apps/web/components/workflows/reports-workspace.tsx ReportsWorkspace` returned **HIGH/exact**: 7 impacted symbols, 3 direct dependants, 3 affected route processes (`SupervisorReportsPage`, `AdminReportsPage`, and `AdminOperationsPage`), and 1 module. The Operations caller will opt out via a new prop whose default remains enabled, so the dedicated Admin and Supervisor routes keep their current badges. The `AdminOperationsTabs` target was not present in the index. `node .gitnexus/run.cjs analyze` was attempted, but refresh failed because the local `file_fts` index is inconsistent (`document for node offset 2029 is missing during delete`). Source search confirms `AdminOperationsTabs` is only rendered by `AdminOperationsPage`; treat its GitNexus risk as unknown.
+
+```text
+npm run proposal:impact -- --file apps/web/components/workflows/reports-workspace.tsx ReportsWorkspace
+npm run proposal:impact -- --file apps/web/components/workflows/admin-operations-tabs.tsx AdminOperationsTabs
+node .gitnexus/run.cjs analyze
+```
+
+### 2026-11-01 — Pilot Operations health-history chart (pre-proposal impact)
+
+Before proposing `pilot-operations-health-trends`, GitNexus returned LOW/exact for all existing changed symbols; no HIGH/CRITICAL risk was reported. `ReportsService.getPilotOperationsSummary` has 3 impacted symbols (2 direct dependants and 1 at depth 2), 0 affected processes, and 1 module. `ReportsController` has 4 impacted symbols (2 direct and 2 at deeper levels), with 0 affected processes/modules. Worker `bootstrap` has 2 direct dependants and 0 affected processes/modules. `PilotHealthPanel` has 2 direct callers (`AdminOperationsPage` and `CriticalFlowsPage`); one Admin Operations flow is affected (9 flow hits) in 1 module. The plan adds a separate history API and new worker/model; the current summary contract and non-Operations callers remain unchanged.
+
+```text
+npm run proposal:impact -- --file src/modules/reports/reports.service.ts getPilotOperationsSummary
+npm run proposal:impact -- --file src/modules/reports/reports.controller.ts ReportsController
+npm run proposal:impact -- --file src/worker.ts bootstrap
+npm run proposal:impact -- --file apps/web/components/workflows/pilot-health-panel.tsx PilotHealthPanel
+```
+
+### 2026-11-01 — Admin Operations Overview card surfaces (scope update)
+
+`npm run proposal:impact -- --file apps/web/components/workflows/pilot-health-panel.tsx PilotHealthPanel` returned LOW/exact with 2 direct dependants (`AdminOperationsPage` and `CriticalFlowsPage`), 1 affected process (AdminOperationsPage, 9 flow hits), and 1 affected module. No HIGH/CRITICAL risk was reported. Add an opt-in Admin Overview card-surface variant to `PilotHealthPanel`; only the Operations Overview opts in. `CriticalFlowsPage` keeps the default style. The visual copy matches the existing Admin Overview `.panel`/`.metric` surfaces; no behavior, data, routes, or shared navigation change.
+
+```text
+npm run proposal:impact -- --file apps/web/components/workflows/pilot-health-panel.tsx PilotHealthPanel
+```
+
+### 2026-11-01 — Operations Overview status pills (scope update)
+
+`npm run proposal:impact -- --file apps/web/components/workflows/pilot-health-panel.tsx PilotHealthPanel` returned LOW/exact with 2 direct dependants (`AdminOperationsPage` and `CriticalFlowsPage`), 1 affected process (AdminOperationsPage, 9 flow hits), and 1 affected module. No HIGH/CRITICAL risk was reported. Hide only the header and per-signal `StatusBadge` pills when the Operations Overview card variant is selected; preserve the default presentation and pills at `CriticalFlowsPage`. No API, data, route, or shell changes.
+
+```text
+npm run proposal:impact -- --file apps/web/components/workflows/pilot-health-panel.tsx PilotHealthPanel
+```
+
+### 2026-11-01 — Operations health-card subtext typography (scope update)
+
+`npm run proposal:impact -- --file apps/web/components/workflows/pilot-health-panel.tsx PilotHealthPanel` returned LOW/exact with 2 direct dependants (`AdminOperationsPage` and `CriticalFlowsPage`), 1 affected process (AdminOperationsPage, 9 flow hits), and 1 affected module. No HIGH/CRITICAL risk was reported. Set a readable 12px/1.45 secondary-text style for Operations Overview signal details and its panel subtitle only; the opt-in variant keeps other callers unchanged. No API or data changes.
+
+```text
+npm run proposal:impact -- --file apps/web/components/workflows/pilot-health-panel.tsx PilotHealthPanel
+```
+
+### 2026-11-01 — Operations snapshot attention and metadata (scope update)
+
+`npm run proposal:impact -- --file apps/web/components/workflows/pilot-health-panel.tsx PilotHealthPanel` returned LOW/exact with 2 direct dependants (`AdminOperationsPage` and `CriticalFlowsPage`), 1 affected process (AdminOperationsPage, 9 flow hits), and 1 affected module. No HIGH/CRITICAL risk was reported. Add attention summary, `generatedAt`, and release metadata only to the Admin Overview variant, using the existing point-in-time endpoint response. No new requests or backend/API contract changes. Trend visualization is deferred: the endpoint has no historical observations.
+
+```text
+npm run proposal:impact -- --file apps/web/components/workflows/pilot-health-panel.tsx PilotHealthPanel
+```
+
+### 2026-10-31 — Admin Operations tabs (pre-edit impact)
+
+Before creating `admin-operations-tab-workspace`, `npm run proposal:impact -- --file 'apps/web/app/(shell)/admin/operations/page.tsx' AdminOperationsPage` returned LOW/exact with 0 upstream dependants, processes, or modules. `routeLinks` and `workspaceNotes` in the same page are also LOW/exact with 0 upstream dependants. No HIGH/CRITICAL risk was reported. Planned scope is only the `/admin/operations` body: remove specified static labels/copy; add Overview, Reports, and Controls tabs; keep existing pilot-health data in Overview, use the existing Admin operational reports dashboard in Reports, and link Controls to `/admin/users`, `/admin/devices`, `/admin/branches`, `/admin/audit`, and `/admin/adjustments`. No shell/navigation, route, API, authorization, backend, or financial changes are planned.
+
+```text
+npm run proposal:impact -- --file 'apps/web/app/(shell)/admin/operations/page.tsx' AdminOperationsPage
+node .gitnexus/run.cjs impact --repo shopcity_LP --file 'apps/web/app/(shell)/admin/operations/page.tsx' routeLinks --direction upstream
+node .gitnexus/run.cjs impact --repo shopcity_LP --file 'apps/web/app/(shell)/admin/operations/page.tsx' workspaceNotes --direction upstream
+```
+
+### 2026-10-29 — Admin Overview data/freshness and sidebar transparent corners (scope update)
+
+Before extending the active Admin Overview OpenSpec, upstream impact was rerun on current indexed symbols. `AdminPage` is LOW/exact with 0 impacted symbols/direct dependants/processes. `AppSidebar` is LOW/exact with 3 impacted symbols (direct caller `AppShellContent`, then `AppShell`), 2 affected shell processes (`ShellLayout` and `AppShellContent` flows), and 1 affected module. `AppShellContent` is LOW/exact with 2 impacted symbols (direct caller `AppShell`, then `ShellLayout`) and 1 affected shell process. After an index-only refresh (18,165 nodes, 28,727 edges; 5 changed and 10 added files), `AdminOverview` is LOW/exact with 0 upstream dependants; `ReportLineChart` and `RegistrationChart` are LOW/exact, each with one direct dependant (`AdminOverview`) in the AdminPage flow (5 associated flow hits). No HIGH/CRITICAL risk was returned. No shell component will be modified; the corner correction is constrained to CSS background painting.
+
+Planned extension: add tenant materialization-state data, runtime validation, typed endpoint failures, in-flight request sharing within the mounted hook (no completed-response cache), bounded status-aware retry behavior, source-time/incomplete-state messaging, true date-window chart gaps, accessible keyboard chart tooltips, and focused tests. Read endpoints remain existing report/materialization, approvals, and audit endpoints. The report materialization API exposes `status`, `materializedAt`, and `updatedAt` but no report-specific stale boolean/threshold. Audit OpenAPI/generated client still marks backend-optional `actorId` required; keep existing empty-filter workaround. Active virtual cards and server-supplied period totals remain API gaps. No HIGH/CRITICAL result; no backend/schema/contracts/role/routes/financial calculations will be changed.
+
+```text
+node .gitnexus/run.cjs impact --repo shopcity_LP --file apps/web/components/app-sidebar.tsx AppSidebar --direction upstream
+node .gitnexus/run.cjs impact --repo shopcity_LP --file apps/web/components/app-shell.tsx AppShellContent --direction upstream
+node .gitnexus/run.cjs impact --repo shopcity_LP --file 'apps/web/app/(shell)/admin/page.tsx' AdminPage --direction upstream
+```
+
+### 2026-10-29 — Admin Overview Figma redesign (pre-edit impact)
+
+Before drafting `admin-overview-figma-redesign`, upstream impact for `AdminPage` was LOW/exact with 0 impacted symbols, direct dependants, or affected processes. GitNexus context shows the route calls `ScannerContextScope`, `WorkflowSection`, and `AdminOperationsPanel`, and participates in existing Admin page flows; implementation will remove the current overview-only content while retaining the same route and shell. No HIGH/CRITICAL symbol-level impact was reported. The index was up-to-date at commit `139f0e9`.
+
+```text
+node .gitnexus/run.cjs impact --repo shopcity_LP --file 'apps/web/app/(shell)/admin/page.tsx' AdminPage --direction upstream
+node .gitnexus/run.cjs context AdminPage --repo shopcity_LP --file 'apps/web/app/(shell)/admin/page.tsx'
+```
+
+Planned scope: replace only `/admin` page content, using existing report/approval/audit read endpoints. No backend, API contract, schema, auth, shell, route, or financial calculation changes. Audit and Figma review also identified an unavailable tenant-wide active-card count and a generated audit-client actorId-required mismatch; see `docs/development/admin-overview-figma-implementation.md`.
+
+### 2026-10-28 — Termii transactional SMS provider (pre-draft impact)
+
+`npm run proposal:impact` was attempted for `createSmsProvider` and `envValidationSchema`, but its npm-installed GitNexus path failed because the local LadybugDB native binary (`lbugjs.node`) is missing. The repo-local `node .gitnexus/run.cjs impact` fallback returned the following results. The index is stale at `df42d4d` versus current HEAD `139f0e9`; treat graph coverage as limited. No HIGH/CRITICAL result was reported.
+
+| Symbol                                                | Risk                | Impacted symbols | Direct dependants | Affected processes                                                                       |
+| ----------------------------------------------------- | ------------------- | ---------------: | ----------------: | ---------------------------------------------------------------------------------------- |
+| `SmsProvider`                                         | MEDIUM, lower-bound |               19 |                12 | 0; seven implementations and interface-bound callers are not fully traced                |
+| `createSmsProvider`                                   | LOW, exact          |                3 |                 2 | 0; `bootstrapWorker` and `bootstrap`, plus one depth-2 worker file                       |
+| `envValidationSchema`                                 | LOW, exact          |                0 |                 0 | 0                                                                                        |
+| `OutboxWorkerRuntime.markSmsSubmissionOutcomeUnknown` | LOW, exact          |                4 |                 1 | 0; direct caller `handleJob`, depth-2 `start`, and depth-3 recovery/bootstrap dependants |
+| Provider/config/outbox test files                     | LOW, exact          |                0 |                 0 | 0                                                                                        |
+
+The planned change adds a Termii adapter without changing the `SmsProvider` interface. An implementation-time status-propagation review found that the worker also needs an optional `SmsSendResult.outcomeUnknown` marker to distinguish ambiguous submissions from ordinary terminal rejections. Upstream impact for `SmsSendResult` was MEDIUM (7 impacted symbols: 5 direct dependants and 2 at depth 2; no affected processes); `OutboxWorkerRuntime.handleJob` was LOW (4 impacted symbols: 1 direct caller and 3 at deeper levels; no affected processes). The index remains stale, so these are lower-bound/context-limited findings; no HIGH/CRITICAL result was reported. Existing outbox templates are transactional notifications, so use only Termii's DND route; do not expose the generic promotional, WhatsApp, voice, or bulk routes in this change. Map provider acceptance only to `SENT`, retain the provider message ID if present, do not add unverified DLR support, and avoid automatic replay for ambiguous outcomes. Termii documents no request idempotency field, so use the worker's existing local submission reservation and its `provider-outcome-unknown` path. Production requires a registered sender ID and account-level DND activation; no live send or credential is authorized by this change.
+
+```text
+npm run proposal:impact -- --file src/jobs/sms.provider.factory.ts createSmsProvider
+npm run proposal:impact -- --file src/config/env.validation.ts envValidationSchema
+node .gitnexus/run.cjs impact --repo shopcity_LP --file src/jobs/sms.provider.ts SmsProvider
+node .gitnexus/run.cjs impact --repo shopcity_LP --file src/jobs/outbox-worker.runtime.ts markSmsSubmissionOutcomeUnknown
+```
+
+### 2026-10-28 — Background worker config without API-only KEK (pre-draft impact)
+
+GitNexus CLI impact analysis was run against the stale `df42d4d` index (current HEAD `139f0e9`), so coverage is limited. No HIGH/CRITICAL results were reported.
+
+| Symbol                         | Risk       | Impacted symbols | Direct dependants |                                                          Affected processes |
+| ------------------------------ | ---------- | ---------------: | ----------------: | --------------------------------------------------------------------------: |
+| `envValidationSchema`          | LOW, exact |                0 |                 0 |                                 0; no dependants visible in the stale index |
+| `loadWorkerConfig`             | LOW, exact |                5 |                 4 | 0; direct callers `bootstrapWorker`, `bootstrap`, and two integration specs |
+| `createSmsProvider`            | LOW, exact |                3 |                 2 |                         0; direct callers `bootstrapWorker` and `bootstrap` |
+| `loadCreditExpiryWorkerConfig` | LOW, exact |                2 |                 1 |                                                0; direct caller `bootstrap` |
+
+The planned change adds a worker-scoped environment schema that does not require `DEVICE_ATTESTATION_KEK`, while preserving all existing SMS/provider validation and the API's full `envValidationSchema` requirement. This does not remove the KEK from auth, change device-attestation behavior, or alter the Termii provider contract.
+
+```text
+node .gitnexus/run.cjs impact --repo shopcity_LP --file src/jobs/outbox-worker.runtime.ts loadWorkerConfig --direction upstream
+node .gitnexus/run.cjs impact --repo shopcity_LP --file src/jobs/sms.provider.factory.ts createSmsProvider --direction upstream
+node .gitnexus/run.cjs impact --repo shopcity_LP --file src/jobs/credit-expiry.worker.ts loadCreditExpiryWorkerConfig --direction upstream
+```
+
 ### 2026-10-22 — In-store marketing-consent withdrawal proposal (pre-draft impact)
 
 Ran proposal-time upstream impact after rebuilding the stale/corrupted GitNexus index to current HEAD `25218da`. The first rebuild attempt hit a corrupted FTS index; the generated `.gitnexus` index was safely recreated. GitNexus regenerated `AGENTS.md` and `CLAUDE.md`; their original dirty worktree contents were backed up and restored byte-for-byte. `CustomerConsent` is not indexed as a symbol, so its schema blast radius remains unknown and is covered by direct schema/migration review.
