@@ -45,6 +45,15 @@ jest.mock('next/navigation', () => ({
   }),
 }));
 
+const originalMatchMedia = window.matchMedia;
+let tabletViewportMatches = false;
+let tabletChangeListeners: Array<() => void> = [];
+
+function resizeToTablet(isTablet: boolean) {
+  tabletViewportMatches = isTablet;
+  tabletChangeListeners.forEach((listener) => listener());
+}
+
 const connectivityLabels: Array<[ConnectivityState, string]> = [
   ['online', 'Browser online'],
   ['connection-unstable', 'Connection unstable'],
@@ -88,6 +97,27 @@ describe('AppTopbar connectivity labels', () => {
 
 describe('AppShell', () => {
   beforeEach(() => {
+    tabletViewportMatches = false;
+    tabletChangeListeners = [];
+    const tabletMediaQuery = {
+      get matches() {
+        return tabletViewportMatches;
+      },
+      media: '(min-width: 621px) and (max-width: 920px)',
+      onchange: null,
+      addEventListener: (_event: string, listener: () => void) => {
+        tabletChangeListeners.push(listener);
+      },
+      removeEventListener: (_event: string, listener: () => void) => {
+        tabletChangeListeners = tabletChangeListeners.filter(
+          (candidate) => candidate !== listener,
+        );
+      },
+    } as unknown as MediaQueryList;
+    Object.defineProperty(window, 'matchMedia', {
+      configurable: true,
+      value: jest.fn().mockReturnValue(tabletMediaQuery),
+    });
     mockBootstrapSession.mockReset();
     mockLogoutSession.mockReset();
     mockGetPublicConfig.mockReset();
@@ -117,6 +147,13 @@ describe('AppShell', () => {
     });
     mockGetOfflineEarnRecordCount.mockResolvedValue(2);
     mockSubscribeOfflineQueue.mockImplementation(() => () => undefined);
+  });
+
+  afterEach(() => {
+    Object.defineProperty(window, 'matchMedia', {
+      configurable: true,
+      value: originalMatchMedia,
+    });
   });
 
   it('renders protected content for authenticated sessions', async () => {
@@ -305,7 +342,7 @@ describe('AppShell', () => {
     ).toHaveAttribute('aria-expanded', 'true');
   });
 
-  it('keeps the expanded layout at tablet width unless the user collapses it', async () => {
+  it('auto-collapses at tablet width and restores the saved preference outside it', async () => {
     mockBootstrapSession.mockResolvedValueOnce({
       user: {
         id: 'u1',
@@ -328,6 +365,37 @@ describe('AppShell', () => {
     expect(document.querySelector('.shell-body')).not.toHaveClass(
       'shell-body--collapsed',
     );
+
+    act(() => resizeToTablet(true));
+    await waitFor(() => {
+      expect(document.querySelector('.shell-body')).toHaveClass(
+        'shell-body--collapsed',
+      );
+    });
+    expect(
+      screen.getByRole('button', { name: 'Expand sidebar' }),
+    ).toHaveAttribute('aria-expanded', 'false');
+    expect(document.querySelector('.shell-sidebar-brand-logo')).toHaveAttribute(
+      'src',
+      expect.stringContaining('/brand/supervisor/icon.png'),
+    );
+    expect(localStorage.getItem('shopcity:shell:sidebar-collapsed')).toBeNull();
+
+    act(() => resizeToTablet(false));
+    await waitFor(() => {
+      expect(document.querySelector('.shell-body')).not.toHaveClass(
+        'shell-body--collapsed',
+      );
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Collapse sidebar' }));
+    act(() => resizeToTablet(true));
+    act(() => resizeToTablet(false));
+    await waitFor(() => {
+      expect(document.querySelector('.shell-body')).toHaveClass(
+        'shell-body--collapsed',
+      );
+    });
   });
 
   it('keeps the drawer focus trapped and the shell inert while open', async () => {

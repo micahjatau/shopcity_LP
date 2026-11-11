@@ -49,6 +49,27 @@ The desktop shell MUST use a 244px expanded sidebar and 76px collapsed sidebar, 
 - **AND** icons remain grouped near the top with usable touch targets
 - **AND** footer controls remain available as accessible icon buttons
 
+### Requirement: Tablet resizing applies the real collapsed state
+
+The shell SHALL automatically use the same 76px collapsed state when the viewport enters the 621–920px tablet range, and SHALL restore the user's saved manual preference when leaving that range. Automatic responsive changes MUST NOT overwrite the saved preference.
+
+#### Scenario: Entering and leaving the tablet range
+
+- **GIVEN** the shell is expanded at a viewport wider than 920px
+- **WHEN** the viewport is resized to 920px or narrower but remains wider than 620px
+- **THEN** the actual sidebar state becomes collapsed, including the compact brand mark and `Expand sidebar` control
+- **AND** the sidebar width is 76px
+- **AND** the saved manual preference remains unchanged
+- **WHEN** the viewport is resized above 920px
+- **THEN** the user's saved manual preference is restored
+
+#### Scenario: Manual override while at tablet width
+
+- **GIVEN** the shell has automatically collapsed at a tablet width
+- **WHEN** the user activates the `Expand sidebar` control without crossing the breakpoint
+- **THEN** the expanded presentation is available
+- **AND** the next entry into the tablet range automatically collapses it again
+
 ### Requirement: Mobile uses an accessible drawer
 
 At 390px and 375px widths the permanent sidebar MUST be hidden and the existing mobile drawer MUST provide all role navigation plus Help & Training and Logout.

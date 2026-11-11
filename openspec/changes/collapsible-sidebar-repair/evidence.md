@@ -39,3 +39,9 @@
 
 - The mobile Help/Logout actions use existing supported routes/callbacks; no new backend capability was introduced.
 - GitNexus aggregate scope remains contaminated by unrelated dirty files, and analyzer repair is outside this frontend change.
+
+## Follow-up: automatic tablet collapse
+
+- The real React collapse state now activates when resizing into 621–920px; it restores the saved manual preference above 920px and does not overwrite that preference during automatic collapse. Mobile navigation remains the existing drawer below 621px.
+- Focused `app-shell.spec.tsx` passed (17 tests). The Playwright `repairs sidebar geometry, collapse state, and mobile drawer access` workflow passed with checks at 920px and 1024px, including the compact mark, accessible toggle state, preference restoration, and manual expansion at tablet width.
+- Web typecheck, lint, strict OpenSpec validation, Prettier checks, and the production build passed. The build retains one existing React hook dependency warning in `supervisor-flagged-activity.tsx`.

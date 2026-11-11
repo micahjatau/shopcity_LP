@@ -17,11 +17,12 @@
 - [x] 3.2 Add Help & Training and Logout to the mobile drawer while preserving inertness, focus trap, Escape, close restoration, and keyboard navigation.
 - [x] 3.3 Verify topbar session/device diagnostics are visually hidden but accessible; inspect viewport meta and mobile topbar sizing.
 - [x] 3.4 Add 200–240ms width/content motion and reduced-motion overrides without animating icons or nav spacing.
+- [x] 3.5 Automatically enter the actual collapsed state when resizing into 621–920px, restore the explicit preference above 920px, and keep manual tablet overrides usable.
 
 ## 4. Tests and visual evidence
 
 - [x] 4.1 Update Jest shell tests for real toggle behavior, persistence, accessible state, role destinations, footer actions, and mobile isolation.
-- [x] 4.2 Add Playwright geometry/accessibility coverage at 1440px, 1024px, 768px, 390px, and 375px for expanded/collapsed/drawer states.
+- [x] 4.2 Add Playwright geometry/accessibility coverage at 1440px, 1024px, 920px, 768px, 390px, and 375px for expanded/collapsed/drawer and resize transitions.
 - [x] 4.3 Capture and inspect expanded, collapsed, tablet, and mobile screenshots against approved ShopCity appearance; do not blindly update baselines.
 - [x] 4.4 Run affected workflow/accessibility tests and confirm financial controllers, APIs, and RBAC are unchanged.
 

@@ -10,7 +10,8 @@ The shared ShopCity shell currently permits a desktop icon-only rail at phone sc
 - Add an accessible brand/header toggle with `Collapse sidebar` and `Expand sidebar` labels plus accurate `aria-expanded` state.
 - Use `apps/web/public/brand/supervisor/icon.png` as the collapsed sidebar brand mark and the global favicon; retain the full wordmark when expanded.
 - Make `AppSidebar` the single owner of sidebar presentation with explicit brand, navigation, and footer regions.
-- Enforce 244px expanded and 76px collapsed desktop widths, grouped navigation, stable active pills, compact queue badges, usable touch targets, and accessible collapsed-item labels/tooltips.
+- Enforce 244px expanded and 76px collapsed widths, grouped navigation, stable active pills, compact queue badges, usable touch targets, and accessible collapsed-item labels/tooltips.
+- Automatically enter the same real collapsed state when resizing into the 621–920px tablet range, then restore the saved manual preference when leaving it; keep the mobile drawer independent.
 - Use the existing mobile drawer at phone widths instead of a permanent icon-only rail; preserve drawer focus management, Help & Training, Logout, keyboard navigation, and role-aware destinations.
 - Remove conflicting tablet sizing and viewport-only label hiding; resize main content without horizontal overflow.
 - Hide session/device diagnostics visually while retaining screen-reader access and verify topbar viewport behavior/meta configuration.
@@ -26,7 +27,7 @@ Out of scope: backend/database/API contracts, RBAC authority, financial controll
 ## Acceptance criteria
 
 - Expanded and collapsed controls work, persist across reload/navigation, expose correct labels and `aria-expanded`, and do not interfere with mobile drawer state.
-- Desktop widths are 244px/76px; navigation stays grouped at the top; footer remains at the bottom; main content never horizontally overflows.
+- Desktop widths are 244px/76px; resizing into 621–920px automatically uses the actual 76px collapsed state, leaving that range restores the saved preference, and main content never horizontally overflows.
 - All Cashier, Supervisor, and Admin destinations remain role-authoritative and correctly highlighted.
 - Collapsed navigation remains identifiable, keyboard accessible, minimum 44px targets, and retains Sync Queue counts plus accessible footer actions; its brand mark uses the approved icon asset.
 - The approved icon asset is declared as the favicon globally, including routes outside the authenticated shell.

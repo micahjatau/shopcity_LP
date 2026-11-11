@@ -74,6 +74,7 @@ function AppShellContent({ children }: Readonly<{ children: ReactNode }>) {
   const [syncQueueCount, setSyncQueueCount] = useState<number | null>(null);
   const [syncQueueError, setSyncQueueError] = useState<string | null>(null);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const sidebarPreferenceRef = useRef(false);
   const [mobileNavigationOpen, setMobileNavigationOpen] = useState(false);
   const shellFrameRef = useRef<HTMLDivElement | null>(null);
   const mobileDrawerRef = useRef<HTMLDivElement | null>(null);
@@ -89,7 +90,8 @@ function AppShellContent({ children }: Readonly<{ children: ReactNode }>) {
         window.localStorage.getItem('shopcity:shell:sidebar-collapsed') ??
         window.sessionStorage.getItem('shopcity:shell:sidebar-collapsed');
       if (stored === 'true' || stored === 'false') {
-        setSidebarCollapsed(stored === 'true');
+        sidebarPreferenceRef.current = stored === 'true';
+        setSidebarCollapsed(sidebarPreferenceRef.current);
       }
     }
 
@@ -119,9 +121,26 @@ function AppShellContent({ children }: Readonly<{ children: ReactNode }>) {
     };
   }, []);
 
+  useEffect(() => {
+    const tabletViewport = window.matchMedia(
+      '(min-width: 621px) and (max-width: 920px)',
+    );
+    const syncSidebarForViewport = () => {
+      setSidebarCollapsed(
+        tabletViewport.matches || sidebarPreferenceRef.current,
+      );
+    };
+
+    syncSidebarForViewport();
+    tabletViewport.addEventListener('change', syncSidebarForViewport);
+    return () =>
+      tabletViewport.removeEventListener('change', syncSidebarForViewport);
+  }, []);
+
   const toggleSidebar = useCallback(() => {
     setSidebarCollapsed((collapsed) => {
       const next = !collapsed;
+      sidebarPreferenceRef.current = next;
       window.localStorage.setItem(
         'shopcity:shell:sidebar-collapsed',
         String(next),

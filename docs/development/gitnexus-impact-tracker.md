@@ -11,6 +11,16 @@ Use this tracker when preparing a spec proposal. Run `npm run proposal:impact --
 
 ## Findings
 
+### 2026-11-11 — Automatic sidebar collapse at tablet widths
+
+GitNexus upstream impact was LOW/exact. `AppShellContent` has 3 impacted symbols (1 direct, 2 at depth 2), affecting the `ShellLayout` process (6 affected process count) and Components module. `toggleSidebar` has 0 upstream dependants. `AppSidebar` has 4 impacted symbols (1 direct, 1 at depth 2, 2 at depth 3), affecting `ShellLayout` and `AppShellContent` processes and the Components module. No HIGH/CRITICAL result. The index was refreshed successfully to current commit `db56e95`. Planned change: at the established 621–920px tablet range, set the real collapse state to the same 76px icon rail as the manual control, restore the explicit user preference when leaving that range, and leave the mobile drawer unchanged.
+
+```text
+npm run proposal:impact -- --file apps/web/components/app-shell.tsx AppShellContent
+npm run proposal:impact -- --file apps/web/components/app-shell.tsx toggleSidebar
+npm run proposal:impact -- --file apps/web/components/app-sidebar.tsx AppSidebar
+```
+
 ### 2026-11-11 — Immediate Supervisor overview refresh
 
 GitNexus upstream impact is LOW/exact for all planned symbols. `SupervisorPage` has 0 impacted symbols/callers; `ReportsController` has 4 impacted symbols (2 direct, 1 at depth 2, 1 at depth 3); its `refreshSupervisorDashboard` method has 1 direct dependant. `ReportExportService.refreshSupervisorDashboard` has 3 impacted symbols (2 direct) and the Reports module; `enqueueRefresh` has 6 impacted symbols (2 direct) and the Reports module. `ReportMaterializerService.materializeBranch` has 2 direct dependants. No indexed execution processes were affected, and no HIGH/CRITICAL risk was reported. Plan: connect the button to the existing Supervisor-only, branch-scoped refresh request, synchronously materialize only the authenticated branch after committing its audit/idempotency/outbox intent, then reload the snapshot/approvals. Preserve the cron-secret boundary and existing five-minute cron/daily fallback.

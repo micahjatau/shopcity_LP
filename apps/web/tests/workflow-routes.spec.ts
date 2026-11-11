@@ -318,6 +318,23 @@ test.describe('workflow route coverage', () => {
     await expect(
       page.getByRole('link', { name: 'Find Customer Lookup' }),
     ).toBeVisible();
+
+    await page.setViewportSize({ width: 920, height: 900 });
+    await expect(sidebar).toHaveAttribute('data-collapsed', 'true');
+    await expect(
+      page.getByRole('button', { name: 'Expand sidebar' }),
+    ).toHaveAttribute('aria-expanded', 'false');
+    await expect(sidebar.locator('.shell-sidebar-brand-logo')).toHaveAttribute(
+      'src',
+      /icon\.png/,
+    );
+
+    await page.setViewportSize({ width: 1024, height: 900 });
+    await expect(sidebar).toHaveAttribute('data-collapsed', 'false');
+    await expect(sidebar.locator('.shell-sidebar-brand-logo')).toHaveAttribute(
+      'src',
+      /Frame%202147224881\.svg/,
+    );
     await page.getByRole('button', { name: 'Collapse sidebar' }).click();
     await page.waitForTimeout(300);
     await expect(page).toHaveScreenshot('sidebar-collapsed-tablet.png', {
