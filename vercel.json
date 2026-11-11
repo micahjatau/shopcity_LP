@@ -17,6 +17,12 @@
       "use": "@vercel/node"
     }
   ],
+  "crons": [
+    {
+      "path": "/api/v1/cron/report-materialization",
+      "schedule": "0 0 * * *"
+    }
+  ],
   "routes": [
     {
       "src": "/(.*)",

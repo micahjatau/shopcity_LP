@@ -6,6 +6,7 @@ import { ChevronLeft, ChevronRight, RefreshCw, Search } from 'lucide-react';
 import {
   approvalsControllerListApprovalsV1,
   reportsControllerGetExecutiveSnapshotV1,
+  reportsControllerRefreshSupervisorDashboardV1,
 } from '../../../lib/api/generated-client';
 import { createApiRequest } from '../../../lib/api/request';
 import {
@@ -118,6 +119,7 @@ export default function SupervisorPage() {
   const [snapshotError, setSnapshotError] = useState('');
   const [approvalsError, setApprovalsError] = useState('');
   const [refreshRevision, setRefreshRevision] = useState(0);
+  const [refreshSubmitting, setRefreshSubmitting] = useState(false);
   const [activeSearch, setActiveSearch] = useState('');
   const [cursorHistory, setCursorHistory] = useState(['']);
   const currentCursor = cursorHistory[cursorHistory.length - 1] ?? '';
@@ -302,7 +304,8 @@ export default function SupervisorPage() {
     snapshot?.fetchedAt,
     snapshot?.timezone ?? 'Africa/Lagos',
   );
-  const isLoading = snapshotLoading || approvalPageLoading;
+  const isLoading =
+    refreshSubmitting || snapshotLoading || approvalPageLoading;
   const branchTimeZone = snapshot?.timezone ?? null;
   const loadedLatestDate = formatReportDate(snapshot?.latestReportDate ?? null);
   const pageNumber = cursorHistory.length;
@@ -311,6 +314,32 @@ export default function SupervisorPage() {
     matchingCount === null
       ? 'the exact match count is unavailable'
       : `${formatReportCount(matchingCount)} ${matchingCount === 1 ? 'match' : 'matches'} across all open approvals`;
+
+  const refreshOverview = async () => {
+    setRefreshSubmitting(true);
+    setSnapshotError('');
+    try {
+      const response = await reportsControllerRefreshSupervisorDashboardV1(
+        createApiRequest({
+          csrf: true,
+          idempotencyKey: window.crypto.randomUUID(),
+        }),
+      );
+      if (response.status !== 202) {
+        setSnapshotError(
+          `Daily report refresh failed (${response.status}). Try again.`,
+        );
+        return;
+      }
+      setRefreshRevision((revision) => revision + 1);
+    } catch {
+      setSnapshotError(
+        'Daily report refresh failed. Any displayed values retain their original materialization time.',
+      );
+    } finally {
+      setRefreshSubmitting(false);
+    }
+  };
 
   const goToNextApprovalsPage = () => {
     const nextCursor = currentApprovals?.nextCursor;
@@ -368,7 +397,7 @@ export default function SupervisorPage() {
           <button
             className="supervisor-overview__refresh"
             type="button"
-            onClick={() => setRefreshRevision((revision) => revision + 1)}
+            onClick={() => void refreshOverview()}
             disabled={isLoading}
             aria-label="Refresh overview data"
           >

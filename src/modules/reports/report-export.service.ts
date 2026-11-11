@@ -113,7 +113,7 @@ export class ReportExportService {
     tenantId: string,
     context: AuthContext,
     idempotencyKey?: string,
-  ): Promise<void> {
+  ): Promise<boolean> {
     if (context.user.role !== UserRole.SUPERVISOR) {
       throw new ForbiddenException('Supervisor report refresh is restricted');
     }
@@ -129,7 +129,7 @@ export class ReportExportService {
       throw new NotFoundException('Supervisor report branch not found');
     }
 
-    await this.enqueueRefresh(
+    return this.enqueueRefresh(
       tenantId,
       context,
       'executive-summary',
@@ -152,7 +152,7 @@ export class ReportExportService {
     query: Pick<ReportExportQuery, 'branchId' | 'timezone'>,
     idempotencyKey: string | undefined,
     endpoint: string,
-  ): Promise<void> {
+  ): Promise<boolean> {
     const normalizedKey = idempotencyKey?.trim() ?? '';
     if (!normalizedKey) {
       throw new BadRequestException('Idempotency-Key header is required');
@@ -180,7 +180,7 @@ export class ReportExportService {
       );
     }
     if (existing) {
-      if (existing.responseJson) return;
+      if (existing.responseJson) return false;
       throw new ConflictException('Idempotency key is still being processed');
     }
 
@@ -226,6 +226,7 @@ export class ReportExportService {
         },
       });
     });
+    return true;
   }
 
   private async loadReport(

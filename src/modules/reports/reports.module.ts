@@ -5,11 +5,16 @@ import { ReportExportService } from './report-export.service';
 import { ReportMaterializerService } from './report-materializer.service';
 import { ReportsController } from './reports.controller';
 import { NotificationsController } from './notifications.controller';
+import { ReportMaterializationCronController } from './report-materialization-cron.controller';
 import { ReportsService } from './reports.service';
 
 @Module({
   imports: [PrismaModule, AuditModule],
-  controllers: [ReportsController, NotificationsController],
+  controllers: [
+    ReportsController,
+    NotificationsController,
+    ReportMaterializationCronController,
+  ],
   providers: [ReportMaterializerService, ReportsService, ReportExportService],
   exports: [ReportMaterializerService, ReportsService, ReportExportService],
 })

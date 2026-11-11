@@ -9,6 +9,7 @@ import SupervisorPage from '../app/(shell)/supervisor/page';
 import {
   approvalsControllerListApprovalsV1,
   reportsControllerGetExecutiveSnapshotV1,
+  reportsControllerRefreshSupervisorDashboardV1,
 } from '../lib/api/generated-client';
 import {
   businessDateInTimezone,
@@ -18,6 +19,7 @@ import {
 jest.mock('../lib/api/generated-client', () => ({
   approvalsControllerListApprovalsV1: jest.fn(),
   reportsControllerGetExecutiveSnapshotV1: jest.fn(),
+  reportsControllerRefreshSupervisorDashboardV1: jest.fn(),
 }));
 
 const reportRow = (reportDate = businessDateInTimezone('Africa/Lagos')!) => ({
@@ -117,6 +119,9 @@ describe('Supervisor overview live reporting', () => {
     jest
       .mocked(approvalsControllerListApprovalsV1)
       .mockResolvedValue(approvalsResponse());
+    jest
+      .mocked(reportsControllerRefreshSupervisorDashboardV1)
+      .mockResolvedValue({ status: 202 } as never);
   });
 
   it('loads branch report metrics and the first pending-approval page', async () => {
@@ -295,9 +300,57 @@ describe('Supervisor overview live reporting', () => {
     await waitFor(() => expect(refreshButton).toBeEnabled());
     fireEvent.click(refreshButton);
     await waitFor(() => {
+      expect(reportsControllerRefreshSupervisorDashboardV1).toHaveBeenCalledTimes(1);
       expect(reportsControllerGetExecutiveSnapshotV1).toHaveBeenCalledTimes(2);
       expect(approvalsControllerListApprovalsV1).toHaveBeenCalledTimes(3);
     });
+    expect(reportsControllerRefreshSupervisorDashboardV1).toHaveBeenCalledWith(
+      expect.objectContaining({
+        credentials: 'include',
+        headers: expect.objectContaining({
+          'idempotency-key': expect.any(String),
+        }),
+      }),
+    );
+    expect(
+      reportsControllerRefreshSupervisorDashboardV1.mock.invocationCallOrder[0],
+    ).toBeLessThan(
+      reportsControllerGetExecutiveSnapshotV1.mock.invocationCallOrder[1],
+    );
+  });
+
+  it('keeps the refresh action disabled while the branch refresh is pending', async () => {
+    jest
+      .mocked(reportsControllerRefreshSupervisorDashboardV1)
+      .mockReturnValue(new Promise(() => {}) as never);
+    render(<SupervisorPage />);
+
+    const refreshButton = screen.getByRole('button', {
+      name: 'Refresh overview data',
+    });
+    await waitFor(() => expect(refreshButton).toBeEnabled());
+    fireEvent.click(refreshButton);
+
+    expect(refreshButton).toBeDisabled();
+    expect(refreshButton).toHaveTextContent('Refreshing');
+  });
+
+  it('reports a failed refresh without reloading stale report values', async () => {
+    jest
+      .mocked(reportsControllerRefreshSupervisorDashboardV1)
+      .mockResolvedValueOnce({ status: 500 } as never);
+    render(<SupervisorPage />);
+
+    const refreshButton = screen.getByRole('button', {
+      name: 'Refresh overview data',
+    });
+    await waitFor(() => expect(refreshButton).toBeEnabled());
+    fireEvent.click(refreshButton);
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'Daily report refresh failed (500)',
+    );
+    expect(reportsControllerGetExecutiveSnapshotV1).toHaveBeenCalledTimes(1);
   });
 
   it('shows only the zero-approval summary when the unfiltered queue and count are unavailable', async () => {

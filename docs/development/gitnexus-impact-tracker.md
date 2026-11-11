@@ -11,6 +11,28 @@ Use this tracker when preparing a spec proposal. Run `npm run proposal:impact --
 
 ## Findings
 
+### 2026-11-11 — Immediate Supervisor overview refresh
+
+GitNexus upstream impact is LOW/exact for all planned symbols. `SupervisorPage` has 0 impacted symbols/callers; `ReportsController` has 4 impacted symbols (2 direct, 1 at depth 2, 1 at depth 3); its `refreshSupervisorDashboard` method has 1 direct dependant. `ReportExportService.refreshSupervisorDashboard` has 3 impacted symbols (2 direct) and the Reports module; `enqueueRefresh` has 6 impacted symbols (2 direct) and the Reports module. `ReportMaterializerService.materializeBranch` has 2 direct dependants. No indexed execution processes were affected, and no HIGH/CRITICAL risk was reported. Plan: connect the button to the existing Supervisor-only, branch-scoped refresh request, synchronously materialize only the authenticated branch after committing its audit/idempotency/outbox intent, then reload the snapshot/approvals. Preserve the cron-secret boundary and existing five-minute cron/daily fallback.
+
+```text
+npm run proposal:impact -- --file 'apps/web/app/(shell)/supervisor/page.tsx' SupervisorPage
+npm run proposal:impact -- --file src/modules/reports/reports.controller.ts ReportsController
+npm run proposal:impact -- --file src/modules/reports/reports.controller.ts refreshSupervisorDashboard
+npm run proposal:impact -- --file src/modules/reports/report-export.service.ts refreshSupervisorDashboard
+npm run proposal:impact -- --file src/modules/reports/report-export.service.ts enqueueRefresh
+npm run proposal:impact -- --file src/modules/reports/report-materializer.service.ts materializeBranch
+```
+
+### 2026-11-09 — Vercel Cron for report materialization
+
+`ReportsModule` upstream impact is **LOW/exact** with 11 impacted symbols, 1 direct dependant, and no indexed processes/modules. `runReportMaterializationSweep` impact is **LOW/exact** with 6 impacted symbols, 2 direct dependants, and the Jobs module affected. No HIGH/CRITICAL risk was reported. Vercel CLI confirms neither ShopCity production project currently has Cron jobs configured; the API project deploys only `api/index.ts`. Change adds a secret-protected API cron endpoint, a daily Vercel Cron fallback, and an external cron-job.org schedule every five minutes that invokes the existing report sweep. The first external execution returned HTTP 200 and advanced production report state. It does not start BullMQ/outbox/other persistent worker loops in the Vercel function.
+
+```text
+npm run proposal:impact -- --file src/modules/reports/reports.module.ts ReportsModule
+npm run proposal:impact -- --file src/jobs/report-materialization.worker.ts runReportMaterializationSweep
+```
+
 ### 2026-11-02 — Operations date presets, controls, and summary columns
 
 Fresh `ReportsWorkspace` upstream impact returned LOW/exact with 6 impacted symbols, 2 direct dependants, and no indexed processes/modules. `AdminOperationsTabs` remains unindexed (UNKNOWN), and prior Operations-route analysis recorded HIGH, so graph coverage is incomplete. The extension remains behind the existing Operations-only `table-dialog` opt-in: add date presets using the selected branch timezone, Supervisor pill controls, and populated report-field columns with pagination/alignment. The Load report gradient and other callers' date/filter behavior remain unchanged; no API/data/role changes.

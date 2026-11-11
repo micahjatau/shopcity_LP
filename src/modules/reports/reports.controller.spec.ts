@@ -2,6 +2,7 @@ import { UserRole } from '@prisma/client';
 import type { FastifyReply } from 'fastify';
 import { ReportsController } from './reports.controller';
 import { ReportExportService } from './report-export.service';
+import { ReportMaterializerService } from './report-materializer.service';
 import { ReportsService } from './reports.service';
 
 describe('ReportsController', () => {
@@ -10,6 +11,7 @@ describe('ReportsController', () => {
     const controller = new ReportsController(
       service,
       exportServiceStub().service,
+      reportMaterializerServiceStub().service,
     );
     const context = {
       session: {} as never,
@@ -38,6 +40,7 @@ describe('ReportsController', () => {
     const controller = new ReportsController(
       reportsService,
       exportService.service,
+      reportMaterializerServiceStub().service,
     );
     const { reply, type, header } = replyStub();
 
@@ -72,6 +75,7 @@ describe('ReportsController', () => {
     const controller = new ReportsController(
       reportsService,
       exportServiceStub().service,
+      reportMaterializerServiceStub().service,
     );
 
     await expect(
@@ -90,6 +94,7 @@ describe('ReportsController', () => {
     const controller = new ReportsController(
       service,
       exportServiceStub().service,
+      reportMaterializerServiceStub().service,
     );
     const context = adminContext();
 
@@ -103,11 +108,13 @@ describe('ReportsController', () => {
     );
   });
 
-  it('schedules a Supervisor branch dashboard refresh', async () => {
+  it('schedules and immediately materializes a Supervisor branch dashboard refresh', async () => {
     const exportService = exportServiceStub();
+    const materializer = reportMaterializerServiceStub();
     const controller = new ReportsController(
       reportsServiceStub().service,
       exportService.service,
+      materializer.service,
     );
     const context = supervisorContext();
 
@@ -119,6 +126,47 @@ describe('ReportsController', () => {
       context,
       'supervisor-key-1',
     );
+    expect(materializer.materializeBranch).toHaveBeenCalledWith(
+      'tenant-1',
+      'branch-1',
+    );
+  });
+
+  it('does not repeat immediate materialization for an idempotent replay', async () => {
+    const exportService = exportServiceStub();
+    exportService.refreshSupervisorDashboard.mockResolvedValue(false);
+    const materializer = reportMaterializerServiceStub();
+    const controller = new ReportsController(
+      reportsServiceStub().service,
+      exportService.service,
+      materializer.service,
+    );
+
+    await controller.refreshSupervisorDashboard(
+      supervisorContext(),
+      'supervisor-key-1',
+    );
+
+    expect(materializer.materializeBranch).not.toHaveBeenCalled();
+  });
+
+  it('returns a failure when immediate branch materialization fails', async () => {
+    const materializer = reportMaterializerServiceStub();
+    materializer.materializeBranch.mockRejectedValue(
+      new Error('materialization failed'),
+    );
+    const controller = new ReportsController(
+      reportsServiceStub().service,
+      exportServiceStub().service,
+      materializer.service,
+    );
+
+    await expect(
+      controller.refreshSupervisorDashboard(
+        supervisorContext(),
+        'supervisor-key-1',
+      ),
+    ).rejects.toThrow('materialization failed');
   });
 
   it('schedules report refresh', async () => {
@@ -126,6 +174,7 @@ describe('ReportsController', () => {
     const controller = new ReportsController(
       reportsServiceStub().service,
       exportService.service,
+      reportMaterializerServiceStub().service,
     );
 
     await expect(
@@ -230,7 +279,7 @@ function exportServiceStub() {
     rowCount: 1,
   });
   const refreshReport = jest.fn().mockResolvedValue(undefined);
-  const refreshSupervisorDashboard = jest.fn().mockResolvedValue(undefined);
+  const refreshSupervisorDashboard = jest.fn().mockResolvedValue(true);
 
   return {
     service: {
@@ -241,6 +290,16 @@ function exportServiceStub() {
     exportCsv,
     refreshReport,
     refreshSupervisorDashboard,
+  };
+}
+
+function reportMaterializerServiceStub() {
+  const materializeBranch = jest.fn().mockResolvedValue(undefined);
+  return {
+    service: {
+      materializeBranch,
+    } as unknown as ReportMaterializerService,
+    materializeBranch,
   };
 }
 

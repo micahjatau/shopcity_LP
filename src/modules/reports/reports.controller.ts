@@ -34,6 +34,7 @@ import {
   ReportExportService,
   type ReportExportName,
 } from './report-export.service';
+import { ReportMaterializerService } from './report-materializer.service';
 import { ReportsService } from './reports.service';
 
 const reportCollectionSchema = {
@@ -250,6 +251,7 @@ export class ReportsController {
   constructor(
     private readonly reportsService: ReportsService,
     private readonly reportExportService: ReportExportService,
+    private readonly reportMaterializerService: ReportMaterializerService,
   ) {}
 
   @Get('executive-summary')
@@ -774,11 +776,18 @@ export class ReportsController {
     @CurrentSession() context: AuthContext,
     @Headers('idempotency-key') idempotencyKey?: string,
   ) {
-    await this.reportExportService.refreshSupervisorDashboard(
-      context.user.tenantId,
-      context,
-      idempotencyKey,
-    );
+    const isNewRequest =
+      await this.reportExportService.refreshSupervisorDashboard(
+        context.user.tenantId,
+        context,
+        idempotencyKey,
+      );
+    if (isNewRequest && context.user.branchId) {
+      await this.reportMaterializerService.materializeBranch(
+        context.user.tenantId,
+        context.user.branchId,
+      );
+    }
     return { status: 'accepted' };
   }
 }

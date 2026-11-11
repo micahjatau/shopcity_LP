@@ -161,11 +161,13 @@ describe('ReportExportService', () => {
       configService(),
     );
 
-    await service.refreshSupervisorDashboard(
-      'tenant-1',
-      supervisorContext(),
-      'supervisor-key-1',
-    );
+    await expect(
+      service.refreshSupervisorDashboard(
+        'tenant-1',
+        supervisorContext(),
+        'supervisor-key-1',
+      ),
+    ).resolves.toBe(true);
 
     expect(prisma.branchFindFirst).toHaveBeenCalledWith({
       where: { id: 'branch-1', tenantId: 'tenant-1' },
@@ -185,6 +187,38 @@ describe('ReportExportService', () => {
       action: 'REPORT_REFRESH_REQUESTED',
       metadata: { report: 'executive-summary', branchId: 'branch-1' },
     });
+  });
+
+  it('returns false for a completed Supervisor refresh replay', async () => {
+    const prisma = prismaStub();
+    prisma.idempotencyRecord.findUnique.mockResolvedValue({
+      requestHash: createHash('sha256')
+        .update(
+          JSON.stringify({
+            tenantId: 'tenant-1',
+            actorId: 'supervisor-1',
+            report: 'executive-summary',
+            query: { branchId: 'branch-1' },
+          }),
+        )
+        .digest('hex'),
+      responseJson: { status: 'accepted' },
+    });
+    const service = new ReportExportService(
+      reportsServiceStub().service,
+      auditServiceStub().service,
+      prisma.service,
+      configService(),
+    );
+
+    await expect(
+      service.refreshSupervisorDashboard(
+        'tenant-1',
+        supervisorContext(),
+        'supervisor-key-1',
+      ),
+    ).resolves.toBe(false);
+    expect(prisma.outboxEventCreate).not.toHaveBeenCalled();
   });
 
   it('rejects Admins using the Supervisor-only dashboard refresh service', async () => {
