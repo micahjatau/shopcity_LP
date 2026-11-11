@@ -39,6 +39,39 @@ export type CashierDiscoveryRecord = {
   availableBalanceKobo?: number;
 };
 
+export type CashierDiscoveryPage = {
+  items: CashierDiscoveryRecord[];
+  nextCursor: string | null;
+  hasMore: boolean;
+};
+
+export function normalizeCashierDiscoveryPage(
+  data: unknown,
+): CashierDiscoveryPage {
+  if (Array.isArray(data)) {
+    return {
+      items: data as CashierDiscoveryRecord[],
+      nextCursor: null,
+      hasMore: false,
+    };
+  }
+
+  const page =
+    data && typeof data === 'object' ? (data as Record<string, unknown>) : {};
+  const nextCursor =
+    typeof page.nextCursor === 'string' && page.nextCursor
+      ? page.nextCursor
+      : null;
+
+  return {
+    items: Array.isArray(page.items)
+      ? (page.items as CashierDiscoveryRecord[])
+      : [],
+    nextCursor,
+    hasMore: page.hasMore === true && nextCursor !== null,
+  };
+}
+
 export function useCashierLookupController(initialCardSerial?: string | null) {
   const [lookupValue, setLookupValue] = useState(initialCardSerial ?? '');
   const [lookupMessage, setLookupMessage] = useState(
@@ -55,6 +88,62 @@ export function useCashierLookupController(initialCardSerial?: string | null) {
   const [discoveryMatches, setDiscoveryMatches] = useState<
     CashierDiscoveryRecord[]
   >([]);
+  const [discoveryNextCursor, setDiscoveryNextCursor] = useState<string | null>(
+    null,
+  );
+  const [discoveryHasMore, setDiscoveryHasMore] = useState(false);
+  const [discoveryPagePending, setDiscoveryPagePending] = useState(false);
+  const [discoveryPageError, setDiscoveryPageError] = useState('');
+  const discoveryQueryRef = useRef('');
+  const discoveryPageRequestPendingRef = useRef(false);
+
+  async function loadDiscoveryPage(cursor: string): Promise<boolean> {
+    const query = discoveryQueryRef.current;
+    const generation = requestGeneration.current;
+    if (!query || discoveryPageRequestPendingRef.current) {
+      return false;
+    }
+
+    discoveryPageRequestPendingRef.current = true;
+    setDiscoveryPagePending(true);
+    setDiscoveryPageError('');
+    try {
+      const response = await customersControllerListCustomersV1(
+        { q: query, limit: '8', cursor },
+        createApiRequest({ csrf: true }),
+      );
+      if (generation !== requestGeneration.current) return false;
+      if (response.status !== 200) {
+        setDiscoveryPageError(
+          `Could not load customer results (${response.status}). Try again.`,
+        );
+        return false;
+      }
+
+      const page = normalizeCashierDiscoveryPage(response.data.data);
+      setDiscoveryMatches(page.items);
+      setDiscoveryNextCursor(page.nextCursor);
+      setDiscoveryHasMore(page.hasMore);
+      setLookupMessage(
+        page.items.length
+          ? 'Customer found. Scan or enter their active card serial to continue.'
+          : 'No matching active customer or card. Check the details or ask a supervisor.',
+      );
+      return true;
+    } catch {
+      if (generation === requestGeneration.current) {
+        setDiscoveryPageError(
+          'Could not load customer results. Check the connection and retry.',
+        );
+      }
+      return false;
+    } finally {
+      if (generation === requestGeneration.current) {
+        discoveryPageRequestPendingRef.current = false;
+        setDiscoveryPagePending(false);
+      }
+    }
+  }
 
   async function lookup(eventOrValue: FormEvent<HTMLFormElement> | string) {
     if (typeof eventOrValue !== 'string') eventOrValue.preventDefault();
@@ -62,13 +151,21 @@ export function useCashierLookupController(initialCardSerial?: string | null) {
       typeof eventOrValue === 'string' ? eventOrValue : lookupValue
     ).trim();
     const generation = ++requestGeneration.current;
+    discoveryQueryRef.current = query;
+    discoveryPageRequestPendingRef.current = false;
+    setDiscoveryNextCursor(null);
+    setDiscoveryHasMore(false);
+    setDiscoveryPagePending(false);
+    setDiscoveryPageError('');
     setLookupRecord(null);
     setDiscoveryMatches([]);
     if (!query) {
+      discoveryQueryRef.current = '';
       setLookupMessage('Enter a customer name, phone number, or card number.');
       return;
     }
     if (typeof navigator !== 'undefined' && !navigator.onLine) {
+      discoveryQueryRef.current = '';
       setLookupMessage(
         'Customer lookup requires a connection. Reconnect to try again.',
       );
@@ -91,11 +188,11 @@ export function useCashierLookupController(initialCardSerial?: string | null) {
         );
         return;
       }
-      const data = response.data.data;
-      const matches = (
-        Array.isArray(data) ? data : (data.items ?? [])
-      ) as CashierDiscoveryRecord[];
+      const page = normalizeCashierDiscoveryPage(response.data.data);
+      const matches = page.items;
       setDiscoveryMatches(matches);
+      setDiscoveryNextCursor(page.nextCursor);
+      setDiscoveryHasMore(page.hasMore);
       setLookupMessage(
         matches.length
           ? 'Customer found. Scan or enter their active card serial to continue.'
@@ -159,7 +256,13 @@ export function useCashierLookupController(initialCardSerial?: string | null) {
 
   function clearLookup() {
     ++requestGeneration.current;
+    discoveryQueryRef.current = '';
+    discoveryPageRequestPendingRef.current = false;
     setDiscoveryMatches([]);
+    setDiscoveryNextCursor(null);
+    setDiscoveryHasMore(false);
+    setDiscoveryPagePending(false);
+    setDiscoveryPageError('');
     setLookupPending(false);
     setLookupRecord(null);
     setLookupValue('');
@@ -168,9 +271,15 @@ export function useCashierLookupController(initialCardSerial?: string | null) {
 
   function updateLookupValue(value: string) {
     ++requestGeneration.current;
+    discoveryQueryRef.current = '';
+    discoveryPageRequestPendingRef.current = false;
     setLookupValue(value);
     setLookupRecord(null);
     setDiscoveryMatches([]);
+    setDiscoveryNextCursor(null);
+    setDiscoveryHasMore(false);
+    setDiscoveryPagePending(false);
+    setDiscoveryPageError('');
     setLookupPending(false);
   }
 
@@ -180,6 +289,11 @@ export function useCashierLookupController(initialCardSerial?: string | null) {
     lookupRecord,
     lookupPending,
     discoveryMatches,
+    discoveryNextCursor,
+    discoveryHasMore,
+    discoveryPagePending,
+    discoveryPageError,
+    loadDiscoveryPage,
     selectedCardSerial,
     setLookupValue: updateLookupValue,
     clearLookup,

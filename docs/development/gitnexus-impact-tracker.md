@@ -11,6 +11,15 @@ Use this tracker when preparing a spec proposal. Run `npm run proposal:impact --
 
 ## Findings
 
+### 2026-11-11 — Cashier Find Customer pagination
+
+GitNexus upstream impact is HIGH/exact for both `FindCustomerView` and `useCashierLookupController`: 5 impacted symbols each (1 direct, 4 at depth 2), three affected Cashier route processes (Lookup, Earn, and Redeem), and the Workflows module. No HIGH finding is being hidden; the lookup hook is shared with financial workflow routes. The planned change keeps cursor navigation confined to Find Customer presentation and preserves the existing exact-card verification boundary. The index was refreshed to current commit `799e4f6`.
+
+```text
+npm run proposal:impact -- --file apps/web/components/workflows/cashier-transaction-route.tsx FindCustomerView
+npm run proposal:impact -- --file apps/web/components/workflows/use-cashier-lookup-controller.ts useCashierLookupController
+```
+
 ### 2026-11-11 — Automatic sidebar collapse at tablet widths
 
 GitNexus upstream impact was LOW/exact. `AppShellContent` has 3 impacted symbols (1 direct, 2 at depth 2), affecting the `ShellLayout` process (6 affected process count) and Components module. `toggleSidebar` has 0 upstream dependants. `AppSidebar` has 4 impacted symbols (1 direct, 1 at depth 2, 2 at depth 3), affecting `ShellLayout` and `AppShellContent` processes and the Components module. No HIGH/CRITICAL result. The index was refreshed successfully to current commit `db56e95`. Planned change: at the established 621–920px tablet range, set the real collapse state to the same 76px icon rail as the manual control, restore the explicit user preference when leaving that range, and leave the mobile drawer unchanged.

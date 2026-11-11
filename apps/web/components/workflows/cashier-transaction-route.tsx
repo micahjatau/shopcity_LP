@@ -1,10 +1,10 @@
 'use client';
 
-import { Search, ScanLine } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Search, ScanLine } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { Fragment, type FormEvent } from 'react';
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   customersControllerGetCustomerV1,
   customersControllerListCustomersV1,
@@ -17,6 +17,7 @@ import { CashierFlowPanel, CashierPageHeader, Money } from '../shopcity';
 import { EarnTransactionForm, RedeemTransactionForm } from './index';
 import {
   useCashierLookupController,
+  normalizeCashierDiscoveryPage,
   type CashierDiscoveryRecord,
   type CashierLookupRecord,
 } from './use-cashier-lookup-controller';
@@ -64,6 +65,11 @@ export function CashierWorkflowRoute({
     lookupRecord,
     lookupPending,
     discoveryMatches,
+    discoveryNextCursor,
+    discoveryHasMore,
+    discoveryPagePending,
+    discoveryPageError,
+    loadDiscoveryPage,
     selectedCardSerial,
     setLookupValue,
     clearLookup,
@@ -291,6 +297,11 @@ export function CashierWorkflowRoute({
           lookupPending={lookupPending}
           lookupRecord={lookupRecord}
           discoveryMatches={discoveryMatches}
+          discoveryNextCursor={discoveryNextCursor}
+          discoveryHasMore={discoveryHasMore}
+          discoveryPagePending={discoveryPagePending}
+          discoveryPageError={discoveryPageError}
+          onLoadDiscoveryPage={loadDiscoveryPage}
           onLookup={(eventOrValue) => void handleLookup(eventOrValue)}
           onQueryChange={setLookupValue}
           selectedCardSerial={selectedCardSerial}
@@ -604,6 +615,11 @@ function FindCustomerView({
   lookupPending,
   lookupRecord,
   discoveryMatches,
+  discoveryNextCursor,
+  discoveryHasMore,
+  discoveryPagePending,
+  discoveryPageError,
+  onLoadDiscoveryPage,
   onLookup,
   onQueryChange,
   selectedCardSerial,
@@ -614,6 +630,11 @@ function FindCustomerView({
   lookupPending: boolean;
   lookupRecord: CashierLookupRecord | null;
   discoveryMatches: CashierDiscoveryRecord[];
+  discoveryNextCursor: string | null;
+  discoveryHasMore: boolean;
+  discoveryPagePending: boolean;
+  discoveryPageError: string;
+  onLoadDiscoveryPage: (cursor: string) => Promise<boolean>;
   onLookup: (eventOrValue: FormEvent<HTMLFormElement> | string) => void;
   onQueryChange: (value: string) => void;
   selectedCardSerial: string;
@@ -630,45 +651,97 @@ function FindCustomerView({
   >([]);
   const [recentPending, setRecentPending] = useState(true);
   const [recentError, setRecentError] = useState('');
+  const [recentPage, setRecentPage] = useState(1);
+  const [recentCursorHistory, setRecentCursorHistory] = useState<string[]>([
+    '',
+  ]);
+  const [recentNextCursor, setRecentNextCursor] = useState<string | null>(null);
+  const [recentHasMore, setRecentHasMore] = useState(false);
+  const [recentRetryPage, setRecentRetryPage] = useState<{
+    cursor: string;
+    page: number;
+  } | null>(null);
+  const recentRequestGeneration = useRef(0);
+  const recentPagePendingRef = useRef(false);
+  const [searchPage, setSearchPage] = useState(1);
+  const [searchCursorHistory, setSearchCursorHistory] = useState<string[]>([
+    '',
+  ]);
+  const [searchRetryPage, setSearchRetryPage] = useState<{
+    cursor: string;
+    page: number;
+  } | null>(null);
+  const searchQueryRef = useRef(lookupValue.trim());
+  searchQueryRef.current = lookupValue.trim();
   const [directoryPending, setDirectoryPending] = useState(false);
 
   useEffect(() => {
     lookupHandlerRef.current = onLookup;
   }, [onLookup]);
 
-  useEffect(() => {
-    let active = true;
+  const loadRecentPage = useCallback(
+    async (cursor: string, targetPage: number): Promise<boolean> => {
+      if (recentPagePendingRef.current) return false;
+      const generation = ++recentRequestGeneration.current;
+      recentPagePendingRef.current = true;
+      setRecentPending(true);
+      setRecentError('');
 
-    async function loadRecentCustomers() {
       try {
         const response = await customersControllerListCustomersV1(
-          { q: '', limit: '10', cursor: '' },
+          { q: '', limit: '10', cursor },
           createApiRequest({ csrf: true }),
         );
-        if (!active) return;
+        if (generation !== recentRequestGeneration.current) return false;
         if (response.status !== 200) {
           setRecentError(`Recent customers unavailable (${response.status}).`);
-          return;
+          setRecentRetryPage({ cursor, page: targetPage });
+          return false;
         }
-        const data = response.data.data;
-        const items = Array.isArray(data) ? data : data.items;
-        setRecentCustomers((items ?? []) as CashierDiscoveryRecord[]);
-      } catch {
-        if (active) setRecentError('Recent customers unavailable.');
-      } finally {
-        if (active) setRecentPending(false);
-      }
-    }
 
-    void loadRecentCustomers();
+        const page = normalizeCashierDiscoveryPage(response.data.data);
+        setRecentCustomers(page.items);
+        setRecentNextCursor(page.nextCursor);
+        setRecentHasMore(page.hasMore);
+        setRecentPage(targetPage);
+        setRecentCursorHistory((current) => {
+          const history = current.slice(0, targetPage - 1);
+          history[targetPage - 1] = cursor;
+          return history;
+        });
+        setRecentRetryPage(null);
+        return true;
+      } catch {
+        if (generation === recentRequestGeneration.current) {
+          setRecentError(
+            'Recent customers unavailable. Check the connection and retry.',
+          );
+          setRecentRetryPage({ cursor, page: targetPage });
+        }
+        return false;
+      } finally {
+        if (generation === recentRequestGeneration.current) {
+          recentPagePendingRef.current = false;
+          setRecentPending(false);
+        }
+      }
+    },
+    [],
+  );
+
+  useEffect(() => {
+    void loadRecentPage('', 1);
     return () => {
-      active = false;
+      recentRequestGeneration.current += 1;
     };
-  }, []);
+  }, [loadRecentPage]);
 
   useEffect(() => {
     if (lookupValue === previousLookupValue.current) return;
     previousLookupValue.current = lookupValue;
+    setSearchPage(1);
+    setSearchCursorHistory(['']);
+    setSearchRetryPage(null);
     const term = lookupValue.trim();
     if (term.length < 2) {
       triggeredSearchRef.current = '';
@@ -725,6 +798,9 @@ function FindCustomerView({
     }
     const term = lookupValue.trim();
     const offline = typeof navigator !== 'undefined' && !navigator.onLine;
+    setSearchPage(1);
+    setSearchCursorHistory(['']);
+    setSearchRetryPage(null);
     if (term.length >= 2) {
       triggeredSearchRef.current = offline ? '' : term;
       setDirectoryPending(!offline);
@@ -752,17 +828,84 @@ function FindCustomerView({
       ? discoveryMatches
       : recentCustomers;
   const tableBusy = hasSearchTerm
-    ? lookupPending || directoryPending
+    ? lookupPending || directoryPending || discoveryPagePending
     : recentPending;
   const statusMessage = hasSearchTerm
     ? lookupValue.trim().length < 2 && !lookupPending
       ? 'Enter at least 2 characters to search.'
       : directoryPending && !lookupPending
         ? `Searching for “${lookupValue.trim()}”…`
-        : lookupMessage
+        : discoveryPagePending
+          ? `Loading customer results page ${searchPage + 1}…`
+          : lookupMessage
     : recentPending
-      ? 'Loading recent customers…'
+      ? recentCustomers.length
+        ? 'Loading another customer page…'
+        : 'Loading recent customers…'
       : recentError;
+  const searchingResults = hasSearchTerm && !verifiedCustomer;
+  const currentPage = searchingResults ? searchPage : recentPage;
+  const canGoPrevious = currentPage > 1;
+  const canGoNext = searchingResults
+    ? discoveryHasMore && Boolean(discoveryNextCursor)
+    : recentHasMore && Boolean(recentNextCursor);
+  const paginationBusy = searchingResults
+    ? lookupPending || directoryPending || discoveryPagePending
+    : recentPending;
+  const showPagination = !verifiedCustomer && (canGoPrevious || canGoNext);
+
+  async function loadSearchPage(cursor: string, targetPage: number) {
+    const query = searchQueryRef.current;
+    const loaded = await onLoadDiscoveryPage(cursor);
+    if (searchQueryRef.current !== query) return;
+    if (loaded) {
+      setSearchPage(targetPage);
+      setSearchCursorHistory((current) => {
+        const history = current.slice(0, targetPage - 1);
+        history[targetPage - 1] = cursor;
+        return history;
+      });
+      setSearchRetryPage(null);
+    } else {
+      setSearchRetryPage({ cursor, page: targetPage });
+    }
+  }
+
+  function loadNextPage() {
+    if (searchingResults) {
+      const cursor = searchCursorHistory[searchPage] ?? discoveryNextCursor;
+      if (cursor) void loadSearchPage(cursor, searchPage + 1);
+      return;
+    }
+    const cursor = recentCursorHistory[recentPage] ?? recentNextCursor;
+    if (cursor) void loadRecentPage(cursor, recentPage + 1);
+  }
+
+  function loadPreviousPage() {
+    const targetPage = currentPage - 1;
+    if (targetPage < 1) return;
+    if (searchingResults) {
+      void loadSearchPage(
+        searchCursorHistory[targetPage - 1] ?? '',
+        targetPage,
+      );
+      return;
+    }
+    void loadRecentPage(recentCursorHistory[targetPage - 1] ?? '', targetPage);
+  }
+
+  function retryFailedPage() {
+    if (searchingResults && searchRetryPage) {
+      void loadSearchPage(searchRetryPage.cursor, searchRetryPage.page);
+      return;
+    }
+    if (!searchingResults && recentRetryPage) {
+      void loadRecentPage(recentRetryPage.cursor, recentRetryPage.page);
+    }
+  }
+
+  const pageError = searchingResults ? discoveryPageError : recentError;
+  const retryPage = searchingResults ? searchRetryPage : recentRetryPage;
 
   return (
     <div className="find-customer-view" data-od-id="find-customer-content">
@@ -777,7 +920,7 @@ function FindCustomerView({
           Recent customers
         </h2>
         <p className="sc-discovery-muted">
-          Up to ten of the most recently registered customer profiles.
+          Browse recently registered customer profiles.
         </p>
       </header>
       <section
@@ -980,6 +1123,53 @@ function FindCustomerView({
             </tbody>
           </table>
         </div>
+        {showPagination ? (
+          <footer className="transaction-table-footer">
+            <p className="transaction-table-count" aria-live="polite">
+              Showing {visibleCustomers.length} customers on this page
+            </p>
+            <nav
+              className="transaction-pagination"
+              aria-label="Customer results pagination"
+            >
+              <button
+                className="transaction-pagination-button"
+                type="button"
+                onClick={loadPreviousPage}
+                disabled={!canGoPrevious || paginationBusy}
+                aria-label="Previous customer page"
+              >
+                <ChevronLeft aria-hidden="true" size={16} />
+              </button>
+              <p className="transaction-pagination-status" aria-live="polite">
+                Page {currentPage}
+              </p>
+              <button
+                className="transaction-pagination-button"
+                type="button"
+                onClick={loadNextPage}
+                disabled={!canGoNext || paginationBusy}
+                aria-label="Next customer page"
+              >
+                <ChevronRight aria-hidden="true" size={16} />
+              </button>
+            </nav>
+          </footer>
+        ) : null}
+        {pageError && retryPage ? (
+          <div className="find-customer-page-error" role="alert">
+            <p>{pageError}</p>
+            <Button
+              type="button"
+              variant="ghost"
+              size="compact"
+              onClick={retryFailedPage}
+              disabled={paginationBusy}
+            >
+              Retry page
+            </Button>
+          </div>
+        ) : null}
         {!verifiedCustomer && hasSearchTerm && visibleCustomers.length > 0 ? (
           <p className="find-customer-discovery-note sc-discovery-muted">
             Scan an active card to continue

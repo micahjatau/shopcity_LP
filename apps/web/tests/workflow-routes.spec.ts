@@ -2243,10 +2243,49 @@ test.describe('workflow route coverage', () => {
     }
   });
 
-  test('discovers customers by name without unlocking financial workflows', async ({
+  test('discovers and pages through customers without unlocking financial workflows', async ({
     page,
   }) => {
     await mockShell(page, 'CASHIER');
+    await page.route('**/api/v1/customers*', async (route) => {
+      const url = new URL(route.request().url());
+      if (url.pathname !== '/api/v1/customers') return route.fallback();
+      const query = url.searchParams.get('q') ?? '';
+      const cursor = url.searchParams.get('cursor') ?? '';
+      const items =
+        query && cursor === 'search-page-2'
+          ? [
+              {
+                id: 'customer-2',
+                fullName: 'Ada Shopper Two',
+                maskedPhone: '+23480* *** 0002',
+                cardStatus: 'ACTIVE',
+                availableBalanceKobo: 7500,
+              },
+            ]
+          : query
+            ? [
+                {
+                  id: 'customer-1',
+                  fullName: 'Ada Shopper',
+                  maskedPhone: '+23480* *** 0001',
+                  cardStatus: 'ACTIVE',
+                  availableBalanceKobo: 5500,
+                },
+              ]
+            : [];
+      return route.fulfill(
+        json({
+          success: true,
+          data: {
+            items,
+            nextCursor: query && !cursor ? 'search-page-2' : null,
+            hasMore: Boolean(query && !cursor),
+          },
+          meta: meta(url.pathname),
+        }),
+      );
+    });
     await page.goto(`${baseUrl}/cashier/lookup`);
 
     const lookup = page.getByRole('searchbox', { name: 'Customer search' });
@@ -2270,6 +2309,40 @@ test.describe('workflow route coverage', () => {
     await expect(
       page.getByRole('link', { name: 'View profile for Ada Shopper' }),
     ).toHaveAttribute('href', '/cashier/customers?id=customer-1');
+
+    const pagination = page.getByRole('navigation', {
+      name: 'Customer results pagination',
+    });
+    await expect(pagination).toContainText('Page 1');
+    await expect(
+      page.getByRole('button', { name: 'Previous customer page' }),
+    ).toBeDisabled();
+    const next = page.getByRole('button', { name: 'Next customer page' });
+    await expect(next).toBeEnabled();
+    await expect(next).toHaveClass(/transaction-pagination-button/);
+    await expect(next.locator('svg')).toHaveAttribute('width', '16');
+
+    await next.click();
+    await expect(
+      page.locator('.find-customer-table').getByRole('cell', {
+        name: 'Ada Shopper Two',
+        exact: true,
+      }),
+    ).toBeVisible();
+    await expect(pagination).toContainText('Page 2');
+    await page.getByRole('button', { name: 'Previous customer page' }).click();
+    await expect(
+      page.locator('.find-customer-table').getByRole('cell', {
+        name: 'Ada Shopper',
+        exact: true,
+      }),
+    ).toBeVisible();
+    await expect(pagination).toContainText('Page 1');
+    await page.setViewportSize({ width: 390, height: 844 });
+    await expect(pagination).toBeVisible();
+    expect(
+      await page.evaluate(() => document.documentElement.scrollWidth),
+    ).toBeLessThanOrEqual(390);
   });
 
   test('shows a recent customer table and cashier-safe shared customer profile', async ({

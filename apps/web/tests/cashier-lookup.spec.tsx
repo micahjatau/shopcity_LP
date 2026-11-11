@@ -1071,6 +1071,256 @@ describe('Cashier lookup workflow', () => {
     );
   });
 
+  it('pages through recent customers using the cashier transaction chevrons', async () => {
+    const firstPage = Array.from({ length: 10 }, (_, index) => ({
+      id: `recent-${index + 1}`,
+      fullName: `Recent Shopper ${index + 1}`,
+      cardStatus: 'ACTIVE',
+      availableBalanceKobo: 1200,
+    }));
+    jest
+      .mocked(customersControllerListCustomersV1)
+      .mockResolvedValueOnce({
+        status: 200,
+        data: {
+          data: {
+            items: firstPage,
+            nextCursor: 'recent-page-2',
+            hasMore: true,
+          },
+        },
+      } as never)
+      .mockResolvedValueOnce({
+        status: 200,
+        data: {
+          data: {
+            items: [
+              {
+                id: 'recent-11',
+                fullName: 'Recent Shopper 11',
+                cardStatus: 'ACTIVE',
+                availableBalanceKobo: 1200,
+              },
+            ],
+            nextCursor: null,
+            hasMore: false,
+          },
+        },
+      } as never)
+      .mockResolvedValueOnce({
+        status: 200,
+        data: {
+          data: {
+            items: firstPage,
+            nextCursor: 'recent-page-2',
+            hasMore: true,
+          },
+        },
+      } as never);
+
+    render(
+      <CashierWorkflowRoute
+        kind="lookup"
+        title="Find customer"
+        description="Find a customer"
+      />,
+    );
+
+    expect(await screen.findByText('Recent Shopper 1')).toBeInTheDocument();
+    const pagination = screen.getByRole('navigation', {
+      name: 'Customer results pagination',
+    });
+    const previous = screen.getByRole('button', {
+      name: 'Previous customer page',
+    });
+    const next = screen.getByRole('button', { name: 'Next customer page' });
+    expect(pagination).toHaveTextContent('Page 1');
+    expect(pagination).not.toHaveTextContent(/of\s+\d+/i);
+    expect(previous).toBeDisabled();
+    expect(next).toHaveClass('transaction-pagination-button');
+    expect(next.querySelector('svg')).toHaveAttribute('width', '16');
+    expect(next.querySelector('svg')).toHaveAttribute('aria-hidden', 'true');
+
+    fireEvent.click(next);
+    expect(await screen.findByText('Recent Shopper 11')).toBeInTheDocument();
+    expect(pagination).toHaveTextContent('Page 2');
+    expect(customersControllerListCustomersV1).toHaveBeenNthCalledWith(
+      2,
+      { q: '', limit: '10', cursor: 'recent-page-2' },
+      expect.any(Object),
+    );
+
+    fireEvent.click(previous);
+    expect(await screen.findByText('Recent Shopper 1')).toBeInTheDocument();
+    expect(pagination).toHaveTextContent('Page 1');
+    expect(customersControllerListCustomersV1).toHaveBeenNthCalledWith(
+      3,
+      { q: '', limit: '10', cursor: '' },
+      expect.any(Object),
+    );
+  });
+
+  it('pages search results with the same query and resets to the first page for a new query', async () => {
+    jest
+      .mocked(customersControllerListCustomersV1)
+      .mockResolvedValueOnce({
+        status: 200,
+        data: { data: { items: [], nextCursor: null, hasMore: false } },
+      } as never)
+      .mockResolvedValueOnce({
+        status: 200,
+        data: {
+          data: {
+            items: [{ id: 'ada-1', fullName: 'Ada Shopper One' }],
+            nextCursor: 'search-page-2',
+            hasMore: true,
+          },
+        },
+      } as never)
+      .mockResolvedValueOnce({
+        status: 200,
+        data: {
+          data: {
+            items: [{ id: 'ada-2', fullName: 'Ada Shopper Two' }],
+            nextCursor: null,
+            hasMore: false,
+          },
+        },
+      } as never)
+      .mockResolvedValueOnce({
+        status: 200,
+        data: {
+          data: {
+            items: [{ id: 'ada-1', fullName: 'Ada Shopper One' }],
+            nextCursor: 'search-page-2',
+            hasMore: true,
+          },
+        },
+      } as never)
+      .mockResolvedValueOnce({
+        status: 200,
+        data: {
+          data: {
+            items: [{ id: 'grace-1', fullName: 'Grace Hopper' }],
+            nextCursor: null,
+            hasMore: false,
+          },
+        },
+      } as never);
+
+    render(
+      <CashierWorkflowRoute
+        kind="lookup"
+        title="Find customer"
+        description="Find a customer"
+      />,
+    );
+    await waitFor(() =>
+      expect(customersControllerListCustomersV1).toHaveBeenCalledWith(
+        { q: '', limit: '10', cursor: '' },
+        expect.any(Object),
+      ),
+    );
+
+    const search = screen.getByRole('searchbox', { name: 'Customer search' });
+    fireEvent.change(search, { target: { value: 'Ada Shopper' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Search' }));
+    expect(await screen.findByText('Ada Shopper One')).toBeInTheDocument();
+    const pagination = screen.getByRole('navigation', {
+      name: 'Customer results pagination',
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Next customer page' }));
+    expect(await screen.findByText('Ada Shopper Two')).toBeInTheDocument();
+    expect(pagination).toHaveTextContent('Page 2');
+    expect(customersControllerListCustomersV1).toHaveBeenNthCalledWith(
+      3,
+      { q: 'Ada Shopper', limit: '8', cursor: 'search-page-2' },
+      expect.any(Object),
+    );
+
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Previous customer page' }),
+    );
+    expect(await screen.findByText('Ada Shopper One')).toBeInTheDocument();
+    expect(pagination).toHaveTextContent('Page 1');
+    expect(customersControllerListCustomersV1).toHaveBeenNthCalledWith(
+      4,
+      { q: 'Ada Shopper', limit: '8', cursor: '' },
+      expect.any(Object),
+    );
+
+    fireEvent.change(search, { target: { value: 'Grace Hopper' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Search' }));
+    expect(await screen.findByText('Grace Hopper')).toBeInTheDocument();
+    expect(
+      screen.queryByRole('navigation', {
+        name: 'Customer results pagination',
+      }),
+    ).not.toBeInTheDocument();
+    expect(customersControllerListCustomersV1).toHaveBeenNthCalledWith(
+      5,
+      { q: 'Grace Hopper', limit: '8', cursor: '' },
+      expect.any(Object),
+    );
+  });
+
+  it('keeps recent rows visible and offers retry when a customer page fails', async () => {
+    const firstPage = [
+      { id: 'recent-1', fullName: 'Recent Shopper 1', cardStatus: 'ACTIVE' },
+    ];
+    jest
+      .mocked(customersControllerListCustomersV1)
+      .mockResolvedValueOnce({
+        status: 200,
+        data: {
+          data: {
+            items: firstPage,
+            nextCursor: 'recent-page-2',
+            hasMore: true,
+          },
+        },
+      } as never)
+      .mockResolvedValueOnce({ status: 503, data: {} } as never)
+      .mockResolvedValueOnce({
+        status: 200,
+        data: {
+          data: {
+            items: [{ id: 'recent-2', fullName: 'Recent Shopper 2' }],
+            nextCursor: null,
+            hasMore: false,
+          },
+        },
+      } as never);
+
+    render(
+      <CashierWorkflowRoute
+        kind="lookup"
+        title="Find customer"
+        description="Find a customer"
+      />,
+    );
+
+    expect(await screen.findByText('Recent Shopper 1')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Next customer page' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'Recent customers unavailable (503).',
+    );
+    expect(screen.getByText('Recent Shopper 1')).toBeInTheDocument();
+    expect(
+      screen.getByRole('navigation', {
+        name: 'Customer results pagination',
+      }),
+    ).toHaveTextContent('Page 1');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Retry page' }));
+    expect(await screen.findByText('Recent Shopper 2')).toBeInTheDocument();
+    expect(
+      screen.getByRole('navigation', {
+        name: 'Customer results pagination',
+      }),
+    ).toHaveTextContent('Page 2');
+  });
+
   it('debounces customer directory search and accepts a local phone query', async () => {
     jest.mocked(customersControllerListCustomersV1).mockResolvedValue({
       status: 200,
