@@ -4,7 +4,7 @@
 
 ## Decisions
 
-1. **Keep the page as a focused Admin workspace.** Preserve `/admin/operations` and its existing sidebar entry. Do not restructure shared sidebar groups.
+1. **Keep the page as a focused Admin workspace.** Preserve `/admin/operations` and its existing sidebar entry. Remove Users, Devices, Branches, Audit, and Adjustments from the shared Admin sidebar because they are available under Operations → Controls; keep other Admin destinations and routes unchanged.
 2. **Use three page-local tabs.** Labels are Overview, Reports, and Controls. Overview is selected by default. Use local state; do not add URL state or cross-route persistence.
 3. **Only mount the active panel.** This avoids loading the health and report endpoints for hidden tabs. Switching to Reports starts the existing report component; switching back may reload the health component as its normal lifecycle dictates.
 4. **Overview reuses pilot health.** Render `PilotHealthPanel` in compact mode so its internal route row—including self-links and Supervisor destinations—does not duplicate Controls or expose cross-role navigation from this Admin workspace.

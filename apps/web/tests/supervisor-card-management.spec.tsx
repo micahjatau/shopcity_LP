@@ -232,6 +232,61 @@ describe('Supervisor card management tabs', () => {
     );
   });
 
+  it('routes Admin card owners to the Admin customer Virtual Card tab', async () => {
+    jest
+      .mocked(cardsControllerListIssuedManagementCardsV1)
+      .mockResolvedValueOnce({
+        status: 200,
+        data: {
+          data: {
+            items: [
+              {
+                cardNumber: 'SER-1',
+                status: 'ACTIVE',
+                issuedAt: '2026-01-01T00:00:00.000Z',
+                customer: { id: 'customer-1', fullName: 'Ada Example' },
+              },
+            ],
+            nextCursor: null,
+            hasMore: false,
+          },
+        },
+      } as never);
+    render(<SupervisorCardWorkflows audience="admin" />);
+
+    const table = await screen.findByRole('table', { name: 'Issued cards' });
+    expect(
+      within(within(table).getByRole('row', { name: /SER-1/ })).getByRole(
+        'link',
+        { name: 'View card' },
+      ),
+    ).toHaveAttribute(
+      'href',
+      '/admin/customers?id=customer-1&tab=virtual-card',
+    );
+    expect(screen.getByRole('link', { name: 'Back to admin' })).toHaveAttribute(
+      'href',
+      '/admin',
+    );
+    expect(cardsControllerListIssuedManagementCardsV1).toHaveBeenCalledWith(
+      { limit: '25', cursor: '' },
+      expect.any(Object),
+    );
+  });
+
+  it('closes deep-linked assignment through the Admin cards route', async () => {
+    query = new URLSearchParams('id=customer-1&tab=assign');
+    render(<SupervisorCardWorkflows audience="admin" />);
+    expect(
+      await screen.findByRole('dialog', { name: 'Assign card' }),
+    ).toBeVisible();
+    expect(screen.getByText('Assignment workspace')).toBeVisible();
+    fireEvent.click(screen.getByRole('button', { name: 'Close assignment' }));
+    expect(replaceUrl).toHaveBeenCalledWith('/admin/cards', {
+      scroll: false,
+    });
+  });
+
   it('reveals the search input from the search-icon control on compact layouts', async () => {
     render(<SupervisorCardWorkflows />);
     await screen.findByRole('table', { name: 'Issued cards' });

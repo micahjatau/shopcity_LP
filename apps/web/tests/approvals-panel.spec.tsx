@@ -168,6 +168,54 @@ describe('ApprovalsPanel', () => {
     });
   });
 
+  it('uses the Supervisor split-pane presentation without changing Admin approval behavior', async () => {
+    jest.mocked(approvalsControllerDecideApprovalV1).mockResolvedValue({
+      status: 200,
+      data: { data: { id: 'approval-1', status: 'REJECTED' } },
+    } as never);
+    render(<ApprovalsPanel variant="admin" presentation="supervisor" />);
+
+    await screen.findByRole('heading', { name: 'Approval requests' });
+    await waitForQueueLoad();
+    expect(
+      screen.getByRole('heading', { name: 'Decision' }),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole('tablist')).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'View Customer' })).toBeNull();
+    expect(approvalsControllerListApprovalsV1).toHaveBeenCalledWith(
+      { limit: '10', cursor: '', status: 'PENDING' },
+      expect.objectContaining({ headers: expect.any(Object) }),
+    );
+    expect(customersControllerGetCustomerV1).not.toHaveBeenCalled();
+    expect(
+      customersControllerGetCustomerProfileProjectionV1,
+    ).not.toHaveBeenCalled();
+
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Review approval for Ada Customer' }),
+    );
+    fireEvent.click(screen.getByRole('radio', { name: 'Reject' }));
+    fireEvent.change(screen.getByLabelText('Decision reason'), {
+      target: { value: 'Does not meet approval policy' },
+    });
+    fireEvent.change(screen.getByLabelText('Additional decision note'), {
+      target: { value: 'Supporting evidence is missing' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Submit rejection' }));
+
+    await waitFor(() => {
+      expect(approvalsControllerDecideApprovalV1).toHaveBeenCalledWith(
+        'approval-1',
+        {
+          decision: 'REJECTED',
+          reason:
+            'Does not meet approval policy — Supporting evidence is missing',
+        },
+        expect.objectContaining({ headers: expect.any(Object) }),
+      );
+    });
+  });
+
   it('sends status filters to the server and paginates without truncating rows', async () => {
     jest
       .mocked(approvalsControllerListApprovalsV1)

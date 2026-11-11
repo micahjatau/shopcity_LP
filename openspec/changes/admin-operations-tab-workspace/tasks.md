@@ -25,6 +25,8 @@
 - [x] 2.18 Match Operations non-primary actions and filters to Supervisor Reports controls while retaining the sidebar-matched gradient on Load report.
 - [x] 2.19 Add Operations-only All dates/Last 7 days/Last 30 days/Custom dates controls matching Supervisor Reports, with branch-timezone date calculations, custom-range validation, responsive selection, and no change to other callers.
 - [x] 2.20 Render populated report fields as up to six labeled, formatted table columns with pagination, aligned numeric values, and narrow-width horizontal scrolling; preserve selected-row dialog behavior.
+- [x] 2.21 Remove Users, Devices, Branches, Audit, and Adjustments from the Admin sidebar while retaining their Operations → Controls links and direct routes.
+- [x] 2.22 Add sidebar coverage confirming those five routes are no longer listed, while existing Controls links remain.
 
 ## 3. Verification
 
@@ -40,3 +42,4 @@
 - [x] 3.10 Focused Operations/Reports/Supervisor tests (29 passed), web typecheck, isolated ESLint, Prettier, CSS parsing, strict OpenSpec validation, and `git diff --check` passed. Chromium CSS smoke verified the prior button/control styling and dialog layout. Authenticated route-level browser verification remains pending; the local route redirects to login and no credentials were used.
 - [x] 3.11 Focused Operations/Reports/Supervisor tests (30 passed), web typecheck, isolated ESLint, Prettier, strict OpenSpec validation, and `git diff --check` passed. Chromium confirmed Operations buttons match the Supervisor Reports treatment, dropdowns retain standard app geometry, and the card heading/subtext use 16px/13px typography. Authenticated route-level browser verification remains pending because the local route redirects to login.
 - [x] 3.12 Focused Operations/Reports/Supervisor tests (31 passed), web typecheck, isolated ESLint, Prettier, CSS parsing, strict OpenSpec validation, and `git diff --check` passed. Tests cover branch-timezone 7/30-day ranges, no-range defaults, custom validation/application, dynamic columns, formatting, pagination, and unchanged shared callers. Chromium confirmed the sidebar-matched primary gradient, Supervisor pill controls, 16px/13px card type, responsive period select, numeric alignment, and no 320px horizontal overflow beyond the table's scroll container. Authenticated route-level browser verification remains pending because the local route redirects to login.
+- [x] 3.13 Focused Admin navigation and Operations Controls tests passed (12 tests); web typecheck, isolated ESLint, Prettier, strict OpenSpec validation, and `git diff --check` passed. The first root Jest invocation selected the backend-only config and found no web tests; rerunning through the web `unit:test` script passed.

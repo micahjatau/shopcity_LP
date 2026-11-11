@@ -11,6 +11,48 @@ Use this tracker when preparing a spec proposal. Run `npm run proposal:impact --
 
 ## Findings
 
+### 2026-11-12 — Admin/Supervisor common-page style parity
+
+`npm run proposal:impact` returned **LOW/exact with 0 impacted symbols and 0 affected processes** for each Admin route entrypoint: `AdminPage`, `AdminTransactionsPage`, `AdminApprovalsPage`, `AdminFraudPage`, `AdminCustomersPage`, `AdminCardsPage`, and `AdminReportsPage`. Follow-up impact for the corrected Admin Customers implementation: `CustomerWorkspace` is LOW/exact with 3 direct callers (Admin Cards, Admin Customers, Cashier Customers); `SupervisorCustomerWorkflows` is LOW/exact with 1 direct caller (Supervisor Customers); `CustomerDirectory` is LOW/exact with 2 affected symbols (direct caller `SupervisorCustomerWorkflows` and its route caller). No affected processes or HIGH/CRITICAL risk. The Admin route will reuse the Supervisor customer directory and profile presentation with Admin-specific registration/profile/card destinations and retain profile editing, status, and card-management actions and authorization. Profile impact: `ManageCustomers` is LOW/exact with 4 impacted symbols (2 direct callers: Supervisor and Cashier profile wrappers; 2 route callers), and `CustomerDetailsDialog` is LOW/exact with 3 impacted symbols (ManageCustomers plus both profile wrappers). `SupervisorCustomerProfile` remains LOW/exact with its existing route caller. The adjacent lint-only event handlers `loadOlderEntries` and `submitProfile` are also LOW/exact with 0 impacted callers/processes. For the follow-up Admin Approvals presentation, `AdminApprovalsPage` is LOW/exact with 0 impacted callers/processes; `ApprovalsPanel` is LOW/exact with 2 direct callers (Admin and Supervisor), and `SupervisorApprovalCenter` is LOW/exact with 1 direct caller and 2 transitive route callers. No affected processes or HIGH/CRITICAL risk. The approval work must decouple presentation from workflow variant so Admin request scope and decision behavior remain unchanged. For the Admin Cards follow-up, `AdminCardsPage` is LOW/exact with 0 impacted callers/processes; `SupervisorIssuedCardDirectory` is LOW/exact with 2 impacted symbols (1 direct caller, `SupervisorCardWorkflows`, plus its route caller); `SupervisorCardWorkflows` was LOW/exact with 1 direct caller (`SupervisorCardsPage`) before adding Admin as a second audience; `SupervisorCustomerWorkflows` is LOW/exact with 1 direct caller; `AdminCustomersPage` is LOW/exact with 0 impacted callers/processes; and `SupervisorCardManagement` is LOW/exact with 2 impacted symbols (1 direct caller in the shared profile dialog). No affected processes or HIGH/CRITICAL risk. The initial Admin-only card-surface adaptation was superseded and its `CustomerWorkspace`/test edits restored to their pre-task clean state. The revised design reuses the issued-card directory and assignment dialog under an Admin audience and routes card links to the Admin customer's Virtual Card profile tab; Admin API scope is session-derived. The `SupervisorCardAssignment` symbol query was ambiguous between the source function and its test, with both candidates LOW risk and the source candidate reporting 2 affected symbols / 1 direct caller.
+
+```text
+npm run proposal:impact -- --file 'apps/web/app/(shell)/admin/page.tsx' AdminPage
+npm run proposal:impact -- --file 'apps/web/app/(shell)/admin/transactions/page.tsx' AdminTransactionsPage
+npm run proposal:impact -- --file 'apps/web/app/(shell)/admin/approvals/page.tsx' AdminApprovalsPage
+npm run proposal:impact -- --file 'apps/web/app/(shell)/admin/fraud/page.tsx' AdminFraudPage
+npm run proposal:impact -- --file 'apps/web/app/(shell)/admin/customers/page.tsx' AdminCustomersPage
+npm run proposal:impact -- --file 'apps/web/app/(shell)/admin/cards/page.tsx' AdminCardsPage
+npm run proposal:impact -- --file 'apps/web/app/(shell)/admin/reports/page.tsx' AdminReportsPage
+node .gitnexus/run.cjs impact --repo shopcity_LP --depth 2 CustomerWorkspace
+node .gitnexus/run.cjs impact --repo shopcity_LP --depth 2 SupervisorCustomerWorkflows
+node .gitnexus/run.cjs impact --repo shopcity_LP --depth 2 CustomerDirectory
+node .gitnexus/run.cjs impact --repo shopcity_LP --depth 2 ManageCustomers
+node .gitnexus/run.cjs impact --repo shopcity_LP --depth 2 CustomerDetailsDialog
+node .gitnexus/run.cjs impact --repo shopcity_LP --depth 2 SupervisorCustomerProfile
+node .gitnexus/run.cjs impact --repo shopcity_LP --depth 2 loadOlderEntries
+node .gitnexus/run.cjs impact --repo shopcity_LP --depth 2 submitProfile
+node .gitnexus/run.cjs impact --repo shopcity_LP --depth 2 AdminApprovalsPage
+node .gitnexus/run.cjs impact --repo shopcity_LP --depth 2 ApprovalsPanel
+node .gitnexus/run.cjs impact --repo shopcity_LP --depth 2 SupervisorApprovalCenter
+node .gitnexus/run.cjs impact --repo shopcity_LP --depth 2 AdminCardsPage
+node .gitnexus/run.cjs impact --repo shopcity_LP --depth 2 CustomerWorkspace
+node .gitnexus/run.cjs impact --repo shopcity_LP --depth 2 SupervisorCardWorkflows
+node .gitnexus/run.cjs impact --repo shopcity_LP --depth 2 SupervisorIssuedCardDirectory
+node .gitnexus/run.cjs impact --repo shopcity_LP --depth 2 SupervisorCardAssignment
+node .gitnexus/run.cjs impact --repo shopcity_LP --depth 2 SupervisorCardManagement
+node .gitnexus/run.cjs impact --repo shopcity_LP --depth 2 SupervisorCustomerWorkflows
+node .gitnexus/run.cjs impact --repo shopcity_LP --depth 2 AdminCustomersPage
+```
+
+### 2026-11-11 — Admin Controls sidebar consolidation
+
+GitNexus reports `shellNavigationByRole` LOW/exact with 0 impacted symbols and 0 affected processes. `getShellNavigationSections` was not indexed; the local index refresh is still blocked by an inconsistent FTS index, so graph coverage is incomplete. Source review and focused tests cover the Admin sidebar configuration and the existing Operations → Controls destinations. The change removes only the Users, Devices, Branches, Audit, and Adjustments sidebar links; their routes and Controls links remain.
+
+```text
+node .gitnexus/run.cjs impact --repo shopcity_LP --depth 2 shellNavigationByRole
+node .gitnexus/run.cjs impact --repo shopcity_LP --depth 2 getShellNavigationSections
+```
+
 ### 2026-11-11 — Cashier Find Customer pagination
 
 GitNexus upstream impact is HIGH/exact for both `FindCustomerView` and `useCashierLookupController`: 5 impacted symbols each (1 direct, 4 at depth 2), three affected Cashier route processes (Lookup, Earn, and Redeem), and the Workflows module. No HIGH finding is being hidden; the lookup hook is shared with financial workflow routes. The planned change keeps cursor navigation confined to Find Customer presentation and preserves the existing exact-card verification boundary. The index was refreshed to current commit `799e4f6`.

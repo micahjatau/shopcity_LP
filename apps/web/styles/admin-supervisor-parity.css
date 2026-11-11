@@ -1,0 +1,217 @@
+/* Admin-only presentation adapters. Keep Supervisor rules themselves unchanged. */
+.admin-parity-related-routes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 12px 0;
+  border-top: 1px solid #e4e4e4;
+}
+
+.admin-parity-related-routes a,
+.admin-parity-back-link,
+.supervisor-page[data-od-id='transactions-view'] .sc-page-head__actions a {
+  display: inline-flex;
+  min-height: 32px;
+  align-items: center;
+  justify-content: center;
+  padding: 0 14px;
+  border: 1px solid #ded9da;
+  border-radius: 999px;
+  background: #fff;
+  color: #4a4a4a;
+  font-size: 12px;
+  font-weight: 500;
+  text-decoration: none;
+}
+
+.admin-parity-related-routes a:hover,
+.admin-parity-back-link:hover,
+.supervisor-page[data-od-id='transactions-view']
+  .sc-page-head__actions
+  a:hover {
+  border-color: #c9151c;
+  color: #9e1015;
+}
+
+.admin-parity-related-routes a:focus-visible,
+.admin-parity-back-link:focus-visible,
+.supervisor-page[data-od-id='transactions-view']
+  .sc-page-head__actions
+  a:focus-visible {
+  outline: 3px solid color-mix(in srgb, #c9151c 35%, transparent);
+  outline-offset: 3px;
+}
+
+.admin-approval-page .approval-queue:not(.approval-queue--supervisor) {
+  gap: 12px;
+  color: var(--approval-text);
+  font-family: var(--sc-font-family-sans);
+}
+
+.admin-approval-page
+  .approval-queue--supervisor
+  .approval-queue__admin-reference,
+.admin-approval-page .approval-queue--supervisor .approval-queue__admin-status {
+  display: grid;
+  gap: 3px;
+}
+
+.admin-approval-page
+  .approval-queue--supervisor
+  .approval-queue__admin-reference
+  > span:last-child,
+.admin-approval-page .approval-queue--supervisor .approval-queue__admin-status {
+  color: var(--approval-muted);
+  font-size: 11px;
+}
+
+.admin-approval-page .approval-queue--supervisor .approval-queue__row-value {
+  display: grid;
+  justify-items: end;
+  gap: 3px;
+}
+
+.admin-approval-page
+  .approval-queue--supervisor
+  .approval-queue__decision-actions {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.admin-approval-page .approval-queue__toolbar {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr)) auto;
+  align-items: center;
+  gap: 8px;
+}
+
+.admin-approval-page .approval-queue__toolbar > * {
+  min-width: 0;
+  flex: initial;
+}
+
+.admin-approval-page .approval-queue__toolbar :is(input, select, button) {
+  min-height: 40px;
+  border-radius: 999px;
+  font-family: inherit;
+  font-size: 12px;
+}
+
+.admin-approval-page .approval-queue__toolbar :is(input, select) {
+  border-color: #ded9da;
+  background-color: #fff;
+  color: #414141;
+}
+
+.admin-approval-page
+  .approval-queue__toolbar
+  :is(input, select, button):focus-visible,
+.admin-approval-page .approval-queue__pagination :is(button, a):focus-visible,
+.admin-approval-page .approval-queue__review:focus-visible {
+  outline: 2px solid var(--supervisor-filter-focus-ring);
+  outline-offset: 2px;
+}
+
+.admin-approval-page .approval-queue__feedback {
+  padding: 10px 12px;
+  border: 1px solid var(--approval-border);
+  border-radius: 10px;
+  background: var(--approval-surface);
+  color: var(--approval-secondary);
+  font-size: 13px;
+}
+
+.admin-approval-page .approval-queue__results {
+  gap: 12px;
+  padding: 20px;
+  border-color: var(--approval-border);
+  border-radius: 20px;
+  background: var(--approval-surface);
+  box-shadow: none;
+}
+
+.admin-approval-page .approval-queue__results-header {
+  align-items: center;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--approval-border);
+}
+
+.admin-approval-page .approval-queue__results-header h2 {
+  color: var(--approval-text);
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.admin-approval-page .approval-queue__results-header p {
+  color: var(--approval-muted);
+  font-size: 12px;
+}
+
+.admin-approval-page .approval-queue__table {
+  font-size: 13px;
+}
+
+.admin-approval-page .approval-queue__table thead th {
+  border-bottom-color: var(--approval-border);
+  background: #fff;
+  color: var(--approval-muted);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.admin-approval-page .approval-queue__table tbody th,
+.admin-approval-page .approval-queue__table tbody td {
+  border-bottom-color: var(--approval-border);
+  color: var(--approval-text);
+}
+
+.admin-approval-page .approval-queue__review {
+  border-radius: 999px;
+  white-space: nowrap;
+}
+
+.admin-approval-page .approval-queue__pagination {
+  align-items: center;
+  gap: 10px;
+  color: var(--approval-muted);
+  font-size: 12px;
+}
+
+.admin-approval-page .approval-queue__pagination button {
+  min-width: 36px;
+  min-height: 36px;
+  border-radius: 999px;
+}
+
+.admin-card-management-page {
+  gap: 16px;
+}
+
+.admin-customer-profile-navigation {
+  display: flex;
+  justify-content: flex-end;
+}
+
+@media (max-width: 900px) {
+  .admin-approval-page .approval-queue__toolbar {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 600px) {
+  .admin-parity-related-routes {
+    gap: 6px;
+  }
+
+  .admin-approval-page .approval-queue__toolbar {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .admin-approval-page .approval-queue__results {
+    padding: 14px;
+  }
+
+  .admin-approval-page .approval-queue__results-header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}

@@ -778,7 +778,7 @@ function ProfileWalletLedger({ customerId }: { customerId: string }) {
             type="button"
             variant="secondary"
             disabled={loadingMore}
-            onClick={loadOlderEntries}
+            onClick={() => void loadOlderEntries()}
           >
             {loadingMore ? 'Loading older entries…' : 'Load older entries'}
           </Button>
@@ -907,7 +907,7 @@ export function CustomerDetailsDialog({
   onClose: () => void;
   presentation?: 'dialog' | 'page';
   initialTab?: string;
-  profileAudience?: 'supervisor' | 'cashier';
+  profileAudience?: 'supervisor' | 'admin' | 'cashier';
   cashierCardHint?: string;
 }>) {
   const resolvedInitialTab =
@@ -1007,7 +1007,12 @@ export function CustomerDetailsDialog({
       : cardStatus === 'BLOCKED'
         ? 'Blocked card'
         : 'Card status not included';
-  const expectedConfirmation = status === 'BLOCKED' ? 'BLOCK' : 'ACTIVATE';
+  const expectedConfirmation =
+    profileAudience === 'admin'
+      ? 'UPDATE'
+      : status === 'BLOCKED'
+        ? 'BLOCK'
+        : 'ACTIVATE';
   const hasPendingEdits =
     profileDirty || statusEditorOpen || Boolean(confirmation.trim());
 
@@ -1885,7 +1890,7 @@ export function CustomerDetailsDialog({
                       profileTab !== 'Overview' &&
                       !hasPendingEdits
                     }
-                    onSubmit={submitProfile}
+                    onSubmit={(event) => void submitProfile(event)}
                   >
                     {presentation === 'page' && message ? (
                       <p role="status" aria-live="polite" className="text-sm">
@@ -2079,7 +2084,11 @@ export function CustomerDetailsDialog({
                       {customer.id ? (
                         <Link
                           className="sc-customer-details__card-link"
-                          href={`/supervisor/cards?tab=assign&id=${encodeURIComponent(customer.id)}`}
+                          href={
+                            profileAudience === 'admin'
+                              ? `/admin/cards?id=${encodeURIComponent(customer.id)}`
+                              : `/supervisor/cards?tab=assign&id=${encodeURIComponent(customer.id)}`
+                          }
                         >
                           Manage linked card →
                         </Link>

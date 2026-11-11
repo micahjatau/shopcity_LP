@@ -263,9 +263,16 @@ function SupervisorCustomerStatusFilter({
   );
 }
 
-export function SupervisorCustomerWorkflows() {
+export function SupervisorCustomerWorkflows({
+  audience = 'supervisor',
+}: Readonly<{ audience?: 'supervisor' | 'admin' }> = {}) {
   const router = useRouter();
   const params = useSearchParams();
+  const isAdmin = audience === 'admin';
+  const customersHref = isAdmin ? '/admin/customers' : '/supervisor/customers';
+  const returnQuery = params.get('q') ?? '';
+  const customerDirectoryHref = `${customersHref}${returnQuery ? `?q=${encodeURIComponent(returnQuery)}` : ''}`;
+  const customerId = isAdmin ? params.get('id') : null;
   const [registrationOpen, setRegistrationOpen] = useState(false);
   const [directoryVersion, setDirectoryVersion] = useState(0);
   const registrationCloseRef = useRef<() => void>(() =>
@@ -276,9 +283,27 @@ export function SupervisorCustomerWorkflows() {
     Object.entries(values).forEach(([key, value]) =>
       value ? next.set(key, value) : next.delete(key),
     );
-    router.replace(`/supervisor/customers?${next.toString()}`, {
-      scroll: false,
-    });
+    router.replace(`${customersHref}?${next.toString()}`, { scroll: false });
+  }
+  if (customerId) {
+    return (
+      <section className="supervisor-page sc-page">
+        <SupervisorCustomerProfile
+          audience="admin"
+          customerId={customerId}
+          returnQuery={returnQuery}
+          initialTab={params.get('tab') ?? undefined}
+        />
+        <nav
+          className="admin-customer-profile-navigation"
+          aria-label="Customer navigation"
+        >
+          <Link className="admin-parity-back-link" href={customerDirectoryHref}>
+            Back to customers
+          </Link>
+        </nav>
+      </section>
+    );
   }
   return (
     <section className="supervisor-page sc-page">
@@ -290,28 +315,44 @@ export function SupervisorCustomerWorkflows() {
       <CustomerDirectory
         key={directoryVersion}
         initialQuery={params.get('q') ?? ''}
-        onRegister={() => setRegistrationOpen(true)}
+        onRegister={() => {
+          if (isAdmin) {
+            router.push('/admin/customers/new');
+            return;
+          }
+          setRegistrationOpen(true);
+        }}
         onQuery={(q) => updateQuery({ q: q || null, tab: null, id: null })}
+        profileHrefFor={
+          isAdmin
+            ? (id, query) =>
+                `${customersHref}?id=${encodeURIComponent(id)}${query ? `&q=${encodeURIComponent(query)}` : ''}`
+            : undefined
+        }
       />
-      <Dialog
-        open={registrationOpen}
-        title="Register customer"
-        onClose={() => registrationCloseRef.current()}
-      >
-        <div className="supervisor-registration-dialog">
-          <RegisterCustomer
-            onManage={(phone) => updateQuery({ tab: null, q: phone, id: null })}
-            onDismiss={() => setRegistrationOpen(false)}
-            onCloseRequest={(requestClose) => {
-              registrationCloseRef.current = requestClose;
-            }}
-            onDone={() => {
-              setRegistrationOpen(false);
-              setDirectoryVersion((version) => version + 1);
-            }}
-          />
-        </div>
-      </Dialog>
+      {!isAdmin ? (
+        <Dialog
+          open={registrationOpen}
+          title="Register customer"
+          onClose={() => registrationCloseRef.current()}
+        >
+          <div className="supervisor-registration-dialog">
+            <RegisterCustomer
+              onManage={(phone) =>
+                updateQuery({ tab: null, q: phone, id: null })
+              }
+              onDismiss={() => setRegistrationOpen(false)}
+              onCloseRequest={(requestClose) => {
+                registrationCloseRef.current = requestClose;
+              }}
+              onDone={() => {
+                setRegistrationOpen(false);
+                setDirectoryVersion((version) => version + 1);
+              }}
+            />
+          </div>
+        </Dialog>
+      ) : null}
     </section>
   );
 }
@@ -823,10 +864,12 @@ function CustomerDirectory({
   initialQuery,
   onRegister,
   onQuery,
+  profileHrefFor,
 }: {
   initialQuery: string;
   onRegister: () => void;
   onQuery: (query: string) => void;
+  profileHrefFor?: (id: string, query: string) => string;
 }) {
   const [query, setQuery] = useState(initialQuery);
   const [results, setResults] = useState<Customer[]>([]);
@@ -1103,7 +1146,9 @@ function CustomerDirectory({
                     const lifetime = customerMoneyValue(
                       record.lifetimeEarnedKobo,
                     );
-                    const profileHref = `/supervisor/customers/${encodeURIComponent(id)}${initialQuery ? `?q=${encodeURIComponent(initialQuery)}` : ''}`;
+                    const profileHref =
+                      profileHrefFor?.(id, initialQuery) ??
+                      `/supervisor/customers/${encodeURIComponent(id)}${initialQuery ? `?q=${encodeURIComponent(initialQuery)}` : ''}`;
                     return (
                       <tr key={id}>
                         <td data-label="Name">
@@ -1310,7 +1355,7 @@ function ManageCustomers({
   onCustomerId: (id: string | null) => void;
   profileOnly?: boolean;
   initialProfileTab?: string;
-  profileAudience?: 'supervisor' | 'cashier';
+  profileAudience?: 'supervisor' | 'admin' | 'cashier';
   profileCardHint?: string;
 }) {
   const [query, setQuery] = useState(initialQuery);
@@ -1537,7 +1582,12 @@ function ManageCustomers({
   }
   async function changeStatus() {
     if (profileAudience === 'cashier') return;
-    const requiredPhrase = status === 'BLOCKED' ? 'BLOCK' : 'ACTIVATE';
+    const requiredPhrase =
+      profileAudience === 'admin'
+        ? 'UPDATE'
+        : status === 'BLOCKED'
+          ? 'BLOCK'
+          : 'ACTIVATE';
     if (customer && status === customer.status) {
       setDetailMessage('Choose a different customer status before updating.');
       return;
@@ -1758,13 +1808,17 @@ export function SupervisorCustomerProfile({
   customerId,
   returnQuery = '',
   initialTab,
+  audience = 'supervisor',
 }: {
   customerId: string;
   returnQuery?: string;
   initialTab?: string;
+  audience?: 'supervisor' | 'admin';
 }) {
   const router = useRouter();
-  const backHref = `/supervisor/customers${returnQuery ? `?q=${encodeURIComponent(returnQuery)}` : ''}`;
+  const baseHref =
+    audience === 'admin' ? '/admin/customers' : '/supervisor/customers';
+  const backHref = `${baseHref}${returnQuery ? `?q=${encodeURIComponent(returnQuery)}` : ''}`;
   return (
     <section className="supervisor-page sc-page">
       <ManageCustomers
@@ -1773,6 +1827,7 @@ export function SupervisorCustomerProfile({
         customerId={customerId}
         profileOnly
         initialProfileTab={initialTab}
+        profileAudience={audience}
         onCustomerId={() => router.push(backHref)}
       />
     </section>

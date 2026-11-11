@@ -81,6 +81,33 @@ describe('canonical shell navigation', () => {
     ).toBeNull();
   });
 
+  it('keeps Admin Controls destinations under Operations instead of the sidebar', () => {
+    const sections = getShellNavigationSections('ADMIN', 'ready');
+    const items = sections.flatMap((section) => section.items);
+    const controlRoutes = [
+      '/admin/users',
+      '/admin/devices',
+      '/admin/branches',
+      '/admin/audit',
+      '/admin/adjustments',
+    ];
+
+    expect(items.some((item) => item.href === '/admin/operations')).toBe(true);
+    for (const href of controlRoutes) {
+      expect(items.some((item) => item.href === href)).toBe(false);
+      expect(
+        fs.existsSync(
+          path.join(
+            process.cwd(),
+            'app/(shell)',
+            ...href.slice(1).split('/'),
+            'page.tsx',
+          ),
+        ),
+      ).toBe(true);
+    }
+  });
+
   it('uses the most specific canonical route for nested paths', () => {
     const sections = getShellNavigationSections('ADMIN', 'ready');
     expect(

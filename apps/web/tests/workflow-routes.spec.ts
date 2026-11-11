@@ -1300,7 +1300,7 @@ test.describe('workflow route coverage', () => {
     ]);
   });
 
-  test('verifies profile typography hierarchy and responsive width across all Supervisor routes', async ({
+  test('verifies shared Supervisor styling and Admin-specific workflows across common routes', async ({
     page,
   }) => {
     const routes = [
@@ -1487,34 +1487,254 @@ test.describe('workflow route coverage', () => {
 
     await mockShell(page, 'ADMIN');
     await page.goto(`${baseUrl}/admin/customers`);
-    const adminCustomerWorkspace = page.locator(
-      '[aria-label="Customer workspace"]',
+    const adminCustomerDirectory = page.locator(
+      '.supervisor-customer-directory',
     );
+    await expect(adminCustomerDirectory).toBeVisible();
     await expect(
-      adminCustomerWorkspace.locator('.supervisor-page'),
-    ).toHaveCount(0);
+      page.getByRole('heading', { level: 1, name: 'Customers' }),
+    ).toBeVisible();
     await expect(
-      adminCustomerWorkspace.getByRole('heading', {
-        level: 1,
-        name: 'Customers',
+      page.getByText('Find customers and open their verified profile.', {
+        exact: true,
+      }),
+    ).toBeVisible();
+    expect(
+      await headerTypography(
+        'Customers',
+        'Find customers and open their verified profile.',
+      ),
+    ).toEqual(supervisorTypography);
+    await expect(
+      page.getByRole('searchbox', {
+        name: 'Search by customer name, phone number, or card number',
       }),
     ).toBeVisible();
     await expect(
-      adminCustomerWorkspace.getByText(
-        'Use the shell navigation for cashier, sync, and supervisor routes.',
-      ),
+      adminCustomerDirectory.getByRole('button', {
+        name: 'Register customer',
+      }),
+    ).toBeVisible();
+    const adminProfileLink = await page.getByRole('link', {
+      name: 'View profile for Ada Shopper',
+    });
+    await expect(adminProfileLink).toHaveAttribute(
+      'href',
+      '/admin/customers?id=customer-1',
+    );
+    await adminCustomerDirectory
+      .getByRole('button', { name: 'Register customer' })
+      .click();
+    await expect(page).toHaveURL(`${baseUrl}/admin/customers/new`);
+
+    await page.goto(`${baseUrl}/admin/customers`);
+    await page
+      .getByRole('link', { name: 'View profile for Ada Shopper' })
+      .click();
+    await expect(page.locator('.sc-customer-details--page')).toBeVisible();
+    await expect(
+      page.getByRole('heading', { level: 1, name: 'Ada Shopper' }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole('navigation', { name: 'Customer profile sections' }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole('button', { name: 'Edit customer details' }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole('link', { name: 'Back to customers' }),
+    ).toHaveAttribute('href', '/admin/customers');
+    await page.getByRole('button', { name: 'Edit customer details' }).click();
+    const adminProfileEditor = page.getByRole('dialog', {
+      name: 'Edit customer details',
+    });
+    await expect(adminProfileEditor).toBeVisible();
+    await expect(
+      adminProfileEditor.getByRole('link', { name: 'Manage linked card →' }),
+    ).toHaveAttribute('href', '/admin/cards?id=customer-1');
+    await adminProfileEditor
+      .getByRole('button', { name: 'Change status' })
+      .click();
+    await expect(
+      adminProfileEditor.getByLabel('Type UPDATE to confirm'),
     ).toBeVisible();
 
     await page.goto(`${baseUrl}/admin/transactions`);
     await expect(
-      page.getByRole('heading', { level: 1, name: 'Transaction review' }),
+      page.getByRole('heading', { level: 1, name: 'Review transactions' }),
     ).toBeVisible();
     await expect(
-      page.getByRole('alert').filter({
-        hasText:
-          'Use this route for search, detail inspection, and compensating reversals.',
+      page.getByRole('textbox', { name: 'Transaction ID' }),
+    ).toBeVisible();
+    await expect(
+      page.locator('article[aria-label="Reversal preview"]'),
+    ).toBeVisible();
+    await expect(
+      page.locator('main a[href="/admin/approvals"]'),
+    ).toHaveAttribute('href', '/admin/approvals');
+    await expect(
+      page.locator('main .sc-page-head__actions a[href="/admin"]'),
+    ).toBeVisible();
+
+    await page.goto(`${baseUrl}/admin/approvals`);
+    const approvalsHeading = page.getByRole('heading', {
+      level: 1,
+      name: 'Approval Centre',
+    });
+    await expect(approvalsHeading).toBeVisible();
+    await expect(approvalsHeading).toHaveCSS('font-size', '28px');
+    expect(
+      await headerTypography(
+        'Approval Centre',
+        'Financial exceptions waiting on a supervisor or administrator decision.',
+      ),
+    ).toEqual(supervisorTypography);
+    await expect(page.getByLabel('Approval status filter')).toBeVisible();
+    await expect(
+      page.locator('.admin-approval-page .approval-queue__decision'),
+    ).toBeVisible();
+    await expect(
+      page.locator('main a.admin-parity-back-link[href="/admin"]'),
+    ).toBeVisible();
+    await expect(
+      page.locator('.admin-approval-page .approval-queue--supervisor'),
+    ).toBeVisible();
+    await expect(
+      page.locator('.admin-approval-page .approval-queue__workspace'),
+    ).toBeVisible();
+    await expect(
+      page.locator('.admin-approval-page .approval-queue__results'),
+    ).toHaveCSS('border-radius', '20px');
+
+    await page.goto(`${baseUrl}/admin/fraud`);
+    await expect(
+      page.getByRole('heading', { level: 1, name: 'Fraud' }),
+    ).toBeVisible();
+    await expect(page.locator('.admin-fraud-page .fraud-flags')).toHaveCSS(
+      'border-radius',
+      '16px',
+    );
+    await expect(
+      page.locator('main a.admin-parity-back-link[href="/admin"]'),
+    ).toBeVisible();
+
+    await page.route('**/api/v1/cards/management/issued*', (route) =>
+      route.fulfill(
+        json({
+          success: true,
+          data: {
+            items: [
+              {
+                cardNumber: 'SER-1',
+                status: 'ACTIVE',
+                issuedAt: '2026-01-01T00:00:00.000Z',
+                customer: { id: 'customer-1', fullName: 'Ada Shopper' },
+              },
+            ],
+            nextCursor: null,
+            hasMore: false,
+          },
+          meta: meta('/api/v1/cards/management/issued'),
+        }),
+      ),
+    );
+    await page.goto(`${baseUrl}/admin/cards`);
+    await expect(
+      page.getByRole('heading', { level: 1, name: 'Cards' }),
+    ).toBeVisible();
+    expect(
+      await headerTypography('Cards', 'Review issued cards or assign a card.'),
+    ).toEqual(supervisorTypography);
+    await expect(
+      page.getByRole('searchbox', {
+        name: 'Search by card number or owner name',
       }),
     ).toBeVisible();
+    await expect(
+      page.locator('main a.admin-parity-back-link[href="/admin"]'),
+    ).toBeVisible();
+    const adminIssuedCards = page.getByRole('table', {
+      name: 'Issued cards',
+    });
+    await expect(adminIssuedCards).toBeVisible();
+    await expect(
+      adminIssuedCards.getByRole('link', { name: 'View card' }),
+    ).toHaveAttribute(
+      'href',
+      '/admin/customers?id=customer-1&tab=virtual-card',
+    );
+    await expect(
+      page.getByRole('button', { name: 'Assign card' }),
+    ).toBeVisible();
+    await adminIssuedCards.getByRole('link', { name: 'View card' }).click();
+    await expect(page).toHaveURL(
+      `${baseUrl}/admin/customers?id=customer-1&tab=virtual-card`,
+    );
+    await expect(page.locator('.sc-customer-details--page')).toBeVisible();
+    await expect(
+      page.getByRole('button', { name: 'Virtual Card' }),
+    ).toHaveAttribute('aria-current', 'page');
+
+    await page.goto(`${baseUrl}/admin/reports`);
+    await expect(
+      page.getByRole('heading', { level: 1, name: 'Operational reports' }),
+    ).toBeVisible();
+    await expect(page.locator('.supervisor-reports-page')).toBeVisible();
+
+    await page.goto(`${baseUrl}/admin`);
+    const adminOverviewHeading = page.getByRole('heading', {
+      level: 1,
+      name: 'Overview',
+    });
+    await expect(adminOverviewHeading).toBeVisible();
+    await expect(adminOverviewHeading).toHaveCSS('font-size', '28px');
+    await expect(
+      page.locator('[aria-label="Key metrics"] article'),
+    ).toHaveCount(6);
+
+    for (const path of [
+      '/admin',
+      '/admin/transactions',
+      '/admin/approvals',
+      '/admin/fraud',
+      '/admin/customers',
+      '/admin/customers?id=customer-1',
+      '/admin/cards',
+      '/admin/reports',
+    ]) {
+      await page.goto(`${baseUrl}${path}`);
+      for (const width of [1440, 768, 375]) {
+        await page.setViewportSize({ width, height: 900 });
+        const documentWidth = await page.evaluate(() =>
+          Math.max(
+            document.body.scrollWidth,
+            document.documentElement.scrollWidth,
+          ),
+        );
+        expect(
+          documentWidth,
+          `${path} document width at ${width}px`,
+        ).toBeLessThanOrEqual(width);
+        if (path === '/admin/approvals') {
+          const columnCount = await page
+            .locator('.approval-queue__workspace')
+            .evaluate(
+              (element) =>
+                getComputedStyle(element)
+                  .gridTemplateColumns.trim()
+                  .split(/\s+/).length,
+            );
+          expect(columnCount, `approval columns at ${width}px`).toBe(
+            width > 1024 ? 2 : 1,
+          );
+        }
+        if (path === '/admin/cards') {
+          await expect(
+            page.locator('.supervisor-issued-card-directory'),
+          ).toBeVisible();
+        }
+      }
+    }
 
     await mockShell(page, 'CASHIER');
     await page.goto(`${baseUrl}/cashier/customers`);

@@ -2,13 +2,13 @@
 
 ## Purpose
 
-Define the tab structure and navigation behavior of the existing Admin Operations route without changing its route, shell, authorization, APIs, or dedicated workflows.
+Define the tab structure, control destinations, and Admin navigation behavior of the existing Admin Operations route without changing its route, authorization, APIs, or dedicated workflows.
 
 ## ADDED Requirements
 
 ### Requirement: Admin Operations separates health, reports, and controls into tabs
 
-The `/admin/operations` page MUST present the tabs **Overview**, **Reports**, and **Controls**, with Overview selected on initial entry. It MUST NOT show the removed static route/health badges, the `Back to admin` link, or the `Admin operations at a glance` alert/copy. In the Operations Overview panel, it MUST omit the pilot-health header and per-signal status pills. Signal detail text and the panel subtitle MUST use 12px regular text, a 1.45 line height, and readable secondary gray. It MUST show a `Needs attention` summary from known current API counts, the server-provided `generatedAt` timestamp, and available release metadata. Missing values MUST remain unavailable, not be presented as zero. The route, API contract, and shared Admin shell/sidebar MUST remain unchanged.
+The `/admin/operations` page MUST present the tabs **Overview**, **Reports**, and **Controls**, with Overview selected on initial entry. It MUST NOT show the removed static route/health badges, the `Back to admin` link, or the `Admin operations at a glance` alert/copy. In the Operations Overview panel, it MUST omit the pilot-health header and per-signal status pills. Signal detail text and the panel subtitle MUST use 12px regular text, a 1.45 line height, and readable secondary gray. It MUST show a `Needs attention` summary from known current API counts, the server-provided `generatedAt` timestamp, and available release metadata. Missing values MUST remain unavailable, not be presented as zero. The route, API contract, Admin role authorization, and dedicated workflows MUST remain unchanged.
 
 #### Scenario: Admin opens Operations
 
@@ -61,6 +61,18 @@ The `/admin/operations` page MUST present the tabs **Overview**, **Reports**, an
 - **WHEN** an Admin selects Controls
 - **THEN** the panel provides links to `/admin/users`, `/admin/devices`, `/admin/branches`, `/admin/audit`, and `/admin/adjustments`
 - **AND** each link opens its existing dedicated workflow without embedding or duplicating its mutation form on the Operations page.
+
+### Requirement: Admin Control destinations are consolidated under Operations
+
+The Admin sidebar MUST NOT contain separate links to Users, Devices, Branches, Audit, or Adjustments because those destinations are available under Operations → Controls. The Operations sidebar entry and the dedicated routes MUST remain available.
+
+#### Scenario: Admin opens a control workflow from Operations
+
+- **GIVEN** an authorized Admin
+- **WHEN** the Admin opens Operations → Controls
+- **THEN** the Users, Devices, Branches, Audit, and Adjustments destinations remain available there
+- **AND** the Admin sidebar contains no separate links to those five destinations
+- **AND** their direct routes and role authorization remain unchanged.
 
 #### Scenario: Admin navigates tabs with a keyboard
 
