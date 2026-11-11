@@ -27,6 +27,14 @@ describe('LoginForm', () => {
     jest.mocked(authControllerCompleteCashierLoginV1).mockReset();
   });
 
+  it('links to the password-recovery request instead of showing administrator-only help', () => {
+    render(<LoginForm />);
+
+    expect(
+      screen.getByRole('link', { name: 'Forgot password?' }),
+    ).toHaveAttribute('href', '/forgot-password');
+  });
+
   it('starts an explicitly enabled local cashier test session without pairing', async () => {
     const previousNodeEnv = process.env.NODE_ENV;
     const previousFlag =

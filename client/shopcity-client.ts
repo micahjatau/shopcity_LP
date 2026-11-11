@@ -5,6 +5,31 @@
  * ShopCity backend API
  * OpenAPI spec version: 1.0.0
  */
+export interface PasswordRecoveryRequestDto {
+  /** @maxLength 254 */
+  email: string;
+}
+
+export type PasswordRecoveryCompleteDtoType =
+  (typeof PasswordRecoveryCompleteDtoType)[keyof typeof PasswordRecoveryCompleteDtoType];
+
+export const PasswordRecoveryCompleteDtoType = {
+  recovery: 'recovery',
+} as const;
+
+export interface PasswordRecoveryCompleteDto {
+  /** @maxLength 8192 */
+  accessToken: string;
+  /** @maxLength 8192 */
+  refreshToken: string;
+  type: PasswordRecoveryCompleteDtoType;
+  /**
+   * @minLength 6
+   * @maxLength 72
+   */
+  password: string;
+}
+
 export interface LoginDto {
   username: string;
   /** @minLength 1 */
@@ -1015,6 +1040,470 @@ export type HealthControllerReady503 = {
   success: boolean;
   error: HealthControllerReady503Error;
   meta: HealthControllerReady503Meta;
+};
+
+export type AuthControllerRequestPasswordRecoveryV1200Data = {
+  message: string;
+};
+
+export type AuthControllerRequestPasswordRecoveryV1200Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type AuthControllerRequestPasswordRecoveryV1200 = {
+  success: boolean;
+  data: AuthControllerRequestPasswordRecoveryV1200Data;
+  meta: AuthControllerRequestPasswordRecoveryV1200Meta;
+};
+
+/**
+ * @nullable
+ */
+export type AuthControllerRequestPasswordRecoveryV1400ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type AuthControllerRequestPasswordRecoveryV1400Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: AuthControllerRequestPasswordRecoveryV1400ErrorDetails;
+};
+
+export type AuthControllerRequestPasswordRecoveryV1400Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type AuthControllerRequestPasswordRecoveryV1400 = {
+  success: boolean;
+  error: AuthControllerRequestPasswordRecoveryV1400Error;
+  meta: AuthControllerRequestPasswordRecoveryV1400Meta;
+};
+
+/**
+ * @nullable
+ */
+export type AuthControllerRequestPasswordRecoveryV1401ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type AuthControllerRequestPasswordRecoveryV1401Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: AuthControllerRequestPasswordRecoveryV1401ErrorDetails;
+};
+
+export type AuthControllerRequestPasswordRecoveryV1401Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type AuthControllerRequestPasswordRecoveryV1401 = {
+  success: boolean;
+  error: AuthControllerRequestPasswordRecoveryV1401Error;
+  meta: AuthControllerRequestPasswordRecoveryV1401Meta;
+};
+
+/**
+ * @nullable
+ */
+export type AuthControllerRequestPasswordRecoveryV1403ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type AuthControllerRequestPasswordRecoveryV1403Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: AuthControllerRequestPasswordRecoveryV1403ErrorDetails;
+};
+
+export type AuthControllerRequestPasswordRecoveryV1403Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type AuthControllerRequestPasswordRecoveryV1403 = {
+  success: boolean;
+  error: AuthControllerRequestPasswordRecoveryV1403Error;
+  meta: AuthControllerRequestPasswordRecoveryV1403Meta;
+};
+
+/**
+ * @nullable
+ */
+export type AuthControllerRequestPasswordRecoveryV1404ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type AuthControllerRequestPasswordRecoveryV1404Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: AuthControllerRequestPasswordRecoveryV1404ErrorDetails;
+};
+
+export type AuthControllerRequestPasswordRecoveryV1404Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type AuthControllerRequestPasswordRecoveryV1404 = {
+  success: boolean;
+  error: AuthControllerRequestPasswordRecoveryV1404Error;
+  meta: AuthControllerRequestPasswordRecoveryV1404Meta;
+};
+
+/**
+ * @nullable
+ */
+export type AuthControllerRequestPasswordRecoveryV1409ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type AuthControllerRequestPasswordRecoveryV1409Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: AuthControllerRequestPasswordRecoveryV1409ErrorDetails;
+};
+
+export type AuthControllerRequestPasswordRecoveryV1409Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type AuthControllerRequestPasswordRecoveryV1409 = {
+  success: boolean;
+  error: AuthControllerRequestPasswordRecoveryV1409Error;
+  meta: AuthControllerRequestPasswordRecoveryV1409Meta;
+};
+
+/**
+ * @nullable
+ */
+export type AuthControllerRequestPasswordRecoveryV1422ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type AuthControllerRequestPasswordRecoveryV1422Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: AuthControllerRequestPasswordRecoveryV1422ErrorDetails;
+};
+
+export type AuthControllerRequestPasswordRecoveryV1422Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type AuthControllerRequestPasswordRecoveryV1422 = {
+  success: boolean;
+  error: AuthControllerRequestPasswordRecoveryV1422Error;
+  meta: AuthControllerRequestPasswordRecoveryV1422Meta;
+};
+
+/**
+ * @nullable
+ */
+export type AuthControllerRequestPasswordRecoveryV1429ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type AuthControllerRequestPasswordRecoveryV1429Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: AuthControllerRequestPasswordRecoveryV1429ErrorDetails;
+};
+
+export type AuthControllerRequestPasswordRecoveryV1429Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type AuthControllerRequestPasswordRecoveryV1429 = {
+  success: boolean;
+  error: AuthControllerRequestPasswordRecoveryV1429Error;
+  meta: AuthControllerRequestPasswordRecoveryV1429Meta;
+};
+
+/**
+ * @nullable
+ */
+export type AuthControllerRequestPasswordRecoveryV1503ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type AuthControllerRequestPasswordRecoveryV1503Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: AuthControllerRequestPasswordRecoveryV1503ErrorDetails;
+};
+
+export type AuthControllerRequestPasswordRecoveryV1503Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type AuthControllerRequestPasswordRecoveryV1503 = {
+  success: boolean;
+  error: AuthControllerRequestPasswordRecoveryV1503Error;
+  meta: AuthControllerRequestPasswordRecoveryV1503Meta;
+};
+
+export type AuthControllerCompletePasswordRecoveryV1200Data = {
+  message: string;
+};
+
+export type AuthControllerCompletePasswordRecoveryV1200Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type AuthControllerCompletePasswordRecoveryV1200 = {
+  success: boolean;
+  data: AuthControllerCompletePasswordRecoveryV1200Data;
+  meta: AuthControllerCompletePasswordRecoveryV1200Meta;
+};
+
+/**
+ * @nullable
+ */
+export type AuthControllerCompletePasswordRecoveryV1400ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type AuthControllerCompletePasswordRecoveryV1400Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: AuthControllerCompletePasswordRecoveryV1400ErrorDetails;
+};
+
+export type AuthControllerCompletePasswordRecoveryV1400Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type AuthControllerCompletePasswordRecoveryV1400 = {
+  success: boolean;
+  error: AuthControllerCompletePasswordRecoveryV1400Error;
+  meta: AuthControllerCompletePasswordRecoveryV1400Meta;
+};
+
+/**
+ * @nullable
+ */
+export type AuthControllerCompletePasswordRecoveryV1401ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type AuthControllerCompletePasswordRecoveryV1401Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: AuthControllerCompletePasswordRecoveryV1401ErrorDetails;
+};
+
+export type AuthControllerCompletePasswordRecoveryV1401Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type AuthControllerCompletePasswordRecoveryV1401 = {
+  success: boolean;
+  error: AuthControllerCompletePasswordRecoveryV1401Error;
+  meta: AuthControllerCompletePasswordRecoveryV1401Meta;
+};
+
+/**
+ * @nullable
+ */
+export type AuthControllerCompletePasswordRecoveryV1403ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type AuthControllerCompletePasswordRecoveryV1403Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: AuthControllerCompletePasswordRecoveryV1403ErrorDetails;
+};
+
+export type AuthControllerCompletePasswordRecoveryV1403Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type AuthControllerCompletePasswordRecoveryV1403 = {
+  success: boolean;
+  error: AuthControllerCompletePasswordRecoveryV1403Error;
+  meta: AuthControllerCompletePasswordRecoveryV1403Meta;
+};
+
+/**
+ * @nullable
+ */
+export type AuthControllerCompletePasswordRecoveryV1404ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type AuthControllerCompletePasswordRecoveryV1404Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: AuthControllerCompletePasswordRecoveryV1404ErrorDetails;
+};
+
+export type AuthControllerCompletePasswordRecoveryV1404Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type AuthControllerCompletePasswordRecoveryV1404 = {
+  success: boolean;
+  error: AuthControllerCompletePasswordRecoveryV1404Error;
+  meta: AuthControllerCompletePasswordRecoveryV1404Meta;
+};
+
+/**
+ * @nullable
+ */
+export type AuthControllerCompletePasswordRecoveryV1409ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type AuthControllerCompletePasswordRecoveryV1409Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: AuthControllerCompletePasswordRecoveryV1409ErrorDetails;
+};
+
+export type AuthControllerCompletePasswordRecoveryV1409Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type AuthControllerCompletePasswordRecoveryV1409 = {
+  success: boolean;
+  error: AuthControllerCompletePasswordRecoveryV1409Error;
+  meta: AuthControllerCompletePasswordRecoveryV1409Meta;
+};
+
+/**
+ * @nullable
+ */
+export type AuthControllerCompletePasswordRecoveryV1422ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type AuthControllerCompletePasswordRecoveryV1422Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: AuthControllerCompletePasswordRecoveryV1422ErrorDetails;
+};
+
+export type AuthControllerCompletePasswordRecoveryV1422Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type AuthControllerCompletePasswordRecoveryV1422 = {
+  success: boolean;
+  error: AuthControllerCompletePasswordRecoveryV1422Error;
+  meta: AuthControllerCompletePasswordRecoveryV1422Meta;
+};
+
+/**
+ * @nullable
+ */
+export type AuthControllerCompletePasswordRecoveryV1429ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type AuthControllerCompletePasswordRecoveryV1429Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: AuthControllerCompletePasswordRecoveryV1429ErrorDetails;
+};
+
+export type AuthControllerCompletePasswordRecoveryV1429Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type AuthControllerCompletePasswordRecoveryV1429 = {
+  success: boolean;
+  error: AuthControllerCompletePasswordRecoveryV1429Error;
+  meta: AuthControllerCompletePasswordRecoveryV1429Meta;
+};
+
+/**
+ * @nullable
+ */
+export type AuthControllerCompletePasswordRecoveryV1503ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type AuthControllerCompletePasswordRecoveryV1503Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: AuthControllerCompletePasswordRecoveryV1503ErrorDetails;
+};
+
+export type AuthControllerCompletePasswordRecoveryV1503Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type AuthControllerCompletePasswordRecoveryV1503 = {
+  success: boolean;
+  error: AuthControllerCompletePasswordRecoveryV1503Error;
+  meta: AuthControllerCompletePasswordRecoveryV1503Meta;
 };
 
 export type AuthControllerLoginV1200DataUserRole =
@@ -20294,6 +20783,222 @@ export const healthControllerReady = async (
     status: res.status,
     headers: res.headers,
   } as healthControllerReadyResponse;
+};
+
+export type authControllerRequestPasswordRecoveryV1Response200 = {
+  data: AuthControllerRequestPasswordRecoveryV1200;
+  status: 200;
+};
+
+export type authControllerRequestPasswordRecoveryV1Response400 = {
+  data: AuthControllerRequestPasswordRecoveryV1400;
+  status: 400;
+};
+
+export type authControllerRequestPasswordRecoveryV1Response401 = {
+  data: AuthControllerRequestPasswordRecoveryV1401;
+  status: 401;
+};
+
+export type authControllerRequestPasswordRecoveryV1Response403 = {
+  data: AuthControllerRequestPasswordRecoveryV1403;
+  status: 403;
+};
+
+export type authControllerRequestPasswordRecoveryV1Response404 = {
+  data: AuthControllerRequestPasswordRecoveryV1404;
+  status: 404;
+};
+
+export type authControllerRequestPasswordRecoveryV1Response409 = {
+  data: AuthControllerRequestPasswordRecoveryV1409;
+  status: 409;
+};
+
+export type authControllerRequestPasswordRecoveryV1Response422 = {
+  data: AuthControllerRequestPasswordRecoveryV1422;
+  status: 422;
+};
+
+export type authControllerRequestPasswordRecoveryV1Response429 = {
+  data: AuthControllerRequestPasswordRecoveryV1429;
+  status: 429;
+};
+
+export type authControllerRequestPasswordRecoveryV1Response503 = {
+  data: AuthControllerRequestPasswordRecoveryV1503;
+  status: 503;
+};
+
+export type authControllerRequestPasswordRecoveryV1ResponseSuccess =
+  authControllerRequestPasswordRecoveryV1Response200 & {
+    headers: Headers;
+  };
+export type authControllerRequestPasswordRecoveryV1ResponseError = (
+  | authControllerRequestPasswordRecoveryV1Response400
+  | authControllerRequestPasswordRecoveryV1Response401
+  | authControllerRequestPasswordRecoveryV1Response403
+  | authControllerRequestPasswordRecoveryV1Response404
+  | authControllerRequestPasswordRecoveryV1Response409
+  | authControllerRequestPasswordRecoveryV1Response422
+  | authControllerRequestPasswordRecoveryV1Response429
+  | authControllerRequestPasswordRecoveryV1Response503
+) & {
+  headers: Headers;
+};
+
+export type authControllerRequestPasswordRecoveryV1Response =
+  | authControllerRequestPasswordRecoveryV1ResponseSuccess
+  | authControllerRequestPasswordRecoveryV1ResponseError;
+
+export const getAuthControllerRequestPasswordRecoveryV1Url = () => {
+  return `/api/v1/auth/password-reset/request`;
+};
+
+/**
+ * Request a password-recovery email
+ * @summary Request a password-recovery email
+ */
+export const authControllerRequestPasswordRecoveryV1 = async (
+  passwordRecoveryRequestDto: PasswordRecoveryRequestDto,
+  options?: RequestInit,
+): Promise<authControllerRequestPasswordRecoveryV1Response> => {
+  const getHeaders = (
+    h?: NonNullable<RequestInit['headers']>,
+  ): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Array.isArray(h)) return Object.fromEntries(h);
+    return h;
+  };
+  const res = await fetch(getAuthControllerRequestPasswordRecoveryV1Url(), {
+    ...options,
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      ...getHeaders(options?.headers),
+    },
+    body: JSON.stringify(passwordRecoveryRequestDto),
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: authControllerRequestPasswordRecoveryV1Response['data'] = body
+    ? JSON.parse(body)
+    : {};
+  return {
+    data,
+    status: res.status,
+    headers: res.headers,
+  } as authControllerRequestPasswordRecoveryV1Response;
+};
+
+export type authControllerCompletePasswordRecoveryV1Response200 = {
+  data: AuthControllerCompletePasswordRecoveryV1200;
+  status: 200;
+};
+
+export type authControllerCompletePasswordRecoveryV1Response400 = {
+  data: AuthControllerCompletePasswordRecoveryV1400;
+  status: 400;
+};
+
+export type authControllerCompletePasswordRecoveryV1Response401 = {
+  data: AuthControllerCompletePasswordRecoveryV1401;
+  status: 401;
+};
+
+export type authControllerCompletePasswordRecoveryV1Response403 = {
+  data: AuthControllerCompletePasswordRecoveryV1403;
+  status: 403;
+};
+
+export type authControllerCompletePasswordRecoveryV1Response404 = {
+  data: AuthControllerCompletePasswordRecoveryV1404;
+  status: 404;
+};
+
+export type authControllerCompletePasswordRecoveryV1Response409 = {
+  data: AuthControllerCompletePasswordRecoveryV1409;
+  status: 409;
+};
+
+export type authControllerCompletePasswordRecoveryV1Response422 = {
+  data: AuthControllerCompletePasswordRecoveryV1422;
+  status: 422;
+};
+
+export type authControllerCompletePasswordRecoveryV1Response429 = {
+  data: AuthControllerCompletePasswordRecoveryV1429;
+  status: 429;
+};
+
+export type authControllerCompletePasswordRecoveryV1Response503 = {
+  data: AuthControllerCompletePasswordRecoveryV1503;
+  status: 503;
+};
+
+export type authControllerCompletePasswordRecoveryV1ResponseSuccess =
+  authControllerCompletePasswordRecoveryV1Response200 & {
+    headers: Headers;
+  };
+export type authControllerCompletePasswordRecoveryV1ResponseError = (
+  | authControllerCompletePasswordRecoveryV1Response400
+  | authControllerCompletePasswordRecoveryV1Response401
+  | authControllerCompletePasswordRecoveryV1Response403
+  | authControllerCompletePasswordRecoveryV1Response404
+  | authControllerCompletePasswordRecoveryV1Response409
+  | authControllerCompletePasswordRecoveryV1Response422
+  | authControllerCompletePasswordRecoveryV1Response429
+  | authControllerCompletePasswordRecoveryV1Response503
+) & {
+  headers: Headers;
+};
+
+export type authControllerCompletePasswordRecoveryV1Response =
+  | authControllerCompletePasswordRecoveryV1ResponseSuccess
+  | authControllerCompletePasswordRecoveryV1ResponseError;
+
+export const getAuthControllerCompletePasswordRecoveryV1Url = () => {
+  return `/api/v1/auth/password-reset/complete`;
+};
+
+/**
+ * Complete password recovery
+ * @summary Complete password recovery
+ */
+export const authControllerCompletePasswordRecoveryV1 = async (
+  passwordRecoveryCompleteDto: PasswordRecoveryCompleteDto,
+  options?: RequestInit,
+): Promise<authControllerCompletePasswordRecoveryV1Response> => {
+  const getHeaders = (
+    h?: NonNullable<RequestInit['headers']>,
+  ): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Array.isArray(h)) return Object.fromEntries(h);
+    return h;
+  };
+  const res = await fetch(getAuthControllerCompletePasswordRecoveryV1Url(), {
+    ...options,
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      ...getHeaders(options?.headers),
+    },
+    body: JSON.stringify(passwordRecoveryCompleteDto),
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: authControllerCompletePasswordRecoveryV1Response['data'] = body
+    ? JSON.parse(body)
+    : {};
+  return {
+    data,
+    status: res.status,
+    headers: res.headers,
+  } as authControllerCompletePasswordRecoveryV1Response;
 };
 
 export type authControllerLoginV1Response200 = {

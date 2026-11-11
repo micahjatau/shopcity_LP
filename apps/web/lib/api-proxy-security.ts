@@ -174,7 +174,9 @@ export function requiresShopcityBffIdentity(
   if (method.toUpperCase() !== 'POST') return false;
   return (
     pathname === '/api/v1/auth/login' ||
-    pathname === '/api/v1/auth/cashier-login/complete'
+    pathname === '/api/v1/auth/cashier-login/complete' ||
+    pathname === '/api/v1/auth/password-reset/request' ||
+    pathname === '/api/v1/auth/password-reset/complete'
   );
 }
 

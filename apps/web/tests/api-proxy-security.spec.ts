@@ -153,6 +153,21 @@ describe('API proxy security configuration', () => {
         'POST',
       ),
     ).toBe(true);
+    expect(
+      requiresShopcityBffIdentity(
+        '/api/v1/auth/password-reset/request',
+        'POST',
+      ),
+    ).toBe(true);
+    expect(
+      requiresShopcityBffIdentity(
+        '/api/v1/auth/password-reset/complete',
+        'POST',
+      ),
+    ).toBe(true);
+    expect(
+      requiresShopcityBffIdentity('/api/v1/auth/password-reset/request', 'GET'),
+    ).toBe(false);
     expect(requiresShopcityBffIdentity('/api/v1/auth/me', 'GET')).toBe(false);
     expect(requiresShopcityBffIdentity('/api/v1/customers', 'POST')).toBe(
       false,

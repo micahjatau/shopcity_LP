@@ -30,6 +30,23 @@ npm run proposal:impact -- --file apps/web/components/app-shell.tsx toggleSideba
 npm run proposal:impact -- --file apps/web/components/app-sidebar.tsx AppSidebar
 ```
 
+### 2026-11-11 — Supabase password recovery
+
+Before refining the existing `simplify-staff-authentication-and-authorization` OpenSpec task, `npm run proposal:impact` reported `AuthController` LOW/exact (6 impacted symbols; 4 direct; Auth module affected), `AuthService` MEDIUM/exact (11 impacted symbols; 9 direct and 2 at depth 2), and `LoginForm` LOW/exact (1 direct dependant). No HIGH/CRITICAL result was returned. The index is stale at `78339bf` versus current HEAD `db56e95`; a refresh attempt failed because the local GitNexus `file_fts` index is inconsistent (missing document during delete), so these graph counts are lower-bound/context-limited. Source review confirms AuthController delegates login to AuthService, LoginForm owns the existing help action, SupabaseService has server-side public and service-role clients, and the current API's configured Supabase URL is local. The operator confirms SMTP is configured on both local and hosted Supabase projects. The repository's `[auth.email.smtp]` stanza remains commented, so keep the existing SMTP settings out of this code change and inspect the hosted config diff carefully before pushing redirect allowlist changes. Do not send test/recovery email during implementation verification. Expanded impact review adds `proxyRequest` MEDIUM/exact (7 direct HTTP-method callers), `requiresShopcityBffIdentity` LOW/exact (9 impacted, 2 direct and 7 at depth 2), `SupabaseService` MEDIUM/exact (21 impacted, 9 direct), `assertPublicLoginOrigin` LOW/exact (3 direct dependants, 1 process/module), and `RequestThrottleService` LOW/exact (14 impacted, 3 direct), and `AppModule` LOW/exact (10 impacted, 1 direct). No HIGH/CRITICAL result was returned. Planned bounded scope: use Supabase Auth recovery email and one-time recovery verification/password update, keep tokens transient and secrets server-side, preserve ShopCity-owned sessions/RBAC and revoke active ShopCity sessions after a successful password change, generic responses and throttling, and avoid trusting any recovery token as a ShopCity session. BFF-required paths expand only to the two new password-recovery POST routes; all seven proxy HTTP methods must retain current behavior.
+
+```text
+npm run proposal:impact -- --file src/modules/auth/auth.controller.ts AuthController
+npm run proposal:impact -- --file src/modules/auth/auth.service.ts AuthService
+npm run proposal:impact -- --file apps/web/components/auth/login-form.tsx LoginForm
+npm run proposal:impact -- --file apps/web/app/api/v1/[...path]/route.ts proxyRequest
+npm run proposal:impact -- --file apps/web/lib/api-proxy-security.ts requiresShopcityBffIdentity
+npm run proposal:impact -- --file src/supabase/supabase.service.ts SupabaseService
+npm run proposal:impact -- --file src/modules/auth/auth.service.ts assertPublicLoginOrigin
+npm run proposal:impact -- --file src/common/throttle/request-throttle.service.ts RequestThrottleService
+npm run proposal:impact -- --file src/app.module.ts AppModule
+node .gitnexus/run.cjs analyze  # failed: inconsistent file_fts index
+```
+
 ### 2026-11-11 — Immediate Supervisor overview refresh
 
 GitNexus upstream impact is LOW/exact for all planned symbols. `SupervisorPage` has 0 impacted symbols/callers; `ReportsController` has 4 impacted symbols (2 direct, 1 at depth 2, 1 at depth 3); its `refreshSupervisorDashboard` method has 1 direct dependant. `ReportExportService.refreshSupervisorDashboard` has 3 impacted symbols (2 direct) and the Reports module; `enqueueRefresh` has 6 impacted symbols (2 direct) and the Reports module. `ReportMaterializerService.materializeBranch` has 2 direct dependants. No indexed execution processes were affected, and no HIGH/CRITICAL risk was reported. Plan: connect the button to the existing Supervisor-only, branch-scoped refresh request, synchronously materialize only the authenticated branch after committing its audit/idempotency/outbox intent, then reload the snapshot/approvals. Preserve the cron-secret boundary and existing five-minute cron/daily fallback.
