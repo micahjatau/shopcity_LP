@@ -300,7 +300,9 @@ describe('Supervisor overview live reporting', () => {
     await waitFor(() => expect(refreshButton).toBeEnabled());
     fireEvent.click(refreshButton);
     await waitFor(() => {
-      expect(reportsControllerRefreshSupervisorDashboardV1).toHaveBeenCalledTimes(1);
+      expect(
+        reportsControllerRefreshSupervisorDashboardV1,
+      ).toHaveBeenCalledTimes(1);
       expect(reportsControllerGetExecutiveSnapshotV1).toHaveBeenCalledTimes(2);
       expect(approvalsControllerListApprovalsV1).toHaveBeenCalledTimes(3);
     });

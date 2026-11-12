@@ -304,8 +304,7 @@ export default function SupervisorPage() {
     snapshot?.fetchedAt,
     snapshot?.timezone ?? 'Africa/Lagos',
   );
-  const isLoading =
-    refreshSubmitting || snapshotLoading || approvalPageLoading;
+  const isLoading = refreshSubmitting || snapshotLoading || approvalPageLoading;
   const branchTimeZone = snapshot?.timezone ?? null;
   const loadedLatestDate = formatReportDate(snapshot?.latestReportDate ?? null);
   const pageNumber = cursorHistory.length;
