@@ -1191,10 +1191,9 @@ test.describe('contract-faithful frontend flows', () => {
 
     await page.goto('/admin/devices');
     await expect(
-      page
-        .getByRole('region', { name: 'Device directory' })
-        .getByText(/No devices/i)
-        .first(),
+      page.getByText('No devices are available in this authorized scope.', {
+        exact: true,
+      }),
     ).toBeVisible();
 
     await page.goto('/admin/audit');

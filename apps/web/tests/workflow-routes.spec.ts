@@ -4594,6 +4594,11 @@ test.describe('workflow route coverage', () => {
           : page.locator(`[data-od-id="${landmark}"]`);
       await expect(page.locator('.shell-loading-screen')).toBeHidden();
       await expect(element).toBeVisible();
+      if (routeName === 'find-customer') {
+        await expect(page.getByText('Ada Shopper', { exact: true })).toBeVisible();
+      }
+      await page.locator('.shell-sidebar').hover();
+      await expect(page.locator('.shell-sidebar')).toHaveCSS('width', '244px');
       if (landmark === 'recent-transactions') {
         await expect(
           page.getByText('No transactions recorded today.'),
