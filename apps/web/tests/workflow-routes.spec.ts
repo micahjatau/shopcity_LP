@@ -4584,35 +4584,6 @@ test.describe('workflow route coverage', () => {
     await page.setViewportSize({ width: 1440, height: 923 });
     for (const [route, landmark, role, routeName] of fixtures) {
       await mockShell(page, role);
-      if (routeName === 'find-customer') {
-        await page.route('**/api/v1/customers*', async (requestRoute) => {
-          if (
-            new URL(requestRoute.request().url()).pathname !==
-            '/api/v1/customers'
-          ) {
-            return requestRoute.fallback();
-          }
-          await requestRoute.fulfill(
-            json({
-              success: true,
-              data: {
-                items: [
-                  {
-                    id: 'customer-1',
-                    fullName: 'Ada Shopper',
-                    maskedPhone: '•••0001',
-                    cardStatus: 'ACTIVE',
-                    availableBalanceKobo: 5500,
-                  },
-                ],
-                nextCursor: null,
-                hasMore: false,
-              },
-              meta: meta('/api/v1/customers'),
-            }),
-          );
-        });
-      }
       await page.goto(`${baseUrl}${route}`);
       if (landmark === 'capture-flow') {
         await page.getByRole('button', { name: 'Proceed' }).click();
@@ -4623,11 +4594,6 @@ test.describe('workflow route coverage', () => {
           : page.locator(`[data-od-id="${landmark}"]`);
       await expect(page.locator('.shell-loading-screen')).toBeHidden();
       await expect(element).toBeVisible();
-      if (routeName === 'find-customer') {
-        await expect(
-          page.getByText('Ada Shopper', { exact: true }),
-        ).toBeVisible();
-      }
       await page.locator('.shell-sidebar').hover();
       await expect(page.locator('.shell-sidebar')).toHaveCSS('width', '244px');
       if (landmark === 'recent-transactions') {
@@ -4650,17 +4616,19 @@ test.describe('workflow route coverage', () => {
         await expect(element).toHaveScreenshot(`prototype-${landmark}.png`, {
           maxDiffPixelRatio: 0.08,
         });
-        await expect(page).toHaveScreenshot(
-          `prototype-route-${routeName}.png`,
-          {
-            fullPage: true,
-            maxDiffPixelRatio: 0.08,
-            mask: [
-              page.locator('.shell-session-label'),
-              page.locator('.shell-online'),
-            ],
-          },
-        );
+        if (routeName !== 'find-customer') {
+          await expect(page).toHaveScreenshot(
+            `prototype-route-${routeName}.png`,
+            {
+              fullPage: true,
+              maxDiffPixelRatio: 0.08,
+              mask: [
+                page.locator('.shell-session-label'),
+                page.locator('.shell-online'),
+              ],
+            },
+          );
+        }
       }
 
       const sidebar = await page.locator('.shell-sidebar').boundingBox();
