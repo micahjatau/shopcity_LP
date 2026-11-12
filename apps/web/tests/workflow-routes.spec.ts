@@ -3981,14 +3981,9 @@ test.describe('workflow route coverage', () => {
       if (role === 'ADMIN') {
         await expect(
           page
-            .locator('.shell-main-column a[href="/admin/operations"]')
-            .first(),
-        ).toHaveCSS('grid-column-start', 'span 2');
-        await expect(
-          page
-            .locator('.shell-main-column a[href="/admin/transactions"]')
-            .first(),
-        ).toHaveCSS('grid-column-start', 'auto');
+            .locator('.shell-sidebar')
+            .getByRole('link', { name: 'Operations' }),
+        ).toHaveAttribute('href', '/admin/operations');
       }
     }
 
@@ -4636,15 +4631,16 @@ test.describe('workflow route coverage', () => {
       const topbar = await page.locator('.shell-topbar').boundingBox();
       expect(Math.round(sidebar?.width ?? 0)).toBe(244);
       expect(Math.round(topbar?.height ?? 0)).toBe(64);
-      // The current sidebar uses the full ShopCity wordmark, not the compact mark.
       expect(
-        await page.locator('.shell-sidebar-brand img').evaluate((node) => {
-          const box = node.getBoundingClientRect();
-          return {
-            width: Math.round(box.width),
-            height: Math.round(box.height),
-          };
-        }),
+        await page
+          .locator('.shell-sidebar-brand-logo--expanded')
+          .evaluate((node) => {
+            const box = node.getBoundingClientRect();
+            return {
+              width: Math.round(box.width),
+              height: Math.round(box.height),
+            };
+          }),
       ).toEqual({ width: 124, height: 32 });
 
       const buttonRhythm = await page
@@ -4773,9 +4769,11 @@ test.describe('workflow route coverage', () => {
       const sidebarRect = sidebar.getBoundingClientRect();
       return {
         text: label.textContent?.trim(),
-        position: labelStyle.position,
-        width: labelStyle.width,
-        clip: labelStyle.clip,
+        labelVisible:
+          labelStyle.display !== 'none' &&
+          labelStyle.visibility !== 'hidden' &&
+          labelStyle.clip === 'auto' &&
+          labelStyle.position !== 'absolute',
         linkContained:
           linkRect.left >= sidebarRect.left &&
           linkRect.right <= sidebarRect.right,
@@ -4783,9 +4781,7 @@ test.describe('workflow route coverage', () => {
     });
     expect(supervisorTreatment).toEqual({
       text: 'Help & Training',
-      position: 'absolute',
-      width: '1px',
-      clip: 'rect(0px, 0px, 0px, 0px)',
+      labelVisible: true,
       linkContained: true,
     });
     await expect(helpLink).toHaveAccessibleName('Help & Training');
@@ -4801,12 +4797,6 @@ test.describe('workflow route coverage', () => {
       await page.goto(`${baseUrl}${route.path}`);
       const helpLink = page.getByRole('link', { name: 'Help & Training' });
       await expect(helpLink).toBeVisible();
-      await expect(
-        helpLink.locator('span').evaluate((label) => {
-          const style = getComputedStyle(label);
-          return style.position === 'absolute' && style.clip !== 'auto';
-        }),
-      ).resolves.toBe(false);
       await expect(helpLink).toHaveAccessibleName('Help & Training');
       expect(
         await page.evaluate(() => document.documentElement.scrollWidth),

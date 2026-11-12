@@ -531,7 +531,7 @@ test.describe('contract-faithful frontend flows', () => {
     await expect(redeem).toContainText('no completed debit is claimed');
   });
 
-  test('loads supervisor approvals and admin reports from contract-shaped responses', async ({
+  test('loads supervisor approvals, records fraud decisions, and opens Admin Overview', async ({
     page,
   }) => {
     await page.route('**/api/v1/auth/me', async (route) => {
@@ -779,6 +779,7 @@ test.describe('contract-faithful frontend flows', () => {
       }
     }
 
+    await page.setViewportSize({ width: 1440, height: 900 });
     await page.goto('/supervisor/fraud');
     await expect(
       page.getByRole('heading', { name: 'Flagged activity', level: 1 }),
@@ -868,7 +869,7 @@ test.describe('contract-faithful frontend flows', () => {
             Math.round(filter.getBoundingClientRect().top),
           ),
         );
-      expect(new Set(filterTops).size).toBe(width > 860 ? 1 : 2);
+      expect(new Set(filterTops).size).toBe(width > 760 ? 1 : 2);
       const controlRow = await page
         .locator('.fraud-flags__control-row')
         .evaluate((row) => {
@@ -932,6 +933,7 @@ test.describe('contract-faithful frontend flows', () => {
       .getByLabel('Decision reason')
       .fill('supervisor shell review');
     await fraudDialog.getByRole('button', { name: 'Record decision' }).click();
+    await page.setViewportSize({ width: 1440, height: 900 });
 
     await page.unroute('**/api/v1/auth/me');
     await page.route('**/api/v1/auth/me', async (route) => {
@@ -941,113 +943,13 @@ test.describe('contract-faithful frontend flows', () => {
         body: JSON.stringify(sessionPayload('ADMIN')),
       });
     });
-
-    await page.route('**/api/v1/users', async (route) => {
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({
-          success: true,
-          data: [
-            {
-              id: 'user-1',
-              username: 'admin',
-              role: 'ADMIN',
-              status: 'ACTIVE',
-              branchId: 'branch-1',
-            },
-          ],
-          meta: {},
-        }),
-      });
-    });
-
-    await page.route('**/api/v1/users/user-1/role', async (route) => {
-      const body = route.request().postDataJSON() as { role: string };
-      expect(body.role).toBeTruthy();
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({ success: true, data: {}, meta: {} }),
-      });
-    });
-
-    await page.route('**/api/v1/users/user-1/status', async (route) => {
-      const body = route.request().postDataJSON() as { status: string };
-      expect(body.status).toBeTruthy();
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({ success: true, data: {}, meta: {} }),
-      });
-    });
-
-    await page.route('**/api/v1/devices', async (route) => {
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({
-          success: true,
-          data: [
-            {
-              id: 'device-1',
-              name: 'Front counter',
-              status: 'ACTIVE',
-              branchId: 'branch-1',
-              fingerprintHash: 'hash-1',
-            },
-          ],
-          meta: {},
-        }),
-      });
-    });
-
-    await page.route('**/api/v1/devices/device-1', async (route) => {
-      const body = route.request().postDataJSON() as { status?: string };
-      expect(body.status).toBeTruthy();
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({ success: true, data: {}, meta: {} }),
-      });
-    });
-
-    await page.route('**/api/v1/audit*', async (route) => {
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({
-          success: true,
-          data: [
-            {
-              id: 'audit-1',
-              action: 'USER_ROLE_UPDATED',
-              subjectType: 'USER',
-              subjectId: 'user-1',
-              actorId: 'admin',
-              createdAt: '2030-01-01T12:00:00.000Z',
-            },
-          ],
-          meta: {},
-        }),
-      });
-    });
-
-    await Promise.all([
-      page.waitForURL(/\/admin(?:\/.*)?$/),
-      page.goto('/admin').catch(() => undefined),
-    ]);
+    await page.goto('/admin');
     await expect(
-      page.getByRole('heading', { name: /admin shell/i }),
+      page.getByRole('heading', { name: 'Overview', exact: true }),
     ).toBeVisible();
-    await expect(page.getByText(/users: 1/i)).toBeVisible();
-    await expect(page.getByText(/devices: 1/i)).toBeVisible();
-    await expect(page.getByText(/audit rows: 1/i)).toBeVisible();
-    await page.getByRole('button', { name: /update role/i }).click();
-    await page.getByRole('button', { name: /update device status/i }).click();
   });
 
-  test('shows empty states and retry messaging on supervisor and admin shells', async ({
+  test('shows empty states and retry messaging on supervisor and admin workspaces', async ({
     page,
   }) => {
     let approvalsFailure = false;
@@ -1193,11 +1095,20 @@ test.describe('contract-faithful frontend flows', () => {
       page.getByText(/approvals unavailable \(503\)/i),
     ).toBeVisible();
 
-    await page.goto('/supervisor/fraud');
+    await page
+      .locator('.shell-sidebar')
+      .getByRole('link', { name: 'Fraud' })
+      .click();
+    await expect(page.locator('.shell-loading-screen')).toBeHidden({
+      timeout: 15_000,
+    });
     await expect(
       page.getByText(/No flagged activity is available/i),
     ).toBeVisible();
-    await page.goto('/supervisor/reports');
+    await page
+      .locator('.shell-sidebar')
+      .getByRole('link', { name: 'Reports' })
+      .click();
     const reportingError = page
       .getByRole('region', { name: 'Operational reports' })
       .getByRole('alert')
@@ -1218,7 +1129,7 @@ test.describe('contract-faithful frontend flows', () => {
       });
     });
 
-    await page.route('**/api/v1/users', async (route) => {
+    await page.route('**/api/v1/users**', async (route) => {
       if (userFailure) {
         await route.fulfill({
           status: 403,
@@ -1243,6 +1154,14 @@ test.describe('contract-faithful frontend flows', () => {
       });
     });
 
+    await page.route('**/api/v1/branches', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ success: true, data: [], meta: {} }),
+      });
+    });
+
     await page.route('**/api/v1/devices', async (route) => {
       await route.fulfill({
         status: 200,
@@ -1259,14 +1178,29 @@ test.describe('contract-faithful frontend flows', () => {
       });
     });
 
-    await page.goto('/admin');
-    await expect(page.getByText(/No users/i)).toBeVisible();
-    await expect(page.getByText(/No devices/i)).toBeVisible();
-    await expect(page.getByText(/No audit rows/i)).toBeVisible();
-
+    await page.goto('/admin/users');
+    await expect(page.getByText(/No staff accounts yet/i)).toBeVisible();
     userFailure = true;
-    await page.getByRole('button', { name: /refresh users/i }).click();
-    await expect(page.getByText(/users unavailable \(403\)/i)).toBeVisible();
+    await page.goto('/admin/users');
+    await expect(page.getByText(/Staff could not be loaded/i)).toBeVisible();
+    await page
+      .getByRole('region', { name: 'Staff directory' })
+      .getByRole('button', { name: 'Retry' })
+      .click();
+    await expect(page.getByText(/Staff could not be loaded/i)).toBeVisible();
+
+    await page.goto('/admin/devices');
+    await expect(
+      page
+        .getByRole('region', { name: 'Device directory' })
+        .getByText(/No devices/i)
+        .first(),
+    ).toBeVisible();
+
+    await page.goto('/admin/audit');
+    await page.getByLabel('Actor ID').fill('admin-1');
+    await page.getByRole('button', { name: 'Load audit' }).click();
+    await expect(page.getByText(/No audit rows/i)).toBeVisible();
 
     await page.goto('/admin/fraud');
     await expect(
