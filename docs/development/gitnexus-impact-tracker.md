@@ -2343,3 +2343,20 @@ Before drafting `supervisor-transaction-column-hover-demarcators`, `npm run prop
 ### 2026-10-22 — Supervisor issued-card directory page navigation
 
 Before drafting `supervisor-card-directory-page-navigation`, `npm run proposal:impact -- --file apps/web/components/workflows/supervisor-issued-card-directory.tsx SupervisorIssuedCardDirectory` reported LOW risk/exact, 1 direct dependant (`SupervisorCardWorkflows`), 1 affected process (`SupervisorCardsPage`), and the Workflows module. Including tests, GitNexus reported 4 impacted symbols with no HIGH/CRITICAL risk. The new navigation uses existing bounded cursor requests, preserves filters, and does not change API/data/card lifecycle behavior. The index was refreshed at HEAD `83e4229` before analysis.
+
+### 2026-11-12 — Admin staff directory, registration, and profile workflow
+
+Before drafting `admin-staff-directory-profile-workflow`, GitNexus was stale at indexed commit `ee8af12` versus current HEAD `9a3f4ad`; the target user-management source was otherwise unchanged apart from an existing Admin self-link removal. `AdminUsersPage` is LOW/exact with 0 upstream dependants. Its `refresh` function is HIGH/exact with 4 direct dependants across 4 affected flows (initial load plus create, role, and status actions); preserve those refresh behaviors in the new flow. `createUser`, `updateUserRole`, and `updateUserStatus` are each LOW/exact with one direct `AdminUsersPage` process caller. `UsersController` is LOW/exact with 3 impacted symbols (1 direct), and no indexed process/module. `UsersService.listUsers` is LOW/exact with 1 direct dependant in the Users module; `UsersService.createUser` is LOW/exact with 1 direct dependant, no affected process, and the Loyalty module recorded by the stale graph. `CreateUserDto` is LOW/exact with 3 impacted symbols (1 direct). Prisma model `User` is not indexed (UNKNOWN). No other HIGH/CRITICAL result was reported. The planned change keeps Admin-only tenant scope and backend-owned role enforcement, excludes `SYSTEM`, adds nullable profile fields for compatibility, and adds only the requested staff UI/profile flow; no financial or session-authorization behavior changes.
+
+```text
+npm run proposal:impact -- --file 'apps/web/app/(shell)/admin/users/page.tsx' AdminUsersPage
+npm run proposal:impact -- --file 'apps/web/app/(shell)/admin/users/page.tsx' refresh
+npm run proposal:impact -- --file 'apps/web/app/(shell)/admin/users/page.tsx' createUser
+npm run proposal:impact -- --file 'apps/web/app/(shell)/admin/users/page.tsx' updateUserRole
+npm run proposal:impact -- --file 'apps/web/app/(shell)/admin/users/page.tsx' updateUserStatus
+npm run proposal:impact -- --file src/modules/users/users.controller.ts UsersController
+npm run proposal:impact -- --file src/modules/users/users.service.ts listUsers
+npm run proposal:impact -- --file src/modules/users/users.service.ts createUser
+npm run proposal:impact -- --file src/modules/users/users.dto.ts CreateUserDto
+npm run proposal:impact -- --file prisma/schema.prisma User
+```

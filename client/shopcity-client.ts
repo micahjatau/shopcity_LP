@@ -70,11 +70,29 @@ export const CreateUserDtoRole = {
   CASHIER: 'CASHIER',
   SUPERVISOR: 'SUPERVISOR',
   ADMIN: 'ADMIN',
-  SYSTEM: 'SYSTEM',
 } as const;
 
 export interface CreateUserDto {
+  /**
+   * Staff email address; retained as the username API field.
+   * @maxLength 254
+   */
   username: string;
+  /**
+   * @minLength 1
+   * @maxLength 80
+   */
+  firstName: string;
+  /**
+   * @minLength 1
+   * @maxLength 80
+   */
+  lastName: string;
+  /**
+   * @minLength 7
+   * @maxLength 32
+   */
+  phoneNumber: string;
   /** @minLength 1 */
   password: string;
   role: CreateUserDtoRole;

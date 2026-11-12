@@ -20,7 +20,6 @@ import {
   PrismaClient,
   ReceiptCaptureStatus,
   ReceiptReviewStatus,
-  UserRole,
 } from '@prisma/client';
 import { PostgreSqlContainer } from '@testcontainers/postgresql';
 
@@ -990,16 +989,16 @@ async function seedAdjustmentFixture(prisma: PrismaClient) {
       status: 'ACTIVE',
     },
   });
-  await prisma.user.create({
-    data: {
-      id: userId,
-      tenantId,
-      branchId,
-      username: 'repair.fixture@example.com',
-      role: UserRole.CASHIER,
-      status: 'ACTIVE',
-    },
-  });
+  await prisma.$executeRaw`
+    INSERT INTO "User" (
+      "id", "tenantId", "branchId", "username", "role", "status",
+      "createdAt", "updatedAt"
+    ) VALUES (
+      ${userId}, ${tenantId}, ${branchId}, 'repair.fixture@example.com',
+      'CASHIER'::"UserRole", 'ACTIVE'::"UserStatus",
+      CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
+    )
+  `;
   await prisma.customer.create({
     data: {
       id: customerId,

@@ -294,6 +294,9 @@ model User {
   tenantId                          String
   branchId                          String?
   username                          String
+  firstName                         String?
+  lastName                          String?
+  phoneNumber                       String?
   supabaseAuthId                    String?                            @unique
   role                              UserRole
   status                            UserStatus                         @default(ACTIVE)

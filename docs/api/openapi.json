@@ -47044,7 +47044,24 @@
         "properties": {
           "username": {
             "type": "string",
-            "example": "admin@shopcity.local"
+            "example": "admin@shopcity.local",
+            "description": "Staff email address; retained as the username API field.",
+            "maxLength": 254
+          },
+          "firstName": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 80
+          },
+          "lastName": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 80
+          },
+          "phoneNumber": {
+            "type": "string",
+            "minLength": 7,
+            "maxLength": 32
           },
           "password": {
             "type": "string",
@@ -47052,14 +47069,21 @@
           },
           "role": {
             "type": "string",
-            "enum": ["CASHIER", "SUPERVISOR", "ADMIN", "SYSTEM"]
+            "enum": ["CASHIER", "SUPERVISOR", "ADMIN"]
           },
           "branchId": {
             "type": "string",
             "format": "uuid"
           }
         },
-        "required": ["username", "password", "role"]
+        "required": [
+          "username",
+          "firstName",
+          "lastName",
+          "phoneNumber",
+          "password",
+          "role"
+        ]
       },
       "UpdateUserRoleDto": {
         "type": "object",

@@ -131,6 +131,28 @@ describe('canonical shell navigation', () => {
     }
   });
 
+  it('keeps nested Admin staff routes under the Operations control alias', () => {
+    const sections = getShellNavigationSections('ADMIN', 'ready');
+    const operations = sections
+      .flatMap((section) => section.items)
+      .find((item) => item.href === '/admin/operations');
+
+    expect(operations).toBeDefined();
+    if (!operations) throw new Error('Admin Operations route is missing');
+    for (const route of ['/admin/users/new', '/admin/users/staff-1']) {
+      expect(matchShellRoute(route, operations)).toBe(true);
+      expect(getActiveShellNavigationItem(route, sections)).toEqual(
+        expect.objectContaining({ id: 'admin-operations-panel' }),
+      );
+      expect(
+        getActiveShellNavigationItem(
+          route,
+          getShellNavigationSections('SUPERVISOR', 'ready'),
+        ),
+      ).toBeNull();
+    }
+  });
+
   it('uses the most specific canonical route for nested paths', () => {
     const sections = getShellNavigationSections('ADMIN', 'ready');
     expect(
