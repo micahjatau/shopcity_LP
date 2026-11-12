@@ -1,0 +1,113 @@
+.panel {
+  display: grid;
+  min-width: 0;
+  gap: var(--sc-spacing-5);
+  padding: var(--sc-spacing-5);
+  border: 1px solid var(--sc-color-semantic-border);
+  border-radius: var(--sc-radius-lg);
+  background: var(--sc-color-semantic-surface);
+}
+
+.toolbar {
+  display: flex;
+  min-width: 0;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--sc-spacing-4);
+  flex-wrap: wrap;
+}
+
+.branchField {
+  display: grid;
+  width: min(100%, 320px);
+  min-width: min(100%, 280px);
+  gap: var(--sc-spacing-2);
+}
+
+.label,
+.formField > span {
+  color: var(--sc-color-semantic-textPrimary);
+  font-size: var(--sc-font-size-profile-label);
+  font-weight: var(--sc-font-weight-semibold);
+  line-height: var(--sc-line-height-profile-label);
+}
+
+.select {
+  width: 100%;
+  min-width: 0;
+  min-height: var(--sc-size-control);
+  padding: 0 var(--sc-spacing-3);
+  border: 1px solid var(--sc-color-semantic-borderStrong);
+  border-radius: var(--sc-radius-md);
+  background: var(--sc-color-semantic-surface);
+  color: var(--sc-color-semantic-textPrimary);
+  font: inherit;
+  font-size: var(--sc-font-size-profile-body);
+}
+
+.select:focus-visible {
+  outline: 2px solid var(--sc-color-semantic-focus);
+  outline-offset: 2px;
+}
+
+.status {
+  margin: 0;
+  color: var(--sc-color-semantic-textSecondary);
+  font-size: var(--sc-font-size-profile-body);
+  line-height: var(--sc-line-height-profile-body);
+}
+
+.formGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--sc-spacing-4);
+}
+
+.formField {
+  display: grid;
+  min-width: 0;
+  gap: var(--sc-spacing-2);
+}
+
+.input {
+  width: 100%;
+  min-width: 0;
+}
+
+.checkbox {
+  display: flex;
+  align-items: center;
+  gap: var(--sc-spacing-2);
+  color: var(--sc-color-semantic-textPrimary);
+  font-size: var(--sc-font-size-profile-body);
+  line-height: var(--sc-line-height-profile-body);
+}
+
+.checkbox input {
+  flex: none;
+  accent-color: var(--sc-color-brand-700);
+}
+
+@media (max-width: 900px) {
+  .formGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 560px) {
+  .panel {
+    padding: var(--sc-spacing-4);
+  }
+
+  .formGrid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .toolbar {
+    align-items: stretch;
+  }
+
+  .branchField {
+    width: 100%;
+  }
+}

@@ -11,6 +11,29 @@ Use this tracker when preparing a spec proposal. Run `npm run proposal:impact --
 
 ## Findings
 
+### 2026-11-12 — Keep Admin Operations Control routes authorized
+
+GitNexus impact for `shellNavigationByRole` is LOW/exact with 0 indexed dependants; `AppShellContent` is LOW/exact with 3 impacted symbols (1 direct), the ShellLayout process, and Components module. No HIGH/CRITICAL risk. The shell uses visible navigation routes as its route allowlist, so removing Control links from the Admin sidebar caused direct Control destinations to fall back to `/admin`. Add the five Controls paths as aliases on the Operations navigation item; this keeps them off the sidebar, authorizes them for Admin only, and makes Operations the active navigation item without changing route implementations.
+
+```text
+npm run proposal:impact -- --file apps/web/components/shell-navigation.ts shellNavigationByRole
+npm run proposal:impact -- --file apps/web/components/app-shell.tsx AppShellContent
+```
+
+### 2026-11-12 — Align Admin Operations and Policies presentation
+
+Before drafting the visual-parity change, GitNexus impacts were LOW/exact: `AdminOperationsPage` affects 0 symbols/processes; `AdminOperationsTabs` has 2 direct dependants, 1 affected AdminOperationsPage process, and the Workflows module; `AdminPoliciesPage` affects 0 symbols/processes. Follow-up impacts for `PilotHealthPanel`, `summarizeOperationalAttention`, `getReleaseMetadata`, and `AdminOperationsHealthTrend` are LOW/exact and affect the AdminOperationsPage process only. No HIGH/CRITICAL risk. Scope is the two Admin page presentations and tab-menu overflow behavior, including Operations-only plain-language health labels; preserve other health-panel callers, routes, tab semantics, policy values, API interactions, authorization, and save behavior.
+
+```text
+npm run proposal:impact -- --file 'apps/web/app/(shell)/admin/operations/page.tsx' AdminOperationsPage
+npm run proposal:impact -- --file apps/web/components/workflows/admin-operations-tabs.tsx AdminOperationsTabs
+npm run proposal:impact -- --file 'apps/web/app/(shell)/admin/policies/page.tsx' AdminPoliciesPage
+npm run proposal:impact -- --file apps/web/components/workflows/pilot-health-panel.tsx PilotHealthPanel
+npm run proposal:impact -- --file apps/web/components/workflows/pilot-health-panel.tsx summarizeOperationalAttention
+npm run proposal:impact -- --file apps/web/components/workflows/pilot-health-panel.tsx getReleaseMetadata
+npm run proposal:impact -- --file apps/web/components/workflows/admin-operations-health-trend.tsx AdminOperationsHealthTrend
+```
+
 ### 2026-11-12 — Hide the sidebar scrollbar and restore compact logo size
 
 Before extending `collapsible-sidebar-repair`, fresh GitNexus impact for `AppSidebar` was LOW/exact: 4 impacted symbols (1 direct, 1 at depth 2, 2 at depth 3), affecting ShellLayout and AppShellContent. No HIGH/CRITICAL risk. Scope is CSS/test/spec only: preserve the 100dvh sidebar and overflow accessibility, hide the visible scrollbar track, and verify the collapsed rail restores the existing 52×52 compact brand mark after hover.

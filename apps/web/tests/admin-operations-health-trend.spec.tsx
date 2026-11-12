@@ -78,25 +78,31 @@ describe('AdminOperationsHealthTrend', () => {
     render(<AdminOperationsHealthTrend />);
 
     expect(screen.getByRole('status')).toHaveTextContent(
-      'Loading 7d operational history…',
+      'Loading health trends for 7 days…',
     );
     await act(async () => {
       resolveRequest?.(historyResponse('7d') as never);
     });
-    expect(await screen.findByText('2 observed samples')).toBeInTheDocument();
+    expect(await screen.findByText('2 recorded hours')).toBeInTheDocument();
   });
 
-  it('shows observed metric values and leaves gaps between missing hours', async () => {
+  it('shows plain metric names, recorded values, and blank gaps', async () => {
     const { container } = render(<AdminOperationsHealthTrend />);
 
-    expect(await screen.findByText('2 observed samples')).toBeInTheDocument();
+    expect(await screen.findByText('2 recorded hours')).toBeInTheDocument();
+    expect(
+      screen.getByRole('option', { name: 'Pending events' }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('option', { name: 'Reports to refresh' }),
+    ).toBeInTheDocument();
     expect(reportsControllerGetPilotOperationsHistoryV1).toHaveBeenCalledWith(
       { window: '7d' },
       {},
     );
 
     const chart = screen.getByRole('img', {
-      name: 'Operational health trends',
+      name: 'System health trends',
     });
     const path = chart.querySelector('path')?.getAttribute('d') ?? '';
     expect(path.match(/M/g)).toHaveLength(2);
@@ -109,7 +115,7 @@ describe('AdminOperationsHealthTrend', () => {
     fireEvent.click(screen.getByText('View observed values'));
     const rows = container.querySelectorAll('tbody tr');
     expect(rows).toHaveLength(24 * 7);
-    expect(rows[rows.length - 2]).toHaveTextContent('No sample');
+    expect(rows[rows.length - 2]).toHaveTextContent('Not recorded');
 
     fireEvent.change(screen.getByLabelText('Health trend metric'), {
       target: { value: 'sms.failedCount' },
@@ -122,7 +128,7 @@ describe('AdminOperationsHealthTrend', () => {
 
   it('requests a newly selected history range', async () => {
     render(<AdminOperationsHealthTrend />);
-    await screen.findByText('2 observed samples');
+    await screen.findByText('2 recorded hours');
 
     fireEvent.change(screen.getByLabelText('Health trend range'), {
       target: { value: '24h' },
@@ -134,10 +140,10 @@ describe('AdminOperationsHealthTrend', () => {
         {},
       );
     });
-    expect(await screen.findByText('2 observed samples')).toBeInTheDocument();
+    expect(await screen.findByText('2 recorded hours')).toBeInTheDocument();
   });
 
-  it('shows an explicit collecting state when history is empty', async () => {
+  it('shows a clear collecting state when history is empty', async () => {
     jest
       .mocked(reportsControllerGetPilotOperationsHistoryV1)
       .mockResolvedValue(historyResponse('7d', []) as never);
@@ -145,10 +151,10 @@ describe('AdminOperationsHealthTrend', () => {
     render(<AdminOperationsHealthTrend />);
 
     expect(
-      await screen.findByText(/Collection starts with the first worker sample/),
+      await screen.findByText(/Collection starts once records begin/),
     ).toBeInTheDocument();
     expect(
-      screen.queryByRole('img', { name: 'Operational health trends' }),
+      screen.queryByRole('img', { name: 'System health trends' }),
     ).not.toBeInTheDocument();
   });
 
@@ -160,7 +166,9 @@ describe('AdminOperationsHealthTrend', () => {
     render(<AdminOperationsHealthTrend />);
 
     expect(
-      await screen.findByText('Operational history unavailable (503).'),
+      await screen.findByText(
+        'Health history is temporarily unavailable (HTTP 503).',
+      ),
     ).toBeInTheDocument();
     const callsBeforeRetry = jest.mocked(
       reportsControllerGetPilotOperationsHistoryV1,

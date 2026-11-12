@@ -6,6 +6,7 @@ import type { KeyboardEvent } from 'react';
 import { PilotHealthPanel } from './pilot-health-panel';
 import { ReportsWorkspace } from './reports-workspace';
 import styles from './admin-operations-tabs.module.css';
+import pageFrameStyles from './admin-workspace-page.module.css';
 
 const operationsTabs = [
   { id: 'overview', label: 'Overview' },
@@ -19,32 +20,31 @@ const controlRoutes = [
   {
     href: '/admin/users',
     label: 'Users',
-    description: 'Create staff and manage roles, branches, and account status.',
+    description: 'Manage staff accounts and roles.',
     action: 'Manage users',
   },
   {
     href: '/admin/devices',
     label: 'Devices',
-    description: 'Manage POS devices and their registration status.',
+    description: 'Register and manage POS devices.',
     action: 'Manage devices',
   },
   {
     href: '/admin/branches',
     label: 'Branches',
-    description: 'Create and manage branch details and device assignments.',
+    description: 'Manage branch details and assigned devices.',
     action: 'Manage branches',
   },
   {
     href: '/admin/audit',
     label: 'Audit',
-    description: 'Look up audit history by actor.',
+    description: 'Search activity by user.',
     action: 'Review audit history',
   },
   {
     href: '/admin/adjustments',
     label: 'Adjustments',
-    description:
-      'Create credit or debit adjustments with a consequence preview.',
+    description: 'Create credit or debit adjustments.',
     action: 'Manage adjustments',
   },
 ] as const;
@@ -92,12 +92,14 @@ export function AdminOperationsTabs() {
   }
 
   return (
-    <section className={styles.workspace}>
-      <header className={styles.header}>
-        <h1 className={styles.title}>Operations</h1>
-        <p className={styles.description}>
-          Monitor pilot health, review reports, and manage administrative
-          controls.
+    <section
+      className={pageFrameStyles.page}
+      data-testid="admin-workspace-page"
+    >
+      <header className={pageFrameStyles.header}>
+        <h1 className={pageFrameStyles.title}>Operations</h1>
+        <p className={pageFrameStyles.description}>
+          Check system health, view reports, and manage key settings.
         </p>
       </header>
 
@@ -163,11 +165,11 @@ export function AdminOperationsTabs() {
                       id={`${idPrefix}-controls-heading`}
                       className={styles.controlsTitle}
                     >
-                      Administrative controls
+                      Manage settings
                     </h2>
                     <p className={styles.controlsDescription}>
-                      Open a dedicated page to manage users, devices, branches,
-                      audit history, or adjustments.
+                      Choose a page to manage staff, devices, branches, audit
+                      history, or wallet adjustments.
                     </p>
                   </header>
                   <div className={styles.controlGrid}>

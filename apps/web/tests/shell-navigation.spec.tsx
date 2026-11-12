@@ -92,9 +92,32 @@ describe('canonical shell navigation', () => {
       '/admin/adjustments',
     ];
 
-    expect(items.some((item) => item.href === '/admin/operations')).toBe(true);
+    const operationsItem = items.find(
+      (item) => item.href === '/admin/operations',
+    );
+
+    expect(operationsItem).toBeDefined();
+    if (!operationsItem) throw new Error('Admin Operations route is missing');
+    expect(operationsItem.routeAliases).toEqual(controlRoutes);
+
     for (const href of controlRoutes) {
       expect(items.some((item) => item.href === href)).toBe(false);
+      expect(matchShellRoute(href, operationsItem)).toBe(true);
+      expect(getActiveShellNavigationItem(href, sections)).toEqual(
+        expect.objectContaining({ id: 'admin-operations-panel' }),
+      );
+      expect(
+        getActiveShellNavigationItem(
+          href,
+          getShellNavigationSections('SUPERVISOR', 'ready'),
+        ),
+      ).toBeNull();
+      expect(
+        getActiveShellNavigationItem(
+          href,
+          getShellNavigationSections('CASHIER', 'ready'),
+        ),
+      ).toBeNull();
       expect(
         fs.existsSync(
           path.join(

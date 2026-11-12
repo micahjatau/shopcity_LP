@@ -161,6 +161,13 @@ export const shellNavigationByRole: Record<
           label: 'Operations',
           href: '/admin/operations',
           icon: 'operations',
+          routeAliases: [
+            '/admin/users',
+            '/admin/devices',
+            '/admin/branches',
+            '/admin/audit',
+            '/admin/adjustments',
+          ],
         },
         {
           id: 'admin-transactions',

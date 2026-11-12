@@ -46,6 +46,14 @@ describe('Admin Operations tabs', () => {
     expect(
       screen.getByRole('tab', { name: 'Overview', selected: true }),
     ).toBeInTheDocument();
+    expect(
+      screen.getByRole('heading', { name: 'Operations', level: 1 }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        'Check system health, view reports, and manage key settings.',
+      ),
+    ).toBeInTheDocument();
     const pilotHealthCard = within(
       screen.getByRole('tabpanel', { name: 'Overview' }),
     ).getByText('Pilot health panel');
@@ -108,6 +116,14 @@ describe('Admin Operations tabs', () => {
     await user.click(screen.getByRole('tab', { name: 'Controls' }));
 
     const controlsPanel = screen.getByRole('tabpanel', { name: 'Controls' });
+    expect(
+      within(controlsPanel).getByRole('heading', { name: 'Manage settings' }),
+    ).toBeInTheDocument();
+    expect(
+      within(controlsPanel).getByText(
+        'Choose a page to manage staff, devices, branches, audit history, or wallet adjustments.',
+      ),
+    ).toBeInTheDocument();
     const routes = [
       ['/admin/users', 'Users'],
       ['/admin/devices', 'Devices'],

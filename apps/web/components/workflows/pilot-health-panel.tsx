@@ -63,6 +63,7 @@ function formatGeneratedAt(value: unknown): string | null {
 
 function summarizeOperationalAttention(
   summary: PilotSummary,
+  adminOverviewCopy = false,
 ): OperationalAttention {
   const active: string[] = [];
   const unavailable: string[] = [];
@@ -78,49 +79,116 @@ function summarizeOperationalAttention(
     if (value > 0) active.push(describe(value));
   };
 
-  addCount(summary.outbox?.backlogCount, 'outbox backlog', (count) =>
-    count === 1 ? '1 pending outbox event' : `${count} pending outbox events`,
+  addCount(
+    summary.outbox?.backlogCount,
+    adminOverviewCopy ? 'pending events' : 'outbox backlog',
+    (count) =>
+      adminOverviewCopy
+        ? count === 1
+          ? '1 system event is waiting'
+          : `${count} system events are waiting`
+        : count === 1
+          ? '1 pending outbox event'
+          : `${count} pending outbox events`,
   );
-  addCount(summary.outbox?.staleCount, 'stale outbox count', (count) =>
-    count === 1 ? '1 stale outbox event' : `${count} stale outbox events`,
+  addCount(
+    summary.outbox?.staleCount,
+    adminOverviewCopy ? 'overdue events' : 'stale outbox count',
+    (count) =>
+      adminOverviewCopy
+        ? count === 1
+          ? '1 system event is overdue'
+          : `${count} system events are overdue`
+        : count === 1
+          ? '1 stale outbox event'
+          : `${count} stale outbox events`,
   );
-  addCount(summary.sms?.failedCount, 'SMS failures', (count) =>
-    count === 1 ? '1 failed SMS message' : `${count} failed SMS messages`,
+  addCount(
+    summary.sms?.failedCount,
+    adminOverviewCopy ? 'SMS delivery' : 'SMS failures',
+    (count) =>
+      adminOverviewCopy
+        ? count === 1
+          ? '1 SMS message failed'
+          : `${count} SMS messages failed`
+        : count === 1
+          ? '1 failed SMS message'
+          : `${count} failed SMS messages`,
   );
   addCount(
     summary.offlineSync?.failureCount,
-    'offline sync failures',
+    adminOverviewCopy ? 'device sync' : 'offline sync failures',
     (count) =>
-      count === 1 ? '1 offline sync failure' : `${count} offline sync failures`,
+      adminOverviewCopy
+        ? count === 1
+          ? '1 device sync failed'
+          : `${count} device syncs failed`
+        : count === 1
+          ? '1 offline sync failure'
+          : `${count} offline sync failures`,
   );
-  addCount(summary.fraud?.openCount, 'open fraud count', (count) =>
-    count === 1 ? '1 open fraud flag' : `${count} open fraud flags`,
+  addCount(
+    summary.fraud?.openCount,
+    adminOverviewCopy ? 'fraud alerts' : 'open fraud count',
+    (count) =>
+      adminOverviewCopy
+        ? count === 1
+          ? '1 fraud alert needs review'
+          : `${count} fraud alerts need review`
+        : count === 1
+          ? '1 open fraud flag'
+          : `${count} open fraud flags`,
   );
-  addCount(summary.reports?.staleCount, 'stale reports', (count) =>
-    count === 1
-      ? '1 stale report materialization'
-      : `${count} stale report materializations`,
+  addCount(
+    summary.reports?.staleCount,
+    adminOverviewCopy ? 'report updates' : 'stale reports',
+    (count) =>
+      adminOverviewCopy
+        ? count === 1
+          ? '1 report needs an update'
+          : `${count} reports need an update`
+        : count === 1
+          ? '1 stale report materialization'
+          : `${count} stale report materializations`,
   );
 
   const mismatchCount = summary.reconciliation?.mismatchCount;
   if (isNonNegativeCount(mismatchCount)) {
     if (mismatchCount > 0) {
       active.push(
-        mismatchCount === 1
-          ? '1 reconciliation mismatch'
-          : `${mismatchCount} reconciliation mismatches`,
+        adminOverviewCopy
+          ? mismatchCount === 1
+            ? '1 financial record mismatch needs review'
+            : `${mismatchCount} financial record mismatches need review`
+          : mismatchCount === 1
+            ? '1 reconciliation mismatch'
+            : `${mismatchCount} reconciliation mismatches`,
       );
     } else if (summary.reconciliation?.healthy === false) {
-      active.push('Reconciliation requires review');
+      active.push(
+        adminOverviewCopy
+          ? 'Financial records need review'
+          : 'Reconciliation requires review',
+      );
     }
   } else {
-    unavailable.push('reconciliation mismatch count');
+    unavailable.push(
+      adminOverviewCopy
+        ? 'financial record mismatches'
+        : 'reconciliation mismatch count',
+    );
     if (summary.reconciliation?.healthy === false) {
-      active.push('Reconciliation requires review');
+      active.push(
+        adminOverviewCopy
+          ? 'Financial records need review'
+          : 'Reconciliation requires review',
+      );
     }
   }
   if (typeof summary.reconciliation?.healthy !== 'boolean') {
-    unavailable.push('reconciliation status');
+    unavailable.push(
+      adminOverviewCopy ? 'financial record status' : 'reconciliation status',
+    );
   }
 
   return { active, unavailable: [...new Set(unavailable)] };
@@ -134,11 +202,11 @@ function getReleaseMetadata(release: PilotSummary['release']): string[] {
     metadata.push(`Version ${release.version.trim()}`);
   }
   if (typeof release.sha === 'string' && release.sha.trim()) {
-    metadata.push(`Commit ${release.sha.trim().slice(0, 7)}`);
+    metadata.push(`Build ${release.sha.trim().slice(0, 7)}`);
   }
   if (typeof release.sentryConfigured === 'boolean') {
     metadata.push(
-      `Sentry DSN ${release.sentryConfigured ? 'configured' : 'not configured'}`,
+      `Error monitoring ${release.sentryConfigured ? 'on' : 'off'}`,
     );
   }
   return metadata;
@@ -149,7 +217,11 @@ export function PilotHealthPanel({
   cardStyleVariant = 'default',
 }: PilotHealthPanelProps = {}) {
   const [summary, setSummary] = useState<PilotSummary | null>(null);
-  const [message, setMessage] = useState('Loading pilot health…');
+  const [message, setMessage] = useState(
+    cardStyleVariant === 'adminOverview'
+      ? 'Loading system health…'
+      : 'Loading pilot health…',
+  );
 
   useEffect(() => {
     let ignore = false;
@@ -163,16 +235,28 @@ export function PilotHealthPanel({
 
         if (response.status === 200) {
           setSummary(response.data.data);
-          setMessage('Pilot health loaded from live backend data.');
+          setMessage(
+            cardStyleVariant === 'adminOverview'
+              ? 'System health loaded.'
+              : 'Pilot health loaded from live backend data.',
+          );
           return;
         }
 
         setSummary(null);
-        setMessage(`Pilot health unavailable (${response.status}).`);
+        setMessage(
+          cardStyleVariant === 'adminOverview'
+            ? `System health unavailable (HTTP ${response.status}).`
+            : `Pilot health unavailable (${response.status}).`,
+        );
       } catch {
         if (!ignore) {
           setSummary(null);
-          setMessage('Pilot health unavailable.');
+          setMessage(
+            cardStyleVariant === 'adminOverview'
+              ? 'System health unavailable.'
+              : 'Pilot health unavailable.',
+          );
         }
       }
     }
@@ -182,7 +266,7 @@ export function PilotHealthPanel({
     return () => {
       ignore = true;
     };
-  }, []);
+  }, [cardStyleVariant]);
 
   const reconciliationHealthy = summary?.reconciliation?.healthy === true;
   const outbox = summary?.outbox ?? {};
@@ -190,13 +274,14 @@ export function PilotHealthPanel({
   const offlineSync = summary?.offlineSync ?? {};
   const fraud = summary?.fraud ?? {};
   const reports = summary?.reports ?? {};
+  const adminOverviewCopy = cardStyleVariant === 'adminOverview';
 
   const items = useMemo(
     () =>
       summary
         ? [
             {
-              label: 'Outbox backlog',
+              label: adminOverviewCopy ? 'Pending events' : 'Outbox backlog',
               value: outbox.backlogCount ?? '—',
               tone:
                 (outbox.backlogCount ?? 0) > 0 || (outbox.staleCount ?? 0) > 0
@@ -204,11 +289,15 @@ export function PilotHealthPanel({
                   : ('success' as const),
               detail:
                 (outbox.staleCount ?? 0) > 0
-                  ? `${outbox.staleCount} stale`
-                  : 'No backlog detected',
+                  ? adminOverviewCopy
+                    ? `${outbox.staleCount} events are overdue`
+                    : `${outbox.staleCount} stale`
+                  : adminOverviewCopy
+                    ? 'No events waiting'
+                    : 'No backlog detected',
             },
             {
-              label: 'SMS failures',
+              label: adminOverviewCopy ? 'SMS delivery' : 'SMS failures',
               value: sms.failedCount ?? '—',
               tone:
                 (sms.failedCount ?? 0) > 0
@@ -216,11 +305,17 @@ export function PilotHealthPanel({
                   : ('success' as const),
               detail:
                 (sms.failedCount ?? 0) > 0
-                  ? 'Investigate SMS delivery'
-                  : 'Delivery queue clear',
+                  ? adminOverviewCopy
+                    ? 'Check SMS delivery'
+                    : 'Investigate SMS delivery'
+                  : adminOverviewCopy
+                    ? 'No failed messages'
+                    : 'Delivery queue clear',
             },
             {
-              label: 'Offline sync failures',
+              label: adminOverviewCopy
+                ? 'Sync issues'
+                : 'Offline sync failures',
               value: offlineSync.failureCount ?? '—',
               tone:
                 (offlineSync.failureCount ?? 0) > 0
@@ -228,11 +323,15 @@ export function PilotHealthPanel({
                   : ('success' as const),
               detail:
                 (offlineSync.failureCount ?? 0) > 0
-                  ? `${offlineSync.failureCount} failed`
-                  : 'No offline backlog',
+                  ? adminOverviewCopy
+                    ? `${offlineSync.failureCount} sync failures`
+                    : `${offlineSync.failureCount} failed`
+                  : adminOverviewCopy
+                    ? 'No sync issues'
+                    : 'No offline backlog',
             },
             {
-              label: 'Fraud open',
+              label: adminOverviewCopy ? 'Open fraud alerts' : 'Fraud open',
               value: fraud.openCount ?? '—',
               tone:
                 (fraud.openCount ?? 0) > 0
@@ -240,11 +339,15 @@ export function PilotHealthPanel({
                   : ('success' as const),
               detail:
                 (fraud.openCount ?? 0) > 0
-                  ? 'Open fraud cases need review'
+                  ? adminOverviewCopy
+                    ? 'Alerts need review'
+                    : 'Open fraud cases need review'
                   : 'No open fraud cases',
             },
             {
-              label: 'Report freshness',
+              label: adminOverviewCopy
+                ? 'Reports to refresh'
+                : 'Report freshness',
               value: reports.staleCount ?? '—',
               tone:
                 (reports.staleCount ?? 0) > 0
@@ -252,11 +355,15 @@ export function PilotHealthPanel({
                   : ('success' as const),
               detail:
                 (reports.staleCount ?? 0) > 0
-                  ? `${reports.staleCount} stale`
-                  : 'No freshness warnings',
+                  ? adminOverviewCopy
+                    ? `${reports.staleCount} need an update`
+                    : `${reports.staleCount} stale`
+                  : adminOverviewCopy
+                    ? 'Reports are current'
+                    : 'No freshness warnings',
             },
             {
-              label: 'Reconciliation',
+              label: adminOverviewCopy ? 'Financial records' : 'Reconciliation',
               value:
                 typeof summary.reconciliation?.mismatchCount === 'number'
                   ? summary.reconciliation.mismatchCount
@@ -265,8 +372,12 @@ export function PilotHealthPanel({
                 ? ('success' as const)
                 : ('danger' as const),
               detail: reconciliationHealthy
-                ? 'Ledger and operational signals are aligned'
-                : 'Ledger mismatch requires review',
+                ? adminOverviewCopy
+                  ? 'Records match'
+                  : 'Ledger and operational signals are aligned'
+                : adminOverviewCopy
+                  ? 'Records do not match; review needed'
+                  : 'Ledger mismatch requires review',
             },
           ]
         : [],
@@ -279,10 +390,13 @@ export function PilotHealthPanel({
       reports.staleCount,
       sms.failedCount,
       summary,
+      adminOverviewCopy,
     ],
   );
 
-  const attention = summary ? summarizeOperationalAttention(summary) : null;
+  const attention = summary
+    ? summarizeOperationalAttention(summary, adminOverviewCopy)
+    : null;
   const lastChecked = summary ? formatGeneratedAt(summary.generatedAt) : null;
   const releaseMetadata = summary ? getReleaseMetadata(summary.release) : [];
 
@@ -343,7 +457,9 @@ export function PilotHealthPanel({
             ) : null}
           </div>
         )}
-        <h2 style={{ margin: 0 }}>Pilot health</h2>
+        <h2 style={{ margin: 0 }}>
+          {adminOverviewCopy ? 'System health' : 'Pilot health'}
+        </h2>
         <p
           style={
             cardStyleVariant === 'adminOverview'
@@ -378,7 +494,11 @@ export function PilotHealthPanel({
           <h3 style={adminOverviewAttentionHeadingStyle}>
             {attention.active.length > 0
               ? 'Needs attention'
-              : 'Operational attention'}
+              : adminOverviewCopy
+                ? attention.unavailable.length > 0
+                  ? 'Status unavailable'
+                  : 'All clear'
+                : 'Operational attention'}
           </h3>
           {attention.active.length > 0 ? (
             <ul style={adminOverviewAttentionListStyle}>
@@ -388,12 +508,15 @@ export function PilotHealthPanel({
             </ul>
           ) : attention.unavailable.length === 0 ? (
             <p style={adminOverviewCardSubtextStyle}>
-              No active operational alerts.
+              {adminOverviewCopy
+                ? 'No active issues.'
+                : 'No active operational alerts.'}
             </p>
           ) : null}
           {attention.unavailable.length > 0 ? (
             <p style={adminOverviewCardSubtextStyle}>
-              Unable to assess: {attention.unavailable.join(', ')}.
+              {adminOverviewCopy ? "Couldn't check: " : 'Unable to assess: '}
+              {attention.unavailable.join(', ')}.
             </p>
           ) : null}
         </aside>
@@ -418,7 +541,11 @@ export function PilotHealthPanel({
       >
         {items.length === 0 ? (
           <div style={compact ? compactEmptyStateStyle : emptyStateStyle}>
-            <strong>Waiting for live operations data</strong>
+            <strong>
+              {adminOverviewCopy
+                ? 'Waiting for system health data'
+                : 'Waiting for live operations data'}
+            </strong>
             <p
               style={
                 cardStyleVariant === 'adminOverview'
@@ -426,8 +553,9 @@ export function PilotHealthPanel({
                   : muted
               }
             >
-              Health, queue, and report signals will appear once the backend
-              responds.
+              {adminOverviewCopy
+                ? 'Health details will appear when available.'
+                : 'Health, queue, and report signals will appear once the backend responds.'}
             </p>
           </div>
         ) : (

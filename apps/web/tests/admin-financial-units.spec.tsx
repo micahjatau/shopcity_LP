@@ -428,7 +428,7 @@ describe('admin financial unit boundaries', () => {
 
     render(<AdminPoliciesPage />);
     const earnRate = await screen.findByRole('textbox', {
-      name: 'Default earn rate (%)',
+      name: 'Earn rate (%)',
     });
     const minimum = screen.getByRole('textbox', {
       name: 'Minimum redemption (₦)',
@@ -442,7 +442,7 @@ describe('admin financial unit boundaries', () => {
     await user.type(minimum, '1,234.56');
     expect(earnRate).toHaveValue('2.50');
     expect(minimum).toHaveValue('1,234.56');
-    await user.click(screen.getByRole('button', { name: 'Save policy' }));
+    await user.click(screen.getByRole('button', { name: 'Save changes' }));
 
     await waitFor(() =>
       expect(
@@ -463,6 +463,6 @@ describe('admin financial unit boundaries', () => {
     );
     expect(payload.defaultEarnRateBps).not.toBe(2.5);
     expect(payload.minRedemptionKobo).not.toBe(1234.56);
-    expect(screen.getByText('Policy saved and audited.')).toBeInTheDocument();
+    expect(screen.getByText('Policy saved.')).toBeInTheDocument();
   });
 });

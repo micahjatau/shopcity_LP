@@ -57,16 +57,14 @@ describe('PilotHealthPanel card surfaces and status pills', () => {
       fontWeight: '400',
       lineHeight: '1.45',
     });
-    expect(
-      screen.getByText('No active operational alerts.'),
-    ).toBeInTheDocument();
+    expect(screen.getByText('No active issues.')).toBeInTheDocument();
     expect(screen.getByLabelText('Deployment configuration')).toHaveTextContent(
-      'Version 1.2.3 · Commit abcdef1 · Sentry DSN configured',
+      'Version 1.2.3 · Build abcdef1 · Error monitoring on',
     );
     expect(screen.queryByText('Live')).not.toBeInTheDocument();
     expect(screen.queryByText('Reconciled')).not.toBeInTheDocument();
     expect(screen.queryByText('Healthy')).not.toBeInTheDocument();
-    expect(screen.getByText('No backlog detected')).toHaveStyle({
+    expect(screen.getByText('No events waiting')).toHaveStyle({
       color: '#676767',
       fontSize: '12px',
       fontWeight: '400',
@@ -77,7 +75,7 @@ describe('PilotHealthPanel card surfaces and status pills', () => {
     );
 
     const panel = container.querySelector('section');
-    const metric = screen.getByText('Outbox backlog').closest('article');
+    const metric = screen.getByText('Pending events').closest('article');
 
     expect(panel).toHaveStyle({
       border: '1px solid #e4e4e4',
@@ -112,9 +110,9 @@ describe('PilotHealthPanel card surfaces and status pills', () => {
     render(<PilotHealthPanel compact cardStyleVariant="adminOverview" />);
 
     expect(await screen.findByText('Needs attention')).toBeInTheDocument();
-    expect(screen.getByText('2 pending outbox events')).toBeInTheDocument();
-    expect(screen.getByText('1 stale outbox event')).toBeInTheDocument();
-    expect(screen.getByText('3 failed SMS messages')).toBeInTheDocument();
+    expect(screen.getByText('2 system events are waiting')).toBeInTheDocument();
+    expect(screen.getByText('1 system event is overdue')).toBeInTheDocument();
+    expect(screen.getByText('3 SMS messages failed')).toBeInTheDocument();
   });
 
   it('keeps unknown signal counts unavailable instead of reporting no alerts', async () => {
@@ -129,11 +127,9 @@ describe('PilotHealthPanel card surfaces and status pills', () => {
     render(<PilotHealthPanel compact cardStyleVariant="adminOverview" />);
 
     expect(
-      await screen.findByText('Unable to assess: SMS failures.'),
+      await screen.findByText("Couldn't check: SMS delivery."),
     ).toBeInTheDocument();
-    expect(
-      screen.queryByText('No active operational alerts.'),
-    ).not.toBeInTheDocument();
+    expect(screen.queryByText('No active issues.')).not.toBeInTheDocument();
   });
 
   it('keeps the existing default card surface and status pills without the variant', async () => {

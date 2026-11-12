@@ -62,6 +62,14 @@ The `/admin/operations` page MUST present the tabs **Overview**, **Reports**, an
 - **THEN** the panel provides links to `/admin/users`, `/admin/devices`, `/admin/branches`, `/admin/audit`, and `/admin/adjustments`
 - **AND** each link opens its existing dedicated workflow without embedding or duplicating its mutation form on the Operations page.
 
+#### Scenario: Admin follows a Controls link
+
+- **GIVEN** an authenticated Admin
+- **WHEN** the Admin follows any Controls link to its dedicated route
+- **THEN** the selected page remains at that route and is not redirected to the Admin overview
+- **AND** the Admin shell recognizes the route under Operations without adding a separate sidebar link
+- **AND** the route remains unavailable to Cashier and Supervisor sessions
+
 ### Requirement: Admin Control destinations are consolidated under Operations
 
 The Admin sidebar MUST NOT contain separate links to Users, Devices, Branches, Audit, or Adjustments because those destinations are available under Operations → Controls. The Operations sidebar entry and the dedicated routes MUST remain available.

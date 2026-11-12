@@ -50,12 +50,12 @@ const WINDOW_OPTIONS: Array<{ value: HistoryWindow; label: string }> = [
 const METRICS: MetricOption[] = [
   {
     key: 'outbox.backlogCount',
-    label: 'Outbox backlog',
+    label: 'Pending events',
     value: (point) => point.outbox.backlogCount,
   },
   {
     key: 'outbox.staleCount',
-    label: 'Stale outbox events',
+    label: 'Overdue events',
     value: (point) => point.outbox.staleCount,
   },
   {
@@ -65,22 +65,22 @@ const METRICS: MetricOption[] = [
   },
   {
     key: 'offlineSync.failureCount',
-    label: 'Offline sync failures',
+    label: 'Sync issues',
     value: (point) => point.offlineSync.failureCount,
   },
   {
     key: 'fraud.openCount',
-    label: 'Open fraud flags',
+    label: 'Open fraud alerts',
     value: (point) => point.fraud.openCount,
   },
   {
     key: 'reports.staleCount',
-    label: 'Stale report materializations',
+    label: 'Reports to refresh',
     value: (point) => point.reports.staleCount,
   },
   {
     key: 'reconciliation.mismatchCount',
-    label: 'Reconciliation mismatches',
+    label: 'Financial record mismatches',
     value: (point) => point.reconciliation.mismatchCount,
   },
 ];
@@ -254,15 +254,15 @@ export function AdminOperationsHealthTrend() {
         ) {
           setError(
             response.status === 200
-              ? 'Operational history response was invalid.'
-              : `Operational history unavailable (${response.status}).`,
+              ? 'Health history could not be read.'
+              : `Health history is temporarily unavailable (HTTP ${response.status}).`,
           );
           return;
         }
 
         setHistory(response.data.data);
       } catch {
-        if (!ignore) setError('Operational history unavailable.');
+        if (!ignore) setError('Health history is unavailable.');
       } finally {
         if (request && inFlightRequests.current.get(window) === request) {
           inFlightRequests.current.delete(window);
@@ -278,6 +278,10 @@ export function AdminOperationsHealthTrend() {
   }, [window, retryCount]);
 
   const selectedMetric = METRICS.find((candidate) => candidate.key === metric)!;
+  const windowLabel =
+    WINDOW_OPTIONS.find(
+      (option) => option.value === window,
+    )?.label.toLowerCase() ?? window;
   const points = useMemo(
     () => (history ? buildChartPoints(history, window, metric) : []),
     [history, metric, window],
@@ -297,11 +301,8 @@ export function AdminOperationsHealthTrend() {
     <section className={styles.trend} aria-labelledby={chartTitleId}>
       <div className={styles.header}>
         <div className={styles.heading}>
-          <h3 id={chartTitleId}>Operational health trends</h3>
-          <p>
-            Hourly snapshots from live backend counts; history begins at
-            rollout.
-          </p>
+          <h3 id={chartTitleId}>System health trends</h3>
+          <p>Hourly updates show how system health changes over time.</p>
         </div>
         <div className={styles.controls}>
           <label className={styles.control}>
@@ -339,7 +340,7 @@ export function AdminOperationsHealthTrend() {
 
       {loading ? (
         <p className={styles.status} role="status">
-          Loading {window} operational history…
+          Loading health trends for {windowLabel}…
         </p>
       ) : error ? (
         <div className={styles.error} role="alert">
@@ -353,15 +354,15 @@ export function AdminOperationsHealthTrend() {
         </div>
       ) : observedPoints.length === 0 ? (
         <p className={styles.empty} role="status">
-          No {window} snapshots are available yet. Collection starts with the
-          first worker sample; earlier history is not backfilled.
+          No health records are available for the last {windowLabel}. Collection
+          starts once records begin; earlier data is not available.
         </p>
       ) : (
         <>
           <div className={styles.summary}>
             <span>{selectedMetric.label}</span>
             <span>
-              {observedPoints.length.toLocaleString('en-NG')} observed samples
+              {observedPoints.length.toLocaleString('en-NG')} recorded hours
             </span>
             {lastObserved?.capturedAt ? (
               <span>
@@ -377,8 +378,8 @@ export function AdminOperationsHealthTrend() {
               aria-describedby={chartDescriptionId}
             >
               <desc id={chartDescriptionId}>
-                {selectedMetric.label} over the last {window}. Missing hourly
-                snapshots are shown as gaps, not zero values.
+                {selectedMetric.label} over the last {window}. Hours without an
+                update are left blank.
               </desc>
               {[0, 0.5, 1].map((ratio) => {
                 const y = 12 + ratio * 150;
@@ -454,7 +455,7 @@ export function AdminOperationsHealthTrend() {
             <div className={styles.tableWrap}>
               <table>
                 <caption>
-                  {selectedMetric.label} hourly observations for {window}
+                  {selectedMetric.label} by hour for {window}
                 </caption>
                 <thead>
                   <tr>
@@ -472,11 +473,11 @@ export function AdminOperationsHealthTrend() {
                       <td>
                         {point.capturedAt
                           ? formatSampleTime(point.capturedAt)
-                          : 'No sample'}
+                          : 'Not recorded'}
                       </td>
                       <td>
                         {point.value === null
-                          ? 'No sample'
+                          ? 'Not recorded'
                           : point.value.toLocaleString('en-NG')}
                       </td>
                     </tr>
@@ -487,9 +488,9 @@ export function AdminOperationsHealthTrend() {
           </details>
           {firstObserved ? (
             <p className={styles.note}>
-              First retained sample{' '}
-              {formatSampleTime(firstObserved.bucketStart.toISOString())}.
-              Missing hours remain gaps.
+              First recorded hour{' '}
+              {formatSampleTime(firstObserved.bucketStart.toISOString())}. Hours
+              without an update are left blank.
             </p>
           ) : null}
         </>

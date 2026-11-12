@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import Link from 'next/link';
 import {
   branchesControllerListBranchesV1,
   configurationControllerGetPolicyConfigurationV1,
@@ -12,6 +11,8 @@ import {
   formatBasisPointsAsPercent,
   parsePercentAsBasisPoints,
 } from '../../../../lib/policy-money';
+import pageFrameStyles from '../../../../components/workflows/admin-workspace-page.module.css';
+import styles from '../../../../components/workflows/admin-policies-page.module.css';
 import { Alert, Button, Input } from '../../../../components/ui';
 import {
   formatMoneyInputDraft,
@@ -41,18 +42,21 @@ const policyFields: Array<{
   >;
   label: string;
 }> = [
-  { key: 'defaultEarnRateBps', label: 'Default earn rate (%)' },
+  { key: 'defaultEarnRateBps', label: 'Earn rate (%)' },
   { key: 'minRedemptionKobo', label: 'Minimum redemption (₦)' },
-  { key: 'maxRedemptionBasketPercent', label: 'Maximum basket percentage' },
-  { key: 'purchaseFlagThresholdKobo', label: 'Purchase flag threshold (₦)' },
+  {
+    key: 'maxRedemptionBasketPercent',
+    label: 'Max redemption per basket (%)',
+  },
+  { key: 'purchaseFlagThresholdKobo', label: 'Flag purchases over (₦)' },
   {
     key: 'purchaseApprovalThresholdKobo',
-    label: 'Purchase approval threshold (₦)',
+    label: 'Purchase approval over (₦)',
   },
-  { key: 'purchaseAmountCeilingKobo', label: 'Purchase amount ceiling (₦)' },
+  { key: 'purchaseAmountCeilingKobo', label: 'Maximum purchase (₦)' },
   {
     key: 'redemptionApprovalThresholdKobo',
-    label: 'Redemption approval threshold (₦)',
+    label: 'Redemption approval over (₦)',
   },
 ];
 
@@ -82,11 +86,11 @@ export default function AdminPoliciesPage() {
         setBranchId(items[0]?.id ?? '');
         setMessage(
           items.length
-            ? 'Select a branch to load policy.'
-            : 'No active branches found.',
+            ? 'Choose a branch to view its policy.'
+            : 'No active branches.',
         );
       } catch {
-        setMessage('Branch configuration is unavailable.');
+        setMessage("Couldn't load branches.");
       }
     })();
   }, []);
@@ -97,7 +101,7 @@ export default function AdminPoliciesPage() {
       return;
     }
     void (async () => {
-      setMessage('Loading authoritative policy…');
+      setMessage('Loading policy…');
       try {
         const response = await configurationControllerGetPolicyConfigurationV1(
           { branchId },
@@ -114,12 +118,12 @@ export default function AdminPoliciesPage() {
               ]),
             ),
           );
-          setMessage('Authoritative policy loaded.');
+          setMessage('Policy loaded.');
         } else {
-          setMessage(`Policy unavailable (${response.status}).`);
+          setMessage(`Policy unavailable (HTTP ${response.status}).`);
         }
       } catch {
-        setMessage('Policy configuration is unavailable.');
+        setMessage("Couldn't load this policy.");
       }
     })();
   }, [branchId]);
@@ -146,14 +150,14 @@ export default function AdminPoliciesPage() {
       ]),
     ) as Record<(typeof policyFields)[number]['key'], number | null>;
     if (Object.values(parsedDrafts).some((value) => value === null)) {
-      setMessage('Enter valid policy values before saving.');
+      setMessage('Check the policy values before saving.');
       return;
     }
     const valueFor = (key: (typeof policyFields)[number]['key']) =>
       parsePolicyField(key, drafts[key] ?? formatPolicyField(policy, key)) ??
       policy[key];
     setSaving(true);
-    setMessage('Saving policy…');
+    setMessage('Saving changes…');
     try {
       const response = await configurationControllerUpdatePolicyConfigurationV1(
         {
@@ -185,47 +189,46 @@ export default function AdminPoliciesPage() {
             ]),
           ),
         );
-        setMessage('Policy saved and audited.');
+        setMessage('Policy saved.');
       } else if (response.status === 409) {
-        setMessage('Policy changed elsewhere. Reload before saving.');
+        setMessage('This policy changed elsewhere. Reload it before saving.');
       } else {
-        setMessage(`Policy was not saved (${response.status}).`);
+        setMessage(`Couldn't save policy (HTTP ${response.status}).`);
       }
     } catch {
-      setMessage('Policy was not saved. Check the values and retry.');
+      setMessage("Couldn't save changes. Check the values and try again.");
     } finally {
       setSaving(false);
     }
   }
 
   return (
-    <section style={layout}>
-      <header style={header}>
-        <div>
-          <p style={eyebrow}>ADMIN CONFIGURATION</p>
-          <h1 style={{ margin: 0 }}>Policy configuration</h1>
-          <p style={muted}>
-            Branch-scoped values are validated by the backend, versioned, and
-            recorded in the audit log.
-          </p>
-        </div>
-        <Link href="/admin">Back to admin</Link>
+    <section
+      className={pageFrameStyles.page}
+      data-testid="admin-workspace-page"
+    >
+      <header className={pageFrameStyles.header}>
+        <h1 className={pageFrameStyles.title}>Policies</h1>
+        <p className={pageFrameStyles.description}>
+          Set purchase and redemption rules for each branch.
+        </p>
       </header>
 
-      <Alert tone="info" title="Server-authoritative policy">
-        Cashier and Supervisor workspaces cannot mutate these values. A stale
-        save is rejected rather than overwriting a newer Admin change.
+      <Alert tone="info" title="Policy changes">
+        Changes are checked and recorded. If someone updates a policy while you
+        edit it, reload it before saving.
       </Alert>
 
-      <section style={card} aria-label="Policy editor">
-        <div style={toolbar}>
-          <label style={field}>
-            <span>Branch</span>
+      <section className={styles.panel} aria-label="Policy editor">
+        <div className={styles.toolbar}>
+          <label className={styles.branchField}>
+            <span className={styles.label}>Branch</span>
             <select
+              className={styles.select}
               value={branchId}
               onChange={(event) => setBranchId(event.target.value)}
             >
-              <option value="">Select branch</option>
+              <option value="">Choose a branch</option>
               {branches.map((branch) => (
                 <option key={branch.id} value={branch.id}>
                   {branch.name ?? branch.id}
@@ -239,18 +242,23 @@ export default function AdminPoliciesPage() {
           />
         </div>
 
-        <p role="status" style={muted}>
+        <p role="status" className={styles.status}>
           {message}
         </p>
 
         {policy ? (
           <>
-            <div style={grid}>
+            <div className={styles.formGrid} data-testid="policy-fields">
               {policyFields.map(({ key, label }) => (
-                <label key={key} htmlFor={`policy-${key}`} style={policyField}>
+                <label
+                  key={key}
+                  htmlFor={`policy-${key}`}
+                  className={styles.formField}
+                >
                   <span>{label}</span>
                   <Input
                     id={`policy-${key}`}
+                    className={styles.input}
                     type="text"
                     inputMode="decimal"
                     value={drafts[key] ?? formatPolicyField(policy, key)}
@@ -259,7 +267,7 @@ export default function AdminPoliciesPage() {
                 </label>
               ))}
             </div>
-            <label style={checkbox}>
+            <label className={styles.checkbox}>
               <input
                 type="checkbox"
                 checked={policy.offlineRedemptionDisabled}
@@ -277,7 +285,7 @@ export default function AdminPoliciesPage() {
               Disable offline redemption
             </label>
             <Button disabled={saving} onClick={() => void save()}>
-              {saving ? 'Saving…' : 'Save policy'}
+              {saving ? 'Saving…' : 'Save changes'}
             </Button>
           </>
         ) : null}
@@ -312,52 +320,3 @@ function parsePolicyField(
   }
   return parseNaira(value);
 }
-
-const layout = { display: 'grid', gap: 'var(--sc-spacing-6)' } as const;
-const header = {
-  display: 'flex',
-  justifyContent: 'space-between',
-  gap: 'var(--sc-spacing-4)',
-  alignItems: 'start',
-} as const;
-const card = {
-  display: 'grid',
-  gap: 'var(--sc-spacing-5)',
-  padding: 'var(--sc-spacing-6)',
-  border: '1px solid var(--sc-color-semantic-border)',
-  borderRadius: 'var(--sc-radius-lg)',
-  background: 'var(--sc-color-semantic-surface)',
-} as const;
-const toolbar = {
-  display: 'flex',
-  alignItems: 'end',
-  gap: 'var(--sc-spacing-4)',
-  flexWrap: 'wrap',
-} as const;
-const field = {
-  display: 'grid',
-  gap: 'var(--sc-spacing-2)',
-  minWidth: 280,
-} as const;
-const policyField = {
-  display: 'grid',
-  gap: 'var(--sc-spacing-2)',
-  minWidth: 0,
-} as const;
-const grid = {
-  display: 'grid',
-  gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
-  gap: 'var(--sc-spacing-4)',
-} as const;
-const checkbox = {
-  display: 'flex',
-  gap: 'var(--sc-spacing-2)',
-  alignItems: 'center',
-} as const;
-const eyebrow = {
-  margin: 0,
-  color: 'var(--sc-color-semantic-brand)',
-  fontWeight: 700,
-  letterSpacing: '0.08em',
-} as const;
-const muted = { color: 'var(--sc-color-semantic-textSecondary)' } as const;

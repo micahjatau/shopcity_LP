@@ -1,38 +1,30 @@
-.workspace {
-  display: grid;
-  gap: var(--sc-spacing-5);
-  min-width: 0;
-}
-
-.header,
 .controlsHeader {
   display: grid;
   gap: var(--sc-spacing-2);
 }
 
-.title,
 .controlsTitle {
   margin: 0;
   color: var(--sc-color-semantic-textPrimary);
+  font-size: var(--sc-font-size-profile-section);
+  font-weight: var(--sc-font-weight-semibold);
+  line-height: var(--sc-line-height-profile-heading);
 }
 
-.description,
 .controlsDescription,
 .controlDescription {
   margin: 0;
   color: var(--sc-color-semantic-textSecondary);
+  font-size: var(--sc-font-size-profile-body);
+  line-height: var(--sc-line-height-profile-body);
 }
 
-.title {
-  font-family: var(--sc-font-family-sans);
-  font-size: var(--sc-font-size-profile-page-title);
-  font-weight: var(--sc-font-weight-bold);
-  letter-spacing: 0;
-  line-height: var(--sc-line-height-profile-heading);
-}
-
-.description {
+.controlsDescription {
   max-width: 64ch;
+}
+
+.controlDescription {
+  max-width: 48ch;
 }
 
 .tabs {
@@ -44,8 +36,16 @@
 .tabList {
   display: flex;
   gap: var(--sc-spacing-2);
+  min-width: 0;
+  max-width: 100%;
   overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scrollbar-width: none;
   border-bottom: 1px solid var(--sc-color-semantic-border);
+}
+
+.tabList::-webkit-scrollbar {
+  display: none;
 }
 
 .tab {
@@ -117,7 +117,9 @@
 
 .controlTitle {
   color: var(--sc-color-semantic-textPrimary);
+  font-size: var(--sc-font-size-profile-body);
   font-weight: var(--sc-font-weight-semibold);
+  line-height: var(--sc-line-height-profile-label);
 }
 
 .controlAction {

@@ -11,6 +11,7 @@ The Admin Operations page mixes pilot health, a partial route map, a full report
 - Put the existing `ReportsWorkspace` in Reports; it is the reports component already embedded on the Operations page.
 - Put route cards for existing Users, Devices, Branches, Audit, and Adjustments pages in Controls.
 - Keep the current page URL, role authorization, route implementations, and backend contracts unchanged. Remove duplicate sidebar entries for Users, Devices, Branches, Audit, and Adjustments; those workflows remain available under Operations → Controls.
+- Register those five dedicated routes as aliases of the Operations sidebar item so the Admin shell's route allowlist does not redirect them to the overview when a Control link is followed.
 
 ## Capabilities
 
