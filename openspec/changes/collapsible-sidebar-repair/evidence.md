@@ -45,3 +45,18 @@
 - The real React collapse state now activates when resizing into 621–920px; it restores the saved manual preference above 920px and does not overwrite that preference during automatic collapse. Mobile navigation remains the existing drawer below 621px.
 - Focused `app-shell.spec.tsx` passed (17 tests). The Playwright `repairs sidebar geometry, collapse state, and mobile drawer access` workflow passed with checks at 920px and 1024px, including the compact mark, accessible toggle state, preference restoration, and manual expansion at tablet width.
 - Web typecheck, lint, strict OpenSpec validation, Prettier checks, and the production build passed. The build retains one existing React hook dependency warning in `supervisor-flagged-activity.tsx`.
+
+## Follow-up: fixed-height sidebar and natural shell content flow
+
+- `.shell-sidebar` now has border-box viewport height (`100vh` fallback, `100dvh` preferred), keeps sticky positioning, and uses its own vertical scroll when its contents exceed the viewport. The main column remains in normal document flow.
+- Playwright coverage verifies that long shell content grows the main column/document while the sidebar remains 900px tall and sticky, and that the footer can be reached by scrolling the 420px-tall sidebar.
+- Verification passed: `app-shell.spec.tsx` Jest, the focused sidebar Playwright workflow, web typecheck, targeted ESLint, Prettier checks, and strict OpenSpec validation. The Playwright run used installed Google Chrome 156 because the bundled headless-shell binary could not start (missing V8 startup snapshot); the full test including existing visual assertions passed under Chrome.
+- No application build was rerun for this CSS-only follow-up; the browser test exercised the updated stylesheet. No shell state, navigation, API, or authorization code changed.
+
+## Follow-up: hide the scrollbar and restore the compact logo size
+
+- Kept the sticky sidebar at `100vh`/`100dvh` with `overflow-y: auto`, while hiding the visual scrollbar track using `scrollbar-width: none` and the WebKit scrollbar rule. Scrolling itself remains available.
+- Removed only the extra inline padding from the resting rail's brand row so its existing 52×52 compact logo no longer shrinks to 28px; hover/focus and touch-expanded layouts retain their normal inset.
+- Playwright asserts the hidden-scrollbar CSS, 52px computed compact-logo dimensions after the rail closes, and actual wheel scrolling at 768×420 with the sidebar still exactly viewport-height and its footer reachable. The hover/focus, touch-only tablet, mobile drawer, and Cashier/Admin artwork checks passed.
+- Focused AppShell Jest, web typecheck, targeted ESLint, strict OpenSpec validation, Prettier, and `git diff --check` passed. Updated desktop/tablet rail, expanded, and Cashier/Admin artwork screenshots were reviewed.
+- GitNexus impact for `AppSidebar` before this follow-up: LOW/exact, 4 impacted symbols, with ShellLayout and AppShellContent as affected flows; no HIGH/CRITICAL warning.

@@ -45,15 +45,6 @@ jest.mock('next/navigation', () => ({
   }),
 }));
 
-const originalMatchMedia = window.matchMedia;
-let tabletViewportMatches = false;
-let tabletChangeListeners: Array<() => void> = [];
-
-function resizeToTablet(isTablet: boolean) {
-  tabletViewportMatches = isTablet;
-  tabletChangeListeners.forEach((listener) => listener());
-}
-
 const connectivityLabels: Array<[ConnectivityState, string]> = [
   ['online', 'Browser online'],
   ['connection-unstable', 'Connection unstable'],
@@ -97,27 +88,6 @@ describe('AppTopbar connectivity labels', () => {
 
 describe('AppShell', () => {
   beforeEach(() => {
-    tabletViewportMatches = false;
-    tabletChangeListeners = [];
-    const tabletMediaQuery = {
-      get matches() {
-        return tabletViewportMatches;
-      },
-      media: '(min-width: 621px) and (max-width: 920px)',
-      onchange: null,
-      addEventListener: (_event: string, listener: () => void) => {
-        tabletChangeListeners.push(listener);
-      },
-      removeEventListener: (_event: string, listener: () => void) => {
-        tabletChangeListeners = tabletChangeListeners.filter(
-          (candidate) => candidate !== listener,
-        );
-      },
-    } as unknown as MediaQueryList;
-    Object.defineProperty(window, 'matchMedia', {
-      configurable: true,
-      value: jest.fn().mockReturnValue(tabletMediaQuery),
-    });
     mockBootstrapSession.mockReset();
     mockLogoutSession.mockReset();
     mockGetPublicConfig.mockReset();
@@ -147,13 +117,6 @@ describe('AppShell', () => {
     });
     mockGetOfflineEarnRecordCount.mockResolvedValue(2);
     mockSubscribeOfflineQueue.mockImplementation(() => () => undefined);
-  });
-
-  afterEach(() => {
-    Object.defineProperty(window, 'matchMedia', {
-      configurable: true,
-      value: originalMatchMedia,
-    });
   });
 
   it('renders protected content for authenticated sessions', async () => {
@@ -269,8 +232,10 @@ describe('AppShell', () => {
     expect(container.querySelector('.shell-root--supervisor')).toBeNull();
   });
 
-  it('persists sidebar collapse state across reloads in the session', async () => {
-    sessionStorage.setItem('shopcity:shell:sidebar-collapsed', 'true');
+  it('uses a non-persistent hover rail without a collapse control', async () => {
+    const legacyPreferenceKey = 'shopcity:shell:sidebar-collapsed';
+    localStorage.setItem(legacyPreferenceKey, 'false');
+    sessionStorage.setItem(legacyPreferenceKey, 'false');
     mockBootstrapSession.mockResolvedValueOnce({
       user: {
         id: 'u1',
@@ -281,7 +246,7 @@ describe('AppShell', () => {
       session: { expiresAt: '2030-01-01T00:00:00.000Z' },
     });
 
-    render(
+    const { container } = render(
       <AppShell>
         <p>Protected content</p>
       </AppShell>,
@@ -290,112 +255,34 @@ describe('AppShell', () => {
     await waitFor(() => {
       expect(screen.getByText('Protected content')).toBeInTheDocument();
     });
-    expect(document.querySelector('.shell-body')).toHaveClass(
+
+    expect(container.querySelector('.shell-body')).toHaveClass(
       'shell-body--collapsed',
     );
-    expect(screen.queryByText('Branch and device')).not.toBeInTheDocument();
-  });
-
-  it('toggles and persists the accessible sidebar collapse control', async () => {
-    mockBootstrapSession.mockResolvedValueOnce({
-      user: {
-        id: 'u1',
-        username: 'cashier',
-        role: 'CASHIER',
-        branchId: 'b1',
-      },
-      session: { expiresAt: '2030-01-01T00:00:00.000Z' },
-    });
-
-    render(
-      <AppShell>
-        <p>Protected content</p>
-      </AppShell>,
+    expect(container.querySelector('.shell-sidebar')).toHaveAttribute(
+      'data-sidebar-mode',
+      'hover-rail',
     );
-
-    await waitFor(() => {
-      expect(screen.getByText('Protected content')).toBeInTheDocument();
-    });
-
-    const collapseButton = screen.getByRole('button', {
-      name: 'Collapse sidebar',
-    });
-    expect(collapseButton).toHaveAttribute('aria-expanded', 'true');
-    expect(document.querySelector('.shell-sidebar-brand-logo')).toHaveAttribute(
-      'src',
-      expect.stringContaining('Frame%202147224881.svg'),
-    );
-    fireEvent.click(collapseButton);
     expect(
-      screen.getByRole('button', { name: 'Expand sidebar' }),
-    ).toHaveAttribute('aria-expanded', 'false');
-    expect(localStorage.getItem('shopcity:shell:sidebar-collapsed')).toBe(
-      'true',
-    );
-    expect(document.querySelector('.shell-sidebar-brand-logo')).toHaveAttribute(
+      screen.queryByRole('button', {
+        name: /collapse sidebar|expand sidebar/i,
+      }),
+    ).not.toBeInTheDocument();
+    expect(
+      container.querySelector('.shell-sidebar-brand-logo--compact'),
+    ).toHaveAttribute(
       'src',
       expect.stringContaining('/brand/supervisor/icon.png'),
     );
-    fireEvent.click(screen.getByRole('button', { name: 'Expand sidebar' }));
     expect(
-      screen.getByRole('button', { name: 'Collapse sidebar' }),
-    ).toHaveAttribute('aria-expanded', 'true');
-  });
-
-  it('auto-collapses at tablet width and restores the saved preference outside it', async () => {
-    mockBootstrapSession.mockResolvedValueOnce({
-      user: {
-        id: 'u1',
-        username: 'cashier',
-        role: 'CASHIER',
-        branchId: 'b1',
-      },
-      session: { expiresAt: '2030-01-01T00:00:00.000Z' },
-    });
-
-    render(
-      <AppShell>
-        <p>Protected content</p>
-      </AppShell>,
+      container.querySelector('.shell-sidebar-brand-logo--expanded'),
+    ).toHaveAttribute('src', expect.stringContaining('Frame%202147224881.svg'));
+    expect(screen.getByRole('link', { name: 'Overview' })).toHaveAttribute(
+      'title',
+      'Overview',
     );
-
-    await waitFor(() => {
-      expect(screen.getByText('Protected content')).toBeInTheDocument();
-    });
-    expect(document.querySelector('.shell-body')).not.toHaveClass(
-      'shell-body--collapsed',
-    );
-
-    act(() => resizeToTablet(true));
-    await waitFor(() => {
-      expect(document.querySelector('.shell-body')).toHaveClass(
-        'shell-body--collapsed',
-      );
-    });
-    expect(
-      screen.getByRole('button', { name: 'Expand sidebar' }),
-    ).toHaveAttribute('aria-expanded', 'false');
-    expect(document.querySelector('.shell-sidebar-brand-logo')).toHaveAttribute(
-      'src',
-      expect.stringContaining('/brand/supervisor/icon.png'),
-    );
-    expect(localStorage.getItem('shopcity:shell:sidebar-collapsed')).toBeNull();
-
-    act(() => resizeToTablet(false));
-    await waitFor(() => {
-      expect(document.querySelector('.shell-body')).not.toHaveClass(
-        'shell-body--collapsed',
-      );
-    });
-
-    fireEvent.click(screen.getByRole('button', { name: 'Collapse sidebar' }));
-    act(() => resizeToTablet(true));
-    act(() => resizeToTablet(false));
-    await waitFor(() => {
-      expect(document.querySelector('.shell-body')).toHaveClass(
-        'shell-body--collapsed',
-      );
-    });
+    expect(localStorage.getItem(legacyPreferenceKey)).toBe('false');
+    expect(sessionStorage.getItem(legacyPreferenceKey)).toBe('false');
   });
 
   it('keeps the drawer focus trapped and the shell inert while open', async () => {

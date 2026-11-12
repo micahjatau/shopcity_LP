@@ -1,25 +1,27 @@
-# Design: Shared Collapsible Sidebar Repair
+# Design: Hover-Expandable Shared Sidebar
 
 ## Context
 
-`AppShell` currently owns shell layout/state while `AppSidebar` owns most sidebar markup and styles, but `AppShell` duplicates shell/sidebar CSS and does not pass a collapse handler. Tablet CSS currently forces a 76px rail and hides labels without updating React's `sidebarCollapsed` state, so the brand mark, toggle label, and accessible state can disagree with the visual rail. Mobile correctly has a drawer, but its footer only exposes branch metadata; Help & Training and Logout remain in the desktop sidebar. The topbar already marks session/device diagnostics `sr-only`, so verification must cover the compiled visual result and any responsive overflow.
+The shared shell previously exposed a persistent click-to-collapse control and used React state plus local/session storage to switch between 244px and 76px layouts. The requested interaction is a compact navigation rail that expands on hover, without moving the main column. The mobile drawer remains the phone navigation surface, and touch-only tablet users must not depend on hover to see labels. The sidebar also remains viewport-height while page content flows naturally.
 
 ## Decisions
 
-1. **Persist explicit user intent in localStorage.** Read a validated boolean preference on mount and write on toggle. Keep the mobile drawer independent; mobile never renders the permanent sidebar and does not rewrite the desktop preference.
-2. **Make `AppSidebar` the presentation owner.** `AppShell` supplies sections, state, and callbacks; `AppSidebar` owns brand/toggle/navigation/footer markup and its scoped styles. Remove duplicate sidebar/nav style declarations from `AppShell` where they compete.
-3. **Use the real collapsed state for tablet resizing.** At 621–920px, a `matchMedia` listener sets the existing sidebar state to collapsed, so the DOM, accessible toggle, icon asset, and `76px minmax(0, 1fr)` grid all match the manual collapse presentation. Keep the saved explicit preference separate: restore it when leaving tablet range, and do not persist an automatic collapse. A manual toggle remains effective until the viewport crosses the breakpoint again. Below 621px the body is one column and the permanent sidebar is hidden; the mobile drawer remains independent.
-4. **Use an explicit mobile action footer.** The mobile drawer renders Help & Training and Logout through the same callbacks/links as the desktop sidebar, preserving dialog focus trapping and close restoration.
-5. **Preserve one canonical navigation source.** `shellNavigationByRole` remains the route/order authority. AppSidebar and mobile navigation consume the same sections and active matcher.
-6. **Accessibility is state-aware.** Collapsed links retain `aria-label`/`title`, icons remain at least 44px targets, toggle exposes `aria-expanded`, and footer icon buttons retain accessible names. Labels are hidden only under `.shell-sidebar--collapsed`, never solely by viewport.
-7. **Motion uses shell tokens with a reduced-motion override.** Width and main-column transitions are 220ms; reduced motion disables transitions. Individual nav links retain only subtle color transitions.
+1. **Use a 76px resting rail on hover-capable desktop/tablet viewports.** Remove the collapse button, React collapse state, resize listener, and local/session preference reads/writes. Ignore any legacy `shopcity:shell:sidebar-collapsed` value.
+2. **Expand temporarily over the main column.** At pointer hover or keyboard `:focus-within`, widen the sidebar to 244px with a shadow and visible labels. Keep the shell grid at 76px so the main column does not shift. Restore the rail when the pointer and focus leave.
+3. **Keep touch-only desktop/tablet navigation expanded.** At widths of 621px and above with `(hover: none)`, use the 244px layout and show navigation labels and the full wordmark. This avoids a hover-only control surface for touch users.
+4. **Keep interaction and presentation in CSS.** `AppSidebar` owns two responsive brand images, canonical role navigation, active state, footer actions, and accessible link labels/titles. No new button or sidebar-specific React state is introduced.
+5. **Preserve the mobile drawer.** Below 621px, hide the permanent sidebar and leave drawer open/close, focus trap, inertness, Help & Training, Logout, and focus restoration unchanged.
+6. **Preserve one canonical navigation source.** `shellNavigationByRole` remains authoritative for route order, role visibility, and active matching.
+7. **Keep sidebar height independent of page content.** The sticky sidebar remains viewport-height with internal vertical overflow; long main content grows the document without stretching the sidebar. Hide the scrollbar track visually but retain wheel, touch, and keyboard scrolling for overflow.
+8. **Respect accessibility and reduced motion.** Keyboard focus expands the rail until focus leaves; collapsed links retain `aria-label`/`title`; footer controls retain accessible names. The width/shadow transition remains 220ms and is disabled for reduced motion.
 
 ## Risks
 
-- Existing tests currently expect expanded React state at tablet widths even though CSS forces a pseudo-collapsed rail. Update them to assert real state transitions at the 920px breakpoint and preference restoration above it.
-- Session storage currently contains the preference key; read a legacy session value as a migration fallback, then persist the user’s next explicit choice in localStorage.
-- Inline shell styles make accidental duplicate selectors easy; visual and geometry tests must inspect all required widths.
+- The 244px hover panel overlays the left side of the main column. A clear shadow and stable main-column position signal that this is temporary without causing layout shift.
+- Touch-only tablet layouts use the full 244px sidebar because hover is unavailable; verify no horizontal overflow at 621–920px.
+- Two logo assets are present in markup; CSS must ensure only the appropriate one is visible in each interaction/input mode.
+- Sidebar overflow and hover expansion must remain usable at short viewport heights.
 
 ## Verification
 
-Run affected Jest and Playwright shell/navigation suites, browser accessibility checks, and visual checks at 1440/1024/920/768/390/375. Verify entering 621–920px updates the actual state and restores the saved preference above 920px. Run typecheck, lint, build, Semgrep, and OpenSpec validation; inspect screenshots rather than accepting baseline updates blindly.
+Run focused AppShell Jest and shell/navigation Playwright tests. Verify the 76px resting rail and no collapse button, pointer hover expansion and collapse on leave, focus-within expansion, unchanged main-column x-position, touch-only tablet fallback, 100vh sidebar/page-content behavior, hidden scrollbar with wheel-scrollable overflow, 52×52 compact logo restoration, mobile drawer behavior, and reduced motion. Inspect updated desktop/tablet screenshots. Run typecheck, targeted lint, Prettier, and strict OpenSpec validation; preserve unrelated dirty files.

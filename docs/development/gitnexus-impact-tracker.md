@@ -11,6 +11,33 @@ Use this tracker when preparing a spec proposal. Run `npm run proposal:impact --
 
 ## Findings
 
+### 2026-11-12 — Hide the sidebar scrollbar and restore compact logo size
+
+Before extending `collapsible-sidebar-repair`, fresh GitNexus impact for `AppSidebar` was LOW/exact: 4 impacted symbols (1 direct, 1 at depth 2, 2 at depth 3), affecting ShellLayout and AppShellContent. No HIGH/CRITICAL risk. Scope is CSS/test/spec only: preserve the 100dvh sidebar and overflow accessibility, hide the visible scrollbar track, and verify the collapsed rail restores the existing 52×52 compact brand mark after hover.
+
+```text
+npm run proposal:impact -- --file apps/web/components/app-sidebar.tsx AppSidebar
+```
+
+### 2026-11-12 — Hover-expandable shared shell sidebar
+
+Before extending `collapsible-sidebar-repair`, fresh GitNexus impacts were LOW/exact: `AppSidebar` affects 4 symbols (1 direct, 1 at depth 2, 2 at depth 3) across ShellLayout and AppShellContent; `AppShellContent` affects 3 symbols (1 direct, 2 at depth 2) in the ShellLayout process; `toggleSidebar` has no indexed callers/processes. No HIGH/CRITICAL risk. Scope removes the manual collapse control and saved preference, uses a 76px resting rail with temporary hover/focus expansion over the main column, keeps touch-only tablet navigation expanded, and leaves the mobile drawer and role route authority unchanged.
+
+```text
+npm run proposal:impact -- --file apps/web/components/app-sidebar.tsx AppSidebar
+npm run proposal:impact -- --file apps/web/components/app-shell.tsx AppShellContent
+npm run proposal:impact -- --file apps/web/components/app-shell.tsx toggleSidebar
+```
+
+### 2026-11-12 — Fixed-height shared shell sidebar
+
+Before extending `collapsible-sidebar-repair`, fresh GitNexus impacts were LOW/exact: `AppShellContent` has 3 impacted symbols (1 direct, 2 at depth 2), the ShellLayout process and Components module; `AppSidebar` has 4 impacted symbols (1 direct, 1 at depth 2, 2 at depth 3), the ShellLayout and AppShellContent processes, and Components module. No HIGH/CRITICAL risk. Scope is CSS geometry only: give the sticky desktop/tablet sidebar a viewport-fixed height with internal vertical overflow while the main shell remains natural-height and page content determines document scrolling. Preserve the mobile drawer, state-driven widths, role navigation, and footer actions.
+
+```text
+npm run proposal:impact -- --file apps/web/components/app-shell.tsx AppShellContent
+npm run proposal:impact -- --file apps/web/components/app-sidebar.tsx AppSidebar
+```
+
 ### 2026-11-12 — Admin/Supervisor common-page style parity
 
 `npm run proposal:impact` returned **LOW/exact with 0 impacted symbols and 0 affected processes** for each Admin route entrypoint: `AdminPage`, `AdminTransactionsPage`, `AdminApprovalsPage`, `AdminFraudPage`, `AdminCustomersPage`, `AdminCardsPage`, and `AdminReportsPage`. Follow-up impact for the corrected Admin Customers implementation: `CustomerWorkspace` is LOW/exact with 3 direct callers (Admin Cards, Admin Customers, Cashier Customers); `SupervisorCustomerWorkflows` is LOW/exact with 1 direct caller (Supervisor Customers); `CustomerDirectory` is LOW/exact with 2 affected symbols (direct caller `SupervisorCustomerWorkflows` and its route caller). No affected processes or HIGH/CRITICAL risk. The Admin route will reuse the Supervisor customer directory and profile presentation with Admin-specific registration/profile/card destinations and retain profile editing, status, and card-management actions and authorization. Profile impact: `ManageCustomers` is LOW/exact with 4 impacted symbols (2 direct callers: Supervisor and Cashier profile wrappers; 2 route callers), and `CustomerDetailsDialog` is LOW/exact with 3 impacted symbols (ManageCustomers plus both profile wrappers). `SupervisorCustomerProfile` remains LOW/exact with its existing route caller. The adjacent lint-only event handlers `loadOlderEntries` and `submitProfile` are also LOW/exact with 0 impacted callers/processes. For the follow-up Admin Approvals presentation, `AdminApprovalsPage` is LOW/exact with 0 impacted callers/processes; `ApprovalsPanel` is LOW/exact with 2 direct callers (Admin and Supervisor), and `SupervisorApprovalCenter` is LOW/exact with 1 direct caller and 2 transitive route callers. No affected processes or HIGH/CRITICAL risk. The approval work must decouple presentation from workflow variant so Admin request scope and decision behavior remain unchanged. For the Admin Cards follow-up, `AdminCardsPage` is LOW/exact with 0 impacted callers/processes; `SupervisorIssuedCardDirectory` is LOW/exact with 2 impacted symbols (1 direct caller, `SupervisorCardWorkflows`, plus its route caller); `SupervisorCardWorkflows` was LOW/exact with 1 direct caller (`SupervisorCardsPage`) before adding Admin as a second audience; `SupervisorCustomerWorkflows` is LOW/exact with 1 direct caller; `AdminCustomersPage` is LOW/exact with 0 impacted callers/processes; and `SupervisorCardManagement` is LOW/exact with 2 impacted symbols (1 direct caller in the shared profile dialog). No affected processes or HIGH/CRITICAL risk. The initial Admin-only card-surface adaptation was superseded and its `CustomerWorkspace`/test edits restored to their pre-task clean state. The revised design reuses the issued-card directory and assignment dialog under an Admin audience and routes card links to the Admin customer's Virtual Card profile tab; Admin API scope is session-derived. The `SupervisorCardAssignment` symbol query was ambiguous between the source function and its test, with both candidates LOW risk and the source candidate reporting 2 affected symbols / 1 direct caller.

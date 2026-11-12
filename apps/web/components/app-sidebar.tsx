@@ -1,9 +1,4 @@
-import {
-  CircleHelp,
-  LogOut,
-  PanelLeftClose,
-  PanelLeftOpen,
-} from 'lucide-react';
+import { CircleHelp, LogOut } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
 import type { ShellNavigationSection } from './shell-navigation';
@@ -15,9 +10,6 @@ export type AppSidebarProps = Readonly<{
   role?: 'CASHIER' | 'SUPERVISOR' | 'ADMIN' | null;
   sections: ShellNavigationSection[];
   pathname: string | null;
-  workspaceLabel: string;
-  isCollapsed: boolean;
-  onToggleCollapse: () => void;
   onLogout: () => void;
 }>;
 
@@ -25,44 +17,31 @@ export function AppSidebar({
   role = null,
   sections,
   pathname,
-  workspaceLabel,
-  isCollapsed,
-  onToggleCollapse,
   onLogout,
 }: AppSidebarProps) {
   return (
     <aside
-      className={`shell-sidebar shell-sidebar--${role?.toLowerCase() ?? 'default'}${isCollapsed ? ' shell-sidebar--collapsed' : ''}`}
-      data-collapsed={isCollapsed ? 'true' : 'false'}
+      className={`shell-sidebar shell-sidebar--${role?.toLowerCase() ?? 'default'} shell-sidebar--collapsed`}
+      data-sidebar-mode="hover-rail"
       aria-label="Primary navigation"
     >
       <div className="shell-sidebar-brand-row">
         <div className="shell-sidebar-brand">
           <Image
-            className="shell-sidebar-brand-logo"
-            src={
-              isCollapsed
-                ? '/brand/supervisor/icon.png'
-                : '/brand/Frame%202147224881.svg'
-            }
+            className="shell-sidebar-brand-logo shell-sidebar-brand-logo--compact"
+            src="/brand/supervisor/icon.png"
             alt="ShopCity Supermarket"
-            width={isCollapsed ? 52 : 124}
-            height={isCollapsed ? 52 : 33}
+            width={52}
+            height={52}
+          />
+          <Image
+            className="shell-sidebar-brand-logo shell-sidebar-brand-logo--expanded"
+            src="/brand/Frame%202147224881.svg"
+            alt="ShopCity Supermarket"
+            width={124}
+            height={33}
           />
         </div>
-        <button
-          type="button"
-          className="shell-sidebar-toggle"
-          aria-expanded={!isCollapsed}
-          aria-label={isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-          onClick={onToggleCollapse}
-        >
-          {isCollapsed ? (
-            <PanelLeftOpen aria-hidden="true" size={18} strokeWidth={1.8} />
-          ) : (
-            <PanelLeftClose aria-hidden="true" size={18} strokeWidth={1.8} />
-          )}
-        </button>
       </div>
 
       <nav aria-label="Primary navigation" className="shell-nav">

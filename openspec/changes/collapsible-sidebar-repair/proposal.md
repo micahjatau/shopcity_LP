@@ -6,16 +6,17 @@ The shared ShopCity shell currently permits a desktop icon-only rail at phone sc
 
 ## What changes
 
-- Implement the existing `sidebarCollapsed` state as a real persisted collapse/expand interaction in `AppShell` and `AppSidebar`.
-- Add an accessible brand/header toggle with `Collapse sidebar` and `Expand sidebar` labels plus accurate `aria-expanded` state.
-- Use `apps/web/public/brand/supervisor/icon.png` as the collapsed sidebar brand mark and the global favicon; retain the full wordmark when expanded.
+- Present a 76px resting navigation rail on hover-capable desktop/tablet viewports, with temporary 244px hover/focus expansion over the main content.
+- Remove the click-to-collapse button, React collapse state, viewport state listener, and persisted sidebar preference; keyboard focus within the rail also reveals its labels.
+- Use `apps/web/public/brand/supervisor/icon.png` as the resting rail mark and reveal the full wordmark on hover/focus; retain the global favicon.
 - Make `AppSidebar` the single owner of sidebar presentation with explicit brand, navigation, and footer regions.
-- Enforce 244px expanded and 76px collapsed widths, grouped navigation, stable active pills, compact queue badges, usable touch targets, and accessible collapsed-item labels/tooltips.
-- Automatically enter the same real collapsed state when resizing into the 621–920px tablet range, then restore the saved manual preference when leaving it; keep the mobile drawer independent.
+- Keep the main column fixed in place while the 76px rail overlays it at 244px on hover/focus; retain grouped navigation, active pills, queue badges, touch targets, and accessible labels/tooltips.
+- Keep touch-only desktop/tablet sidebars expanded when hover is unavailable; keep the mobile drawer independent below 621px.
 - Use the existing mobile drawer at phone widths instead of a permanent icon-only rail; preserve drawer focus management, Help & Training, Logout, keyboard navigation, and role-aware destinations.
 - Remove conflicting tablet sizing and viewport-only label hiding; resize main content without horizontal overflow.
+- Keep the sticky desktop/tablet sidebar at viewport height, hide its visible scrollbar track without disabling overflow scrolling, and allow the main shell/document height to follow its content.
 - Hide session/device diagnostics visually while retaining screen-reader access and verify topbar viewport behavior/meta configuration.
-- Add 200–240ms shell width/content transitions using existing motion tokens and honor reduced-motion preferences.
+- Add 200–240ms sidebar width/shadow transitions using existing motion preferences; never resize the main column when the rail expands.
 - Add deterministic Jest/Playwright/accessibility/visual coverage at desktop, tablet, breakpoint, and mobile widths without changing financial controllers, backend authorization, or transaction APIs.
 
 ## Scope
@@ -26,8 +27,9 @@ Out of scope: backend/database/API contracts, RBAC authority, financial controll
 
 ## Acceptance criteria
 
-- Expanded and collapsed controls work, persist across reload/navigation, expose correct labels and `aria-expanded`, and do not interfere with mobile drawer state.
-- Desktop widths are 244px/76px; resizing into 621–920px automatically uses the actual 76px collapsed state, leaving that range restores the saved preference, and main content never horizontally overflows.
+- Hover-capable desktop/tablet viewports show a 76px rail by default; pointer hover or keyboard focus temporarily expands it to 244px over the main column, then restores the rail without shifting content. No collapse/expand button or saved sidebar preference remains.
+- Touch-only viewports at 621px and wider show the full 244px sidebar; hover-capable viewports use the 76px rail and hover/focus expansion. Neither mode causes horizontal overflow.
+- The desktop/tablet sidebar remains exactly viewport-height; long main content grows the document without stretching it, overflow remains reachable without a visible scrollbar, and the compact 52×52 logo returns when the rail closes.
 - All Cashier, Supervisor, and Admin destinations remain role-authoritative and correctly highlighted.
 - Collapsed navigation remains identifiable, keyboard accessible, minimum 44px targets, and retains Sync Queue counts plus accessible footer actions; its brand mark uses the approved icon asset.
 - The approved icon asset is declared as the favicon globally, including routes outside the authenticated shell.

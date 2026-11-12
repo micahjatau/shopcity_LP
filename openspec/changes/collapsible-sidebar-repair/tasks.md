@@ -10,6 +10,7 @@
 - [x] 2.2 Refactor sidebar presentation ownership into brand/header, navigation, and footer regions; remove competing shell/sidebar declarations.
 - [x] 2.3 Implement 244px/76px state-driven desktop/tablet columns, grouped canonical navigation, active pills, compact queue badge, centered collapsed mark, 44px targets, and accessible collapsed tooltips/labels.
 - [x] 2.4 Preserve role-aware routes, active matching, logout, Help & Training, and queue behavior for Cashier, Supervisor, and Admin.
+- [x] 2.5 Constrain the desktop/tablet sidebar to viewport height with reachable internal overflow; keep main content in natural document flow.
 
 ## 3. Responsive shell and topbar
 
@@ -25,6 +26,7 @@
 - [x] 4.2 Add Playwright geometry/accessibility coverage at 1440px, 1024px, 920px, 768px, 390px, and 375px for expanded/collapsed/drawer and resize transitions.
 - [x] 4.3 Capture and inspect expanded, collapsed, tablet, and mobile screenshots against approved ShopCity appearance; do not blindly update baselines.
 - [x] 4.4 Run affected workflow/accessibility tests and confirm financial controllers, APIs, and RBAC are unchanged.
+- [x] 4.5 Verify long main content grows the document without stretching the sidebar, and short viewports can scroll the sidebar footer into view.
 
 ## 5. Final verification and delivery
 
@@ -32,3 +34,12 @@
 - [x] 5.2 Run GitNexus detect_changes and inspect affected flows, expected files, unrelated dirty files, and residual risk; analyzer refresh was blocked by a pre-existing FTS index inconsistency, documented in evidence.
 - [x] 5.3 Document changed-file rationale, route authority preservation, screenshot evidence, unsupported changes, and final verification results.
 - [ ] 5.4 Use the approved icon asset for the collapsed sidebar and global favicon; verify collapsed/expanded rendering and metadata.
+- [x] 5.5 Run focused shell/browser verification and document fixed-height sidebar evidence without altering unrelated dirty files.
+
+## 6. Hover-expandable sidebar follow-up
+
+- [x] 6.1 Remove the click toggle, React collapse/preference state, and tablet state listener; establish a 76px resting rail.
+- [x] 6.2 Add hover/focus overlay expansion without shifting main content and preserve expanded navigation on touch-only desktop/tablet viewports.
+- [x] 6.3 Update AppShell Jest and browser coverage for no toggle, hover/focus, touch fallback, short heights, and mobile drawer; review changed screenshots.
+- [x] 6.4 Update OpenSpec design/spec/evidence and run focused verification without changing unrelated worktree files.
+- [x] 6.5 Hide the visible sidebar scrollbar while preserving overflow scrolling; verify the 52×52 compact logo is restored on the resting rail.

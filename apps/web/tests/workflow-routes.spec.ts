@@ -266,7 +266,7 @@ test.describe('workflow route coverage', () => {
     expect(createCardRequests).toBe(0);
   });
 
-  test('repairs sidebar geometry, collapse state, and mobile drawer access', async ({
+  test('expands the sidebar on hover or focus and preserves mobile drawer access', async ({
     page,
   }) => {
     await mockShell(page, 'CASHIER');
@@ -282,29 +282,85 @@ test.describe('workflow route coverage', () => {
       /\/brand\/supervisor\/icon\.png/,
     );
     const sidebar = page.locator('.shell-sidebar');
-    await expect(sidebar).toHaveAttribute('data-collapsed', 'false');
-    await page.waitForTimeout(300);
-    await page.mouse.move(600, 500);
-    await expect(page).toHaveScreenshot('sidebar-expanded-desktop.png', {
-      maxDiffPixelRatio: 0.08,
-    });
-    expect(Math.round((await sidebar.boundingBox())?.width ?? 0)).toBe(244);
-
-    await page.getByRole('button', { name: 'Collapse sidebar' }).click();
-    await expect(sidebar).toHaveAttribute('data-collapsed', 'true');
-    await expect(sidebar.locator('.shell-sidebar-brand-logo')).toHaveAttribute(
-      'src',
-      /icon\.png/,
-    );
-    await page.waitForTimeout(300);
-    await page.mouse.move(600, 500);
+    await expect(sidebar).toHaveAttribute('data-sidebar-mode', 'hover-rail');
     await expect(
-      page.getByRole('button', { name: 'Expand sidebar' }),
-    ).toHaveAttribute('aria-expanded', 'false');
-    await expect(page).toHaveScreenshot('sidebar-collapsed-desktop.png', {
+      page.getByRole('button', { name: /collapse sidebar|expand sidebar/i }),
+    ).toHaveCount(0);
+    await page.mouse.move(600, 500);
+    await expect(sidebar).toHaveCSS('width', '76px');
+    await expect(sidebar).toHaveCSS('scrollbar-width', 'none');
+    await expect(page).toHaveScreenshot('sidebar-hover-rail-desktop.png', {
       maxDiffPixelRatio: 0.08,
     });
-    expect(Math.round((await sidebar.boundingBox())?.width ?? 0)).toBe(76);
+    expect(Math.round((await sidebar.boundingBox())?.height ?? 0)).toBe(900);
+    await page.setViewportSize({ width: 1024, height: 900 });
+    await expect(sidebar).toHaveCSS('width', '76px');
+    await expect(page).toHaveScreenshot('sidebar-hover-rail-tablet.png', {
+      maxDiffPixelRatio: 0.08,
+    });
+    await page.setViewportSize({ width: 1440, height: 900 });
+    const mainColumn = page.locator('.shell-main-column');
+    const mainColumnLeft = await mainColumn.evaluate(
+      (element) => element.getBoundingClientRect().left,
+    );
+    expect(mainColumnLeft).toBe(76);
+    await page.mouse.move(40, 180);
+    await expect(sidebar).toHaveCSS('width', '244px');
+    await expect(
+      sidebar.locator('.shell-sidebar-brand-logo--expanded'),
+    ).toBeVisible();
+    await expect(
+      sidebar.locator('.shell-nav-link-label').first(),
+    ).toBeVisible();
+    expect(
+      await mainColumn.evaluate(
+        (element) => element.getBoundingClientRect().left,
+      ),
+    ).toBe(mainColumnLeft);
+    await expect(page).toHaveScreenshot('sidebar-hover-expanded-desktop.png', {
+      maxDiffPixelRatio: 0.08,
+    });
+    await page.mouse.move(600, 500);
+    await expect(sidebar).toHaveCSS('width', '76px');
+    await sidebar.getByRole('link', { name: 'Overview' }).focus();
+    await expect(sidebar).toHaveCSS('width', '244px');
+    await expect(
+      sidebar.locator('.shell-nav-link-label').first(),
+    ).toBeVisible();
+    await page.locator('#shell-main-content').focus();
+    await page.mouse.move(600, 500);
+    await expect(sidebar).toHaveCSS('width', '76px');
+    await page
+      .locator('#shell-main-content')
+      .evaluate((element) => element.blur());
+    const compactLogo = sidebar.locator('.shell-sidebar-brand-logo--compact');
+    await expect(compactLogo).toBeVisible();
+    await expect(compactLogo).toHaveCSS('width', '52px');
+    await expect(compactLogo).toHaveCSS('height', '52px');
+
+    const initialMainHeight = (await mainColumn.boundingBox())?.height ?? 0;
+    await page.locator('.shell-main').evaluate((element) => {
+      const tallContent = document.createElement('div');
+      tallContent.dataset.testid = 'shell-height-fixture';
+      tallContent.style.height = '1400px';
+      element.append(tallContent);
+    });
+    await expect
+      .poll(async () => (await mainColumn.boundingBox())?.height ?? 0)
+      .toBeGreaterThan(initialMainHeight + 1000);
+    expect(
+      await page.evaluate(() => document.documentElement.scrollHeight),
+    ).toBeGreaterThan(900);
+    await page.evaluate(() => window.scrollTo(0, 300));
+    await expect
+      .poll(async () => Math.round((await sidebar.boundingBox())?.y ?? -1))
+      .toBe(0);
+    expect(Math.round((await sidebar.boundingBox())?.height ?? 0)).toBe(900);
+    await page.evaluate(() => window.scrollTo(0, 0));
+    await page
+      .locator('[data-testid="shell-height-fixture"]')
+      .evaluate((node) => node.remove());
+
     await expect(page.getByRole('link', { name: 'Overview' })).toHaveAttribute(
       'title',
       'Overview',
@@ -312,47 +368,49 @@ test.describe('workflow route coverage', () => {
     await expect(page.getByRole('button', { name: 'Logout' })).toBeVisible();
 
     await page.setViewportSize({ width: 1024, height: 900 });
-    await expect(sidebar).toHaveAttribute('data-collapsed', 'true');
-    await page.getByRole('button', { name: 'Expand sidebar' }).click();
-    await expect(sidebar).toHaveAttribute('data-collapsed', 'false');
-    await expect(
-      page.getByRole('link', { name: 'Find Customer Lookup' }),
-    ).toBeVisible();
-
+    await expect(sidebar).toHaveCSS('width', '76px');
     await page.setViewportSize({ width: 920, height: 900 });
-    await expect(sidebar).toHaveAttribute('data-collapsed', 'true');
-    await expect(
-      page.getByRole('button', { name: 'Expand sidebar' }),
-    ).toHaveAttribute('aria-expanded', 'false');
-    await expect(sidebar.locator('.shell-sidebar-brand-logo')).toHaveAttribute(
-      'src',
-      /icon\.png/,
-    );
-
-    await page.setViewportSize({ width: 1024, height: 900 });
-    await expect(sidebar).toHaveAttribute('data-collapsed', 'false');
-    await expect(sidebar.locator('.shell-sidebar-brand-logo')).toHaveAttribute(
-      'src',
-      /Frame%202147224881\.svg/,
-    );
-    await page.getByRole('button', { name: 'Collapse sidebar' }).click();
-    await page.waitForTimeout(300);
-    await expect(page).toHaveScreenshot('sidebar-collapsed-tablet.png', {
-      maxDiffPixelRatio: 0.08,
-    });
+    await expect(sidebar).toHaveCSS('width', '76px');
     expect(
       await page.locator('body').evaluate((body) => body.scrollWidth),
-    ).toBeLessThanOrEqual(1024);
+    ).toBeLessThanOrEqual(920);
 
     await page.setViewportSize({ width: 768, height: 900 });
-    await page.getByRole('button', { name: 'Expand sidebar' }).click();
-    await expect(sidebar).toHaveAttribute('data-collapsed', 'false');
+    await expect(sidebar).toHaveCSS('width', '76px');
     await page.emulateMedia({ reducedMotion: 'reduce' });
     expect(
-      await page
-        .locator('.shell-body')
-        .evaluate((element) => getComputedStyle(element).transitionDuration),
+      await sidebar.evaluate(
+        (element) => getComputedStyle(element).transitionDuration,
+      ),
     ).toBe('0s');
+
+    await page.setViewportSize({ width: 768, height: 420 });
+    await expect
+      .poll(async () =>
+        sidebar.evaluate((element) =>
+          element.scrollHeight > element.clientHeight ? 'overflowing' : 'fits',
+        ),
+      )
+      .toBe('overflowing');
+    expect(Math.round((await sidebar.boundingBox())?.height ?? 0)).toBe(420);
+    await sidebar.evaluate((element) => {
+      element.scrollTop = 0;
+    });
+    await sidebar.hover();
+    await page.mouse.wheel(0, 800);
+    await expect
+      .poll(() => sidebar.evaluate((element) => element.scrollTop))
+      .toBeGreaterThan(0);
+    const footerBounds = await sidebar
+      .locator('.shell-sidebar-footer')
+      .boundingBox();
+    const sidebarBounds = await sidebar.boundingBox();
+    if (!footerBounds || !sidebarBounds) {
+      throw new Error('Sidebar footer geometry is unavailable');
+    }
+    expect(footerBounds.y + footerBounds.height).toBeLessThanOrEqual(
+      sidebarBounds.y + sidebarBounds.height + 1,
+    );
 
     await page.setViewportSize({ width: 390, height: 844 });
     await page.reload();
@@ -388,9 +446,37 @@ test.describe('workflow route coverage', () => {
     ).toBeLessThanOrEqual(375);
   });
 
+  test('keeps navigation expanded on touch-only tablet viewports', async ({
+    browser,
+  }) => {
+    const touchPage = await browser.newPage({
+      viewport: { width: 768, height: 900 },
+      hasTouch: true,
+    });
+
+    try {
+      await mockShell(touchPage, 'CASHIER');
+      await touchPage.goto(`${baseUrl}/cashier`);
+      const sidebar = touchPage.locator('.shell-sidebar');
+      await expect(sidebar).toHaveCSS('width', '244px');
+      await expect(
+        sidebar.locator('.shell-nav-link-label').first(),
+      ).toBeVisible();
+      await expect(
+        sidebar.locator('.shell-sidebar-brand-logo--expanded'),
+      ).toBeVisible();
+    } finally {
+      await touchPage.close();
+    }
+  });
+
   test('fills Cashier and Admin sidebar artwork to the rail edge', async ({
     page,
   }) => {
+    await page.addInitScript(() => {
+      window.localStorage.clear();
+      window.sessionStorage.clear();
+    });
     await page.setViewportSize({ width: 1440, height: 900 });
 
     for (const { role, route } of [
@@ -403,6 +489,8 @@ test.describe('workflow route coverage', () => {
       const sidebar = page.locator('.shell-sidebar');
       await expect(page.locator('.shell-loading-screen')).toBeHidden();
       await expect(sidebar).toBeVisible();
+      await page.mouse.move(30, 150);
+      await expect(sidebar).toHaveCSS('width', '244px');
       const backgroundCoverage = await sidebar.evaluate((element) => {
         const style = getComputedStyle(element);
         const railWidth = element.getBoundingClientRect().width;
@@ -420,7 +508,7 @@ test.describe('workflow route coverage', () => {
         backgroundCoverage.railWidth,
       );
       await expect(sidebar).toHaveScreenshot(
-        `sidebar-${role.toLowerCase()}-artwork-edge.png`,
+        `sidebar-${role.toLowerCase()}-hover-expanded-artwork-edge.png`,
         { maxDiffPixelRatio: 0.02 },
       );
     }

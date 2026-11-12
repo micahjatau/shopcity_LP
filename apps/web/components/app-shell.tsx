@@ -73,8 +73,6 @@ function AppShellContent({ children }: Readonly<{ children: ReactNode }>) {
   } = useSessionBootstrapState();
   const [syncQueueCount, setSyncQueueCount] = useState<number | null>(null);
   const [syncQueueError, setSyncQueueError] = useState<string | null>(null);
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-  const sidebarPreferenceRef = useRef(false);
   const [mobileNavigationOpen, setMobileNavigationOpen] = useState(false);
   const shellFrameRef = useRef<HTMLDivElement | null>(null);
   const mobileDrawerRef = useRef<HTMLDivElement | null>(null);
@@ -84,16 +82,6 @@ function AppShellContent({ children }: Readonly<{ children: ReactNode }>) {
 
   useEffect(() => {
     let mounted = true;
-
-    if (typeof window !== 'undefined') {
-      const stored =
-        window.localStorage.getItem('shopcity:shell:sidebar-collapsed') ??
-        window.sessionStorage.getItem('shopcity:shell:sidebar-collapsed');
-      if (stored === 'true' || stored === 'false') {
-        sidebarPreferenceRef.current = stored === 'true';
-        setSidebarCollapsed(sidebarPreferenceRef.current);
-      }
-    }
 
     async function refreshSyncQueueCount() {
       try {
@@ -119,38 +107,6 @@ function AppShellContent({ children }: Readonly<{ children: ReactNode }>) {
       mounted = false;
       unsubscribe();
     };
-  }, []);
-
-  useEffect(() => {
-    const tabletViewport = window.matchMedia(
-      '(min-width: 621px) and (max-width: 920px)',
-    );
-    const syncSidebarForViewport = () => {
-      setSidebarCollapsed(
-        tabletViewport.matches || sidebarPreferenceRef.current,
-      );
-    };
-
-    syncSidebarForViewport();
-    tabletViewport.addEventListener('change', syncSidebarForViewport);
-    return () =>
-      tabletViewport.removeEventListener('change', syncSidebarForViewport);
-  }, []);
-
-  const toggleSidebar = useCallback(() => {
-    setSidebarCollapsed((collapsed) => {
-      const next = !collapsed;
-      sidebarPreferenceRef.current = next;
-      window.localStorage.setItem(
-        'shopcity:shell:sidebar-collapsed',
-        String(next),
-      );
-      window.sessionStorage.setItem(
-        'shopcity:shell:sidebar-collapsed',
-        String(next),
-      );
-      return next;
-    });
   }, []);
 
   const sections = useMemo(
@@ -337,9 +293,7 @@ function AppShellContent({ children }: Readonly<{ children: ReactNode }>) {
         Skip to content
       </Link>
       <div ref={shellFrameRef} className="shell-frame">
-        <div
-          className={`shell-body${sidebarCollapsed ? ' shell-body--collapsed' : ''}`}
-        >
+        <div className="shell-body shell-body--collapsed">
           <AppSidebar
             role={
               role === 'CASHIER' || role === 'SUPERVISOR' || role === 'ADMIN'
@@ -348,9 +302,6 @@ function AppShellContent({ children }: Readonly<{ children: ReactNode }>) {
             }
             sections={navigationSections}
             pathname={pathname}
-            workspaceLabel={workspaceLabel}
-            isCollapsed={sidebarCollapsed}
-            onToggleCollapse={toggleSidebar}
             onLogout={() => void handleLogout()}
           />
 
