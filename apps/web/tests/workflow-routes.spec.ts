@@ -840,9 +840,7 @@ test.describe('workflow route coverage', () => {
       } else {
         canonicalLookupButtonStyles = lookupButtonStyles;
       }
-      await captureExpandedShellScreenshot(
-        `financial-lookup-${kind}-idle.png`,
-      );
+      await captureExpandedShellScreenshot(`financial-lookup-${kind}-idle.png`);
 
       mode = 'loading';
       await page.getByRole('textbox', { name: 'Lookup' }).fill('CARD-PAIR');
