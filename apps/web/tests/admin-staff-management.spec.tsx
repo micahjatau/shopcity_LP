@@ -172,7 +172,8 @@ describe('Admin staff registration', () => {
         },
         expect.objectContaining({
           credentials: 'include',
-          headers: expect.objectContaining({ Accept: 'application/json' }),
+          csrf: true,
+          headers: expect.objectContaining({ accept: 'application/json' }),
         }),
       ),
     );
@@ -286,8 +287,12 @@ describe('Admin staff profile', () => {
         'staff-1',
         { role: 'SUPERVISOR' },
         expect.objectContaining({
+          credentials: 'include',
+          csrf: true,
+          idempotencyKey: expect.any(String),
           headers: expect.objectContaining({
-            'Idempotency-Key': expect.any(String),
+            accept: 'application/json',
+            'idempotency-key': expect.any(String),
           }),
         }),
       ),
@@ -306,8 +311,12 @@ describe('Admin staff profile', () => {
         'staff-1',
         { status: 'SUSPENDED' },
         expect.objectContaining({
+          credentials: 'include',
+          csrf: true,
+          idempotencyKey: expect.any(String),
           headers: expect.objectContaining({
-            'Idempotency-Key': expect.any(String),
+            accept: 'application/json',
+            'idempotency-key': expect.any(String),
           }),
         }),
       ),

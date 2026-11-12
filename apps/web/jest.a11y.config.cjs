@@ -22,6 +22,7 @@ module.exports = {
     '^next/link$': '<rootDir>/tests/mocks/next-link.tsx',
     '^next/image$': '<rootDir>/tests/mocks/next-image.tsx',
     '^next/navigation$': '<rootDir>/tests/mocks/next-navigation.ts',
+    '^.+\\.module\\.css$': '<rootDir>/tests/mocks/css-module.cjs',
   },
   setupFilesAfterEnv: ['<rootDir>/tests/setup.ts'],
   testMatch: ['<rootDir>/tests/**/*.spec.tsx'],

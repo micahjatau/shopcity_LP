@@ -223,12 +223,8 @@ describe('frontend accessibility gates', () => {
     expect(supervisorTable?.querySelectorAll('tbody tr')).toHaveLength(5);
     expect(supervisorTable?.querySelectorAll('thead th')).toHaveLength(4);
     expect(supervisorTable?.textContent).toContain('Customer 1');
-    expect(container.querySelector('a[href="/admin/operations"]')).toHaveStyle({
-      gridColumn: 'span 2',
-    });
-    expect(
-      container.querySelector('a[href="/admin/transactions"]'),
-    ).not.toHaveStyle({ gridColumn: 'span 2' });
+    expect(container.querySelector('a[href="/admin/operations"]')).toBeNull();
+    expect(container.querySelector('a[href="/admin/transactions"]')).toBeNull();
   });
 
   it('discloses that Supervisor search covers all authorized open approvals', async () => {
@@ -270,7 +266,7 @@ describe('frontend accessibility gates', () => {
     ).toHaveFocus();
     await user.tab();
     expect(
-      screen.getByRole('button', { name: /forgot password/i }),
+      screen.getByRole('link', { name: /forgot password/i }),
     ).toHaveFocus();
     await user.tab();
     expect(screen.getByRole('button', { name: /sign in/i })).toHaveFocus();
