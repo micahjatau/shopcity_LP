@@ -4584,6 +4584,35 @@ test.describe('workflow route coverage', () => {
     await page.setViewportSize({ width: 1440, height: 923 });
     for (const [route, landmark, role, routeName] of fixtures) {
       await mockShell(page, role);
+      if (routeName === 'find-customer') {
+        await page.route('**/api/v1/customers*', async (requestRoute) => {
+          if (
+            new URL(requestRoute.request().url()).pathname !==
+            '/api/v1/customers'
+          ) {
+            return requestRoute.fallback();
+          }
+          await requestRoute.fulfill(
+            json({
+              success: true,
+              data: {
+                items: [
+                  {
+                    id: 'customer-1',
+                    fullName: 'Ada Shopper',
+                    maskedPhone: '•••0001',
+                    cardStatus: 'ACTIVE',
+                    availableBalanceKobo: 5500,
+                  },
+                ],
+                nextCursor: null,
+                hasMore: false,
+              },
+              meta: meta('/api/v1/customers'),
+            }),
+          );
+        });
+      }
       await page.goto(`${baseUrl}${route}`);
       if (landmark === 'capture-flow') {
         await page.getByRole('button', { name: 'Proceed' }).click();
