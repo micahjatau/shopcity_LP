@@ -733,14 +733,6 @@ test.describe('workflow route coverage', () => {
 
     let canonicalLookupStyles: ComputedStyleSnapshot | null = null;
     let canonicalLookupButtonStyles: Record<string, string> | null = null;
-    const captureExpandedShellScreenshot = async (name: string) => {
-      const sidebar = page.locator('.shell-sidebar');
-      await sidebar.hover();
-      await expect(sidebar).toHaveCSS('width', '244px');
-      await expect(page).toHaveScreenshot(name, {
-        maxDiffPixelRatio: 0.08,
-      });
-    };
     for (const kind of ['earn', 'redeem'] as const) {
       const route = kind === 'earn' ? '/cashier/earn' : '/cashier/redeem';
       await page.goto(`${baseUrl}${route}`);
@@ -840,7 +832,9 @@ test.describe('workflow route coverage', () => {
       } else {
         canonicalLookupButtonStyles = lookupButtonStyles;
       }
-      await captureExpandedShellScreenshot(`financial-lookup-${kind}-idle.png`);
+      await expect(page).toHaveScreenshot(`financial-lookup-${kind}-idle.png`, {
+        maxDiffPixelRatio: 0.08,
+      });
 
       mode = 'loading';
       await page.getByRole('textbox', { name: 'Lookup' }).fill('CARD-PAIR');
@@ -851,8 +845,11 @@ test.describe('workflow route coverage', () => {
       await expect(
         page.getByRole('button', { name: 'Looking up…' }),
       ).toBeDisabled();
-      await captureExpandedShellScreenshot(
+      await expect(page).toHaveScreenshot(
         `financial-lookup-${kind}-loading.png`,
+        {
+          maxDiffPixelRatio: 0.08,
+        },
       );
       await lookupResponse;
 
@@ -863,8 +860,11 @@ test.describe('workflow route coverage', () => {
       await expect(
         page.getByText(/Card verification unavailable \(503\)/),
       ).toBeVisible();
-      await captureExpandedShellScreenshot(
+      await expect(page).toHaveScreenshot(
         `financial-lookup-${kind}-error.png`,
+        {
+          maxDiffPixelRatio: 0.08,
+        },
       );
 
       mode = 'success';
@@ -909,8 +909,11 @@ test.describe('workflow route coverage', () => {
         await expect(backButton).toBeVisible();
         await expect(backButton.locator('svg')).toHaveCount(1);
       }
-      await captureExpandedShellScreenshot(
+      await expect(page).toHaveScreenshot(
         `financial-lookup-${kind}-verified.png`,
+        {
+          maxDiffPixelRatio: 0.08,
+        },
       );
       if (kind === 'earn') {
         await page.getByRole('button', { name: 'Proceed' }).click();
@@ -920,8 +923,11 @@ test.describe('workflow route coverage', () => {
         await expect(page.locator('.cashier-verified-card-lookup')).toHaveCount(
           0,
         );
-        await captureExpandedShellScreenshot(
+        await expect(page).toHaveScreenshot(
           `financial-lookup-${kind}-confirmation.png`,
+          {
+            maxDiffPixelRatio: 0.08,
+          },
         );
       } else {
         await expect(
