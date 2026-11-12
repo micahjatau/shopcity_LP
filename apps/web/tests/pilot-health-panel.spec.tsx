@@ -59,7 +59,7 @@ describe('PilotHealthPanel card surfaces and status pills', () => {
     });
     expect(screen.getByText('No active issues.')).toBeInTheDocument();
     expect(screen.getByLabelText('Deployment configuration')).toHaveTextContent(
-      'Version 1.2.3 · Build abcdef1 · Error monitoring on',
+      'Version 1.2.3 · Build abcdef1 · Sentry DSN configured',
     );
     expect(screen.queryByText('Live')).not.toBeInTheDocument();
     expect(screen.queryByText('Reconciled')).not.toBeInTheDocument();
@@ -91,6 +91,28 @@ describe('PilotHealthPanel card surfaces and status pills', () => {
       background: '#fff',
       minHeight: '121px',
     });
+  });
+
+  it('labels an unconfigured Sentry DSN as configuration, not live monitoring health', async () => {
+    jest
+      .mocked(reportsControllerGetPilotOperationsSummaryV1)
+      .mockResolvedValueOnce({
+        status: 200,
+        data: {
+          data: {
+            ...healthySummary,
+            release: { ...healthySummary.release, sentryConfigured: false },
+          },
+        },
+      } as never);
+
+    render(<PilotHealthPanel compact cardStyleVariant="adminOverview" />);
+
+    const configuration = await screen.findByLabelText(
+      'Deployment configuration',
+    );
+    expect(configuration).toHaveTextContent('Sentry DSN not configured');
+    expect(configuration).not.toHaveTextContent('Error monitoring off');
   });
 
   it('summarizes active signals without treating missing counts as zero', async () => {

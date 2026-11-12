@@ -2360,3 +2360,12 @@ npm run proposal:impact -- --file src/modules/users/users.service.ts createUser
 npm run proposal:impact -- --file src/modules/users/users.dto.ts CreateUserDto
 npm run proposal:impact -- --file prisma/schema.prisma User
 ```
+
+### 2026-11-12 — Cashier virtual-card preview text and Operations monitoring clarity
+
+Before updating the Cashier preview/Operations presentation specs, `npm run proposal:impact` returned LOW/exact with 0 impacted symbols/processes for `SupervisorVirtualCardPreview` and `getReleaseMetadata`, but both emitted malformed symbol IDs; treat the zero counts as unreliable. Source review found four preview call sites: Capture Purchase, Redeem Credit, and two customer-profile branches. The change is limited to the preview's `confirmation` variant so profile artwork/typography is unaffected. `getReleaseMetadata` is used only by `PilotHealthPanel`; its wording will describe the existing Sentry DSN configuration flag, not assert live issue ingestion. No HIGH/CRITICAL result was returned, and no financial, authorization, API, or health-metric calculations are in scope.
+
+```text
+npm run proposal:impact -- --file apps/web/components/workflows/supervisor-virtual-card-preview.tsx SupervisorVirtualCardPreview
+npm run proposal:impact -- --file apps/web/components/workflows/pilot-health-panel.tsx getReleaseMetadata
+```

@@ -20,7 +20,8 @@ The `/admin/operations` page MUST present the tabs **Overview**, **Reports**, an
 - **AND** the pilot-health header and signal tiles contain no status pills
 - **AND** the panel subtitle and signal detail text use 12px regular type, 1.45 line height, and `#676767` secondary text
 - **AND** the attention summary reports only active conditions from known signal counts and identifies unknown signals as unavailable
-- **AND** the timestamp uses the response's `generatedAt` value, and release version, SHA, and Sentry configuration are labeled as configuration metadata
+- **AND** the timestamp uses the response's `generatedAt` value, and release version, SHA, and the Sentry DSN configuration state are labeled as configuration metadata
+- **AND** Sentry metadata says whether a DSN is configured, not whether events are currently being received or processed
 - **AND** no historical graph is shown from this point-in-time response
 - **AND** hidden Reports and Controls content is not mounted before the user selects those tabs
 - **AND** none of the removed badges, link, alert, or alert copy is shown.

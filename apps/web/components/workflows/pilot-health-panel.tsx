@@ -206,7 +206,7 @@ function getReleaseMetadata(release: PilotSummary['release']): string[] {
   }
   if (typeof release.sentryConfigured === 'boolean') {
     metadata.push(
-      `Error monitoring ${release.sentryConfigured ? 'on' : 'off'}`,
+      `Sentry DSN ${release.sentryConfigured ? 'configured' : 'not configured'}`,
     );
   }
   return metadata;

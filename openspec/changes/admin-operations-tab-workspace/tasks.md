@@ -29,6 +29,7 @@
 - [x] 2.22 Add sidebar coverage confirming those five routes are no longer listed, while existing Controls links remain.
 - [x] 2.23 Register the five dedicated Control routes as Admin Operations route aliases so the shell allows them without adding sidebar entries.
 - [x] 2.24 Verify each alias resolves to the Operations nav item for Admins only, while the dedicated route files remain present; cover all five Control links and route authorization in focused tests.
+- [x] 2.27 Label the Sentry DSN configuration state precisely; do not imply that a configured DSN proves event ingestion or processing.
 
 ## 3. Verification
 
@@ -46,3 +47,4 @@
 - [x] 3.12 Focused Operations/Reports/Supervisor tests (31 passed), web typecheck, isolated ESLint, Prettier, CSS parsing, strict OpenSpec validation, and `git diff --check` passed. Tests cover branch-timezone 7/30-day ranges, no-range defaults, custom validation/application, dynamic columns, formatting, pagination, and unchanged shared callers. Chromium confirmed the sidebar-matched primary gradient, Supervisor pill controls, 16px/13px card type, responsive period select, numeric alignment, and no 320px horizontal overflow beyond the table's scroll container. Authenticated route-level browser verification remains pending because the local route redirects to login.
 - [x] 3.13 Focused Admin navigation and Operations Controls tests passed (12 tests); web typecheck, isolated ESLint, Prettier, strict OpenSpec validation, and `git diff --check` passed. The first root Jest invocation selected the backend-only config and found no web tests; rerunning through the web `unit:test` script passed.
 - [x] 3.14 Focused navigation/AppShell tests passed; authenticated browser smoke confirmed all five Controls links open their dedicated pages and keep Operations active without redirecting to `/admin`.
+- [x] 3.15 Verify configured/unconfigured Sentry labels and Operations-only health metadata in focused tests; report that live Sentry ingestion was not verifiable without Sentry query access. All five PilotHealthPanel tests pass; web typecheck, targeted ESLint, Semgrep (0 findings), Prettier, `git diff --check`, and OpenSpec validation passed. Sentry CLI/API access is unavailable, so issue ingestion remains unverified.
