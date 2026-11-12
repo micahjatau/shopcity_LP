@@ -4595,7 +4595,9 @@ test.describe('workflow route coverage', () => {
       await expect(page.locator('.shell-loading-screen')).toBeHidden();
       await expect(element).toBeVisible();
       if (routeName === 'find-customer') {
-        await expect(page.getByText('Ada Shopper', { exact: true })).toBeVisible();
+        await expect(
+          page.getByText('Ada Shopper', { exact: true }),
+        ).toBeVisible();
       }
       await page.locator('.shell-sidebar').hover();
       await expect(page.locator('.shell-sidebar')).toHaveCSS('width', '244px');
