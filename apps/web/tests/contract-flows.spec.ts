@@ -1190,11 +1190,7 @@ test.describe('contract-faithful frontend flows', () => {
     await expect(page.getByText(/Staff could not be loaded/i)).toBeVisible();
 
     await page.goto('/admin/devices');
-    await expect(
-      page.getByText('No devices are available in this authorized scope.', {
-        exact: true,
-      }),
-    ).toBeVisible();
+    await expect(page.getByText(/No devices are registered yet/)).toBeVisible();
 
     await page.goto('/admin/audit');
     await page.getByLabel('Actor ID').fill('admin-1');

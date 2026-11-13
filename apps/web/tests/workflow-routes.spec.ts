@@ -1286,22 +1286,30 @@ test.describe('workflow route coverage', () => {
                                   ) &&
                                   contract.property === 'min-height'
                                 ? '32px'
-                                : route.path === '/supervisor/transactions' &&
+                                : [
+                                      '/supervisor/transactions',
+                                      '/admin/transactions',
+                                    ].includes(route.path) &&
                                     [
                                       'supervisor-transaction-receipt-number',
                                       'supervisor-transaction-minimum-amount',
                                     ].includes(elementId) &&
                                     contract.property === 'border-radius'
                                   ? '999px'
-                                  : route.path === '/supervisor/transactions' &&
+                                  : [
+                                        '/supervisor/transactions',
+                                        '/admin/transactions',
+                                      ].includes(route.path) &&
                                       [
                                         'supervisor-transaction-receipt-number',
                                         'supervisor-transaction-minimum-amount',
                                       ].includes(elementId) &&
                                       contract.property === 'min-height'
                                     ? '40px'
-                                    : route.path ===
-                                          '/supervisor/transactions' &&
+                                    : [
+                                          '/supervisor/transactions',
+                                          '/admin/transactions',
+                                        ].includes(route.path) &&
                                         className.includes(
                                           'supervisor-transaction-',
                                         ) &&
