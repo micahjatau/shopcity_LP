@@ -1,0 +1,61 @@
+.device-management__rename {
+  display: grid;
+  grid-template-columns: minmax(10rem, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+}
+
+.admin-device-branch-page-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--sc-spacing-4);
+}
+
+.admin-device-branch-page-header > .sc-page-head__copy {
+  min-width: 0;
+  flex: 1 1 20rem;
+}
+
+.admin-device-branch-page-header > .sc-page-head__actions {
+  width: auto;
+  flex: 0 0 auto;
+  margin-left: auto;
+}
+
+.admin-device-branch-page-header > .sc-page-head__actions > * {
+  flex: 0 0 auto;
+}
+
+.admin-device-branch-back-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: #9e1015;
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  white-space: nowrap;
+}
+
+@media (max-width: 767px) {
+  .admin-device-branch-page-header {
+    flex-direction: row;
+    align-items: center;
+  }
+
+  .admin-device-branch-page-header > .sc-page-head__copy {
+    flex-basis: 15rem;
+  }
+}
+
+.device-management__rename > .sc-control {
+  min-width: 0;
+}
+
+@media (max-width: 767px) {
+  .device-management__rename {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

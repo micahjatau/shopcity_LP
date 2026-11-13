@@ -1,0 +1,356 @@
+.directory,
+.formCard {
+  display: grid;
+  min-width: 0;
+  gap: 16px;
+  padding: 20px;
+  border: 1px solid #e7e5e5;
+  border-radius: 16px;
+  background: #fff;
+}
+
+.toolbar {
+  display: grid;
+  grid-template-columns:
+    minmax(190px, 1.7fr) repeat(2, minmax(154px, 1fr))
+    auto auto;
+  align-items: end;
+  gap: 10px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid #e7e5e5;
+}
+
+.branchToolbar {
+  grid-template-columns: minmax(190px, 1.7fr) minmax(154px, 1fr) auto auto;
+}
+
+.search {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 8px;
+  padding-left: 12px;
+  border: 1px solid #ded9da;
+  border-radius: 999px;
+  background: #fafafa;
+  color: #555;
+}
+
+.search:focus-within {
+  outline: 3px solid color-mix(in srgb, #c9151c 24%, transparent);
+  outline-offset: 2px;
+}
+
+.search input {
+  min-width: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.filter {
+  display: grid;
+  min-width: 0;
+  gap: 5px;
+  color: #666;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.filter > span {
+  font-weight: 600;
+}
+
+.filter select {
+  width: 100%;
+  min-width: 0;
+}
+
+.toolbar :global(.sc-button) {
+  white-space: nowrap;
+}
+
+.mobileCreate {
+  display: none;
+}
+
+.errorState {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  color: #a81419;
+}
+
+.errorState p,
+.statusMessage,
+.formCard > p {
+  margin: 0;
+  color: #666;
+  line-height: 1.5;
+}
+
+.skeleton {
+  display: grid;
+  gap: 9px;
+}
+
+.skeleton span {
+  height: 54px;
+  border-radius: 10px;
+  background: #eee9eb;
+  animation: directory-pulse 1.3s ease-in-out infinite alternate;
+}
+
+.tableWrap {
+  min-width: 0;
+  overflow-x: auto;
+}
+
+.table {
+  width: 100%;
+  min-width: 760px;
+  border-collapse: collapse;
+  color: #414141;
+  font-size: 13px;
+  text-align: left;
+}
+
+.table th {
+  padding: 12px;
+  background: #fafafa;
+  color: #4a4a4a;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.table td {
+  padding: 13px 12px;
+  border-bottom: 1px solid #e7e5e5;
+  vertical-align: middle;
+}
+
+.profileLink,
+.inlineLink {
+  color: #9e1015;
+  font-weight: 600;
+  text-underline-offset: 3px;
+}
+
+.inlineLink {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+.profileLink {
+  white-space: nowrap;
+}
+
+.tableCount {
+  margin: 0;
+  color: #666;
+  font-size: 12px;
+  text-align: right;
+}
+
+.pagination {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+}
+
+.paginationStatus {
+  color: #555;
+  font-size: 12px;
+}
+
+.paginationButton {
+  display: inline-flex;
+  width: 36px;
+  height: 36px;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #ded9da;
+  border-radius: 8px;
+  background: white;
+  color: #424242;
+  cursor: pointer;
+}
+
+.paginationButton:disabled {
+  color: #777;
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.formCard h2 {
+  margin: 0;
+  color: #414141;
+  font-size: 18px;
+}
+
+.registrationForm {
+  display: grid;
+  gap: 18px;
+}
+
+.formField {
+  display: grid;
+  min-width: 0;
+  gap: 7px;
+  color: #414141;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.formField :global(.sc-control) {
+  width: 100%;
+  min-width: 0;
+}
+
+.formActions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 14px;
+}
+
+.formActions [role='status'] {
+  color: #666;
+  font-size: 12px;
+}
+
+.recordList {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.recordList li {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 0;
+  border-bottom: 1px solid #e7e5e5;
+}
+
+.recordList dl {
+  display: grid;
+  grid-template-columns: minmax(9rem, 1fr) minmax(0, 2fr);
+  gap: 10px;
+  margin: 0;
+}
+
+.recordList dt {
+  color: #666;
+}
+
+.recordList dd {
+  margin: 0;
+  font-weight: 500;
+  overflow-wrap: anywhere;
+}
+
+@keyframes directory-pulse {
+  to {
+    opacity: 0.48;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .skeleton span {
+    animation: none;
+  }
+}
+
+@media (max-width: 767px) {
+  .directory,
+  .formCard {
+    padding: 14px;
+  }
+  .toolbar {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: end;
+  }
+  .search {
+    grid-column: 1 / -1;
+  }
+  .toolbar > :global(.sc-button) {
+    width: 100%;
+  }
+  .mobileCreate {
+    display: inline-flex;
+    width: 100%;
+  }
+  .errorState {
+    align-items: flex-start;
+  }
+  .tableWrap {
+    overflow: visible;
+  }
+  .table {
+    min-width: 0;
+  }
+  .table thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+  }
+  .table,
+  .table tbody {
+    display: block;
+    width: 100%;
+  }
+  .table tbody {
+    display: grid;
+    gap: 10px;
+  }
+  .table tr {
+    display: grid;
+    padding: 8px 12px;
+    border: 1px solid #e7e5e5;
+    border-radius: 12px;
+  }
+  .table td {
+    display: grid;
+    grid-template-columns: minmax(6.5rem, 38%) minmax(0, 1fr);
+    align-items: center;
+    gap: 8px;
+    padding: 9px 0;
+    border: 0;
+    overflow-wrap: anywhere;
+  }
+  .table td[data-label]::before {
+    content: attr(data-label);
+    color: #666;
+    font-size: 11px;
+    font-weight: 600;
+  }
+  .tableCount {
+    text-align: center;
+  }
+  .pagination {
+    justify-content: center;
+  }
+  .recordList li {
+    align-items: flex-start;
+  }
+  .recordList dl {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 5px;
+  }
+}
