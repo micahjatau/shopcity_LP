@@ -7,6 +7,7 @@ import {
 import { ConfigService } from '@nestjs/config';
 import { resolveReleaseSha } from '../../config/release';
 import {
+  CardStatus,
   LedgerEntryType,
   OutboxEventStatus,
   SmsMessageStatus,
@@ -145,6 +146,23 @@ export class ReportsService {
     private readonly prisma: PrismaService,
     private readonly configService: ConfigService,
   ) {}
+
+  async getAdminOverviewMetrics(
+    tenantId: string,
+    context: AuthContext,
+  ): Promise<{ activeVirtualCardCount: number }> {
+    if (
+      context.user.role !== UserRole.ADMIN ||
+      context.user.tenantId !== tenantId
+    ) {
+      throw new ForbiddenException('Admin overview metrics are admin-only');
+    }
+
+    const activeVirtualCardCount = await this.prisma.card.count({
+      where: { tenantId, status: CardStatus.ACTIVE },
+    });
+    return { activeVirtualCardCount };
+  }
 
   async listExecutiveSummary(
     tenantId: string,

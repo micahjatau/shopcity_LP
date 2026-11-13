@@ -29,6 +29,8 @@
 - [x] 2.22 Add sidebar coverage confirming those five routes are no longer listed, while existing Controls links remain.
 - [x] 2.23 Register the five dedicated Control routes as Admin Operations route aliases so the shell allows them without adding sidebar entries.
 - [x] 2.24 Verify each alias resolves to the Operations nav item for Admins only, while the dedicated route files remain present; cover all five Control links and route authorization in focused tests.
+- [x] 2.25 Normalize the Operations Overview heading, signal labels, and values to an explicit type hierarchy while retaining 12px supporting text.
+- [x] 2.26 Add destination-specific icons to the existing Operations → Controls directory cards without adding duplicate sidebar links.
 - [x] 2.27 Label the Sentry DSN configuration state precisely; do not imply that a configured DSN proves event ingestion or processing.
 
 ## 3. Verification

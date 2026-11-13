@@ -1,4 +1,5 @@
 import { UserRole } from '@prisma/client';
+import { ROLES_KEY } from '../../common/auth/auth.constants';
 import type { FastifyReply } from 'fastify';
 import { ReportsController } from './reports.controller';
 import { ReportExportService } from './report-export.service';
@@ -6,6 +7,17 @@ import { ReportMaterializerService } from './report-materializer.service';
 import { ReportsService } from './reports.service';
 
 describe('ReportsController', () => {
+  it('restricts the Admin Overview metrics endpoint to Admin', () => {
+    const descriptor = Object.getOwnPropertyDescriptor(
+      ReportsController.prototype,
+      'getAdminOverviewMetrics',
+    );
+    expect(descriptor).toBeDefined();
+    expect(Reflect.getMetadata(ROLES_KEY, descriptor?.value as object)).toEqual(
+      [UserRole.ADMIN],
+    );
+  });
+
   it('passes validated cashier page and limit to the report service', async () => {
     const { service, listCashierToday } = reportsServiceStub();
     const controller = new ReportsController(
@@ -67,6 +79,21 @@ describe('ReportsController', () => {
       'executive-summary',
       expect.objectContaining({ format: 'csv' }),
     );
+  });
+
+  it('delegates Admin Overview metric reads using the session tenant', async () => {
+    const { service, getAdminOverviewMetrics } = reportsServiceStub();
+    const controller = new ReportsController(
+      service,
+      exportServiceStub().service,
+      reportMaterializerServiceStub().service,
+    );
+    const context = adminContext();
+
+    await expect(controller.getAdminOverviewMetrics(context)).resolves.toEqual({
+      activeVirtualCardCount: 4,
+    });
+    expect(getAdminOverviewMetrics).toHaveBeenCalledWith('tenant-1', context);
   });
 
   it('delegates pilot operations summary reads', async () => {
@@ -224,6 +251,7 @@ function reportsServiceStub(): {
   getPilotOperationsSummary: jest.Mock;
   getPilotOperationsHistory: jest.Mock;
   listCashierToday: jest.Mock;
+  getAdminOverviewMetrics: jest.Mock;
 } {
   const listCashierToday = jest.fn().mockResolvedValue({
     branchId: 'branch-1',
@@ -244,6 +272,9 @@ function reportsServiceStub(): {
     reports: { staleCount: 0 },
     reconciliation: { healthy: true, mismatchCount: 0 },
   });
+  const getAdminOverviewMetrics = jest
+    .fn()
+    .mockResolvedValue({ activeVirtualCardCount: 4 });
   const getPilotOperationsHistory = jest.fn().mockResolvedValue({
     window: '30d',
     generatedAt: '2026-08-13T00:00:00.000Z',
@@ -252,6 +283,7 @@ function reportsServiceStub(): {
 
   return {
     service: {
+      getAdminOverviewMetrics,
       listExecutiveSummary: jest.fn().mockResolvedValue({
         scope: 'TENANT',
         scopeKey: 'tenant-1',
@@ -269,6 +301,7 @@ function reportsServiceStub(): {
     getPilotOperationsSummary,
     getPilotOperationsHistory,
     listCashierToday,
+    getAdminOverviewMetrics,
   };
 }
 

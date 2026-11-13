@@ -254,6 +254,28 @@ export class ReportsController {
     private readonly reportMaterializerService: ReportMaterializerService,
   ) {}
 
+  @Get('admin-overview-metrics')
+  @Version('1')
+  @Roles(UserRole.ADMIN)
+  @apiSuccessEnvelopeResponse({
+    description:
+      'Current Admin Overview counts scoped to the authenticated tenant',
+    dataSchema: {
+      type: 'object',
+      required: ['activeVirtualCardCount'],
+      properties: {
+        activeVirtualCardCount: { type: 'integer', minimum: 0 },
+      },
+    },
+  })
+  @ApiOperation({ summary: 'Get current tenant active virtual-card count' })
+  getAdminOverviewMetrics(@CurrentSession() context: AuthContext) {
+    return this.reportsService.getAdminOverviewMetrics(
+      context.user.tenantId,
+      context,
+    );
+  }
+
   @Get('executive-summary')
   @Version('1')
   @Roles(UserRole.SUPERVISOR, UserRole.ADMIN)

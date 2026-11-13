@@ -13,16 +13,19 @@ import { recentReportPeriod } from '../reports/supervisor-report-metrics';
 import {
   getAdminOverviewActivity,
   getAdminOverviewMaterialization,
+  getAdminOverviewMetrics,
   getAdminOverviewPendingApprovals,
   getAdminOverviewReports,
   OverviewApiError,
   type AdminOverviewAuditEvent,
   type AdminOverviewMaterialization,
+  type AdminOverviewMetrics,
   type AdminOverviewPendingApprovals,
   type AdminOverviewReportData,
 } from './api';
 
-type SectionId = 'reports' | 'materialization' | 'approvals' | 'activity';
+type SectionId =
+  'reports' | 'materialization' | 'approvals' | 'activity' | 'activeCards';
 type SectionState<T> = {
   status: 'loading' | 'ready' | 'empty' | 'error';
   data: T | null;
@@ -30,6 +33,7 @@ type SectionState<T> = {
 };
 type SectionData = {
   reports: AdminOverviewReportData;
+  activeCards: AdminOverviewMetrics;
   materialization: AdminOverviewMaterialization;
   approvals: AdminOverviewPendingApprovals;
   activity: { items: AdminOverviewAuditEvent[] };
@@ -55,6 +59,8 @@ export function useAdminOverviewData() {
   const period = useMemo(() => recentReportPeriod(7), []);
   const [reports, setReports] =
     useState<SectionState<AdminOverviewReportData>>(initialState);
+  const [activeCards, setActiveCards] =
+    useState<SectionState<AdminOverviewMetrics>>(initialState);
   const [materialization, setMaterialization] =
     useState<SectionState<AdminOverviewMaterialization>>(initialState);
   const [approvals, setApprovals] =
@@ -69,6 +75,7 @@ export function useAdminOverviewData() {
     materialization: null,
     approvals: null,
     activity: null,
+    activeCards: null,
   });
 
   const loadSection = useCallback(
@@ -89,6 +96,7 @@ export function useAdminOverviewData() {
         materialization: setMaterialization,
         approvals: setApprovals,
         activity: setActivity,
+        activeCards: setActiveCards,
       }[id] as Dispatch<SetStateAction<SectionState<T>>>;
 
       setState((current) => ({ ...current, status: 'loading', error: null }));
@@ -123,6 +131,10 @@ export function useAdminOverviewData() {
     [],
   );
 
+  const loadActiveCards = useCallback(
+    () => loadSection('activeCards', getAdminOverviewMetrics, () => false),
+    [loadSection],
+  );
   const loadReports = useCallback(
     () =>
       loadSection(
@@ -166,11 +178,18 @@ export function useAdminOverviewData() {
   const refreshAll = useCallback(() => {
     return Promise.all([
       loadReports(),
+      loadActiveCards(),
       loadMaterialization(),
       loadApprovals(),
       loadActivity(),
     ]);
-  }, [loadActivity, loadApprovals, loadMaterialization, loadReports]);
+  }, [
+    loadActiveCards,
+    loadActivity,
+    loadApprovals,
+    loadMaterialization,
+    loadReports,
+  ]);
 
   useEffect(() => {
     mounted.current = true;
@@ -180,9 +199,13 @@ export function useAdminOverviewData() {
     };
   }, [refreshAll]);
 
-  const cooldownActive = [reports, materialization, approvals, activity].some(
-    (section) => (section.error?.retryAt ?? 0) > now,
-  );
+  const cooldownActive = [
+    reports,
+    activeCards,
+    materialization,
+    approvals,
+    activity,
+  ].some((section) => (section.error?.retryAt ?? 0) > now);
 
   useEffect(() => {
     if (!cooldownActive) return;
@@ -193,12 +216,14 @@ export function useAdminOverviewData() {
   return {
     period,
     reports,
+    activeCards,
     materialization,
     approvals,
     activity,
     now,
     cooldownActive,
     loadReports,
+    loadActiveCards,
     loadMaterialization,
     loadApprovals,
     loadActivity,

@@ -457,7 +457,11 @@ export function PilotHealthPanel({
             ) : null}
           </div>
         )}
-        <h2 style={{ margin: 0 }}>
+        <h2
+          style={
+            adminOverviewCopy ? adminOverviewPanelHeadingStyle : { margin: 0 }
+          }
+        >
           {adminOverviewCopy ? 'System health' : 'Pilot health'}
         </h2>
         <p
@@ -571,15 +575,27 @@ export function PilotHealthPanel({
               }
             >
               <p
-                style={{
-                  margin: 0,
-                  color: 'var(--sc-color-semantic-textSecondary)',
-                }}
+                style={
+                  cardStyleVariant === 'adminOverview'
+                    ? adminOverviewSignalLabelStyle
+                    : {
+                        margin: 0,
+                        color: 'var(--sc-color-semantic-textSecondary)',
+                      }
+                }
               >
                 {item.label}
               </p>
               <div style={metricRow}>
-                <strong>{String(item.value)}</strong>
+                <strong
+                  style={
+                    cardStyleVariant === 'adminOverview'
+                      ? adminOverviewSignalValueStyle
+                      : undefined
+                  }
+                >
+                  {String(item.value)}
+                </strong>
                 {cardStyleVariant === 'adminOverview' ? null : (
                   <StatusBadge
                     label={
@@ -648,6 +664,30 @@ const adminOverviewAttentionWarningStyle: CSSProperties = {
   borderColor: '#f0cccc',
   borderLeftColor: '#a62424',
   background: '#fff8f8',
+};
+
+const adminOverviewPanelHeadingStyle: CSSProperties = {
+  margin: 0,
+  color: '#414141',
+  fontSize: '16px',
+  fontWeight: 700,
+  lineHeight: 1.35,
+};
+
+const adminOverviewSignalLabelStyle: CSSProperties = {
+  margin: 0,
+  color: '#676767',
+  fontSize: '12px',
+  fontWeight: 600,
+  lineHeight: 1.45,
+};
+
+const adminOverviewSignalValueStyle: CSSProperties = {
+  color: '#414141',
+  fontSize: '20px',
+  fontWeight: 700,
+  lineHeight: 1.2,
+  fontVariantNumeric: 'tabular-nums',
 };
 
 const adminOverviewAttentionHeadingStyle: CSSProperties = {

@@ -1,6 +1,7 @@
 import {
   approvalsControllerListApprovalsV1,
   auditControllerListV1,
+  reportsControllerGetAdminOverviewMetricsV1,
   reportsControllerListExecutiveSummaryV1,
   reportsControllerListMaterializationStateV1,
 } from '../api/generated-client';
@@ -26,6 +27,11 @@ type ApiResponse = {
 type SuccessEnvelope = {
   success: true;
   data: Record<string, unknown> | unknown[];
+  meta: ApiMeta;
+};
+
+export type AdminOverviewMetrics = {
+  activeVirtualCardCount: number;
   meta: ApiMeta;
 };
 
@@ -232,6 +238,28 @@ function readItems(value: unknown, endpoint: string) {
   if (!envelope.data.items.every(isRecord))
     throw invalidResponse(endpoint, value);
   return { envelope, data: envelope.data, items: envelope.data.items };
+}
+
+export function getAdminOverviewMetrics(): Promise<AdminOverviewMetrics> {
+  return execute(
+    'active virtual-card count',
+    () => reportsControllerGetAdminOverviewMetricsV1(createApiRequest()),
+    (value) => {
+      const envelope = readSuccessEnvelope(value, 'active virtual-card count');
+      if (
+        !isRecord(envelope.data) ||
+        typeof envelope.data.activeVirtualCardCount !== 'number' ||
+        !Number.isSafeInteger(envelope.data.activeVirtualCardCount) ||
+        envelope.data.activeVirtualCardCount < 0
+      ) {
+        throw invalidResponse('active virtual-card count', value);
+      }
+      return {
+        activeVirtualCardCount: envelope.data.activeVirtualCardCount,
+        meta: envelope.meta,
+      };
+    },
+  );
 }
 
 export function getAdminOverviewReports(

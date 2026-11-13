@@ -165,27 +165,6 @@
   line-height: var(--sc-line-height-profile-body);
 }
 
-.supervisor-reports-back {
-  display: inline-flex;
-  min-height: 2.5rem;
-  align-items: center;
-  justify-content: center;
-  padding-inline: 1rem;
-  border: 1px solid var(--reports-border);
-  border-radius: 9999px;
-  background: var(--reports-surface);
-  color: var(--reports-text);
-  font-size: 0.8125rem;
-  font-weight: 600;
-  text-decoration: none;
-  white-space: nowrap;
-}
-
-.supervisor-reports-back:hover {
-  border-color: var(--reports-brand);
-  color: var(--reports-brand);
-}
-
 .supervisor-reports-tabs {
   display: flex;
   width: max-content;
@@ -408,8 +387,7 @@
   min-width: 9.5rem;
 }
 
-.supervisor-reports-page
-  :is(.sc-control, .sc-button, .supervisor-reports-back) {
+.supervisor-reports-page :is(.sc-control, .sc-button) {
   min-height: 2.5rem;
   border-radius: 9999px;
 }

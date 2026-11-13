@@ -1,5 +1,6 @@
 import {
   approvalsControllerListApprovalsV1,
+  reportsControllerGetAdminOverviewMetricsV1,
   auditControllerListV1,
   reportsControllerListExecutiveSummaryV1,
   reportsControllerListMaterializationStateV1,
@@ -8,6 +9,7 @@ import { refreshSessionOnce } from '../lib/api/session';
 import {
   getAdminOverviewActivity,
   getAdminOverviewMaterialization,
+  getAdminOverviewMetrics,
   getAdminOverviewPendingApprovals,
   getAdminOverviewReports,
 } from '../lib/admin-overview/api';
@@ -15,6 +17,7 @@ import { recentReportPeriod } from '../lib/reports/supervisor-report-metrics';
 
 jest.mock('../lib/api/generated-client', () => ({
   approvalsControllerListApprovalsV1: jest.fn(),
+  reportsControllerGetAdminOverviewMetricsV1: jest.fn(),
   auditControllerListV1: jest.fn(),
   reportsControllerListExecutiveSummaryV1: jest.fn(),
   reportsControllerListMaterializationStateV1: jest.fn(),
@@ -61,6 +64,13 @@ function errorEnvelope(status: number, code: string, message: string) {
 describe('Admin Overview API adapters', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    jest.mocked(reportsControllerGetAdminOverviewMetricsV1).mockResolvedValue(
+      response(200, {
+        success: true,
+        data: { activeVirtualCardCount: 3 },
+        meta,
+      }) as never,
+    );
     jest
       .mocked(reportsControllerListExecutiveSummaryV1)
       .mockResolvedValue(
@@ -100,17 +110,47 @@ describe('Admin Overview API adapters', () => {
   });
 
   it('validates each existing endpoint envelope and keeps explicit zero distinct from missing data', async () => {
-    const [reports, state, approvals, activity] = await Promise.all([
+    const [reports, state, approvals, activity, metrics] = await Promise.all([
       getAdminOverviewReports(recentReportPeriod(7)),
       getAdminOverviewMaterialization(),
       getAdminOverviewPendingApprovals(),
       getAdminOverviewActivity(),
+      getAdminOverviewMetrics(),
     ]);
 
     expect(reports.items[0].creditIssuedKobo).toBe(0);
+    expect(metrics.activeVirtualCardCount).toBe(3);
     expect(state.status).toBe('COMPLETED');
     expect(approvals.totalCount).toBe(0);
     expect(activity.items).toEqual([]);
+  });
+
+  it('accepts a valid zero card count but rejects malformed or negative values', async () => {
+    jest
+      .mocked(reportsControllerGetAdminOverviewMetricsV1)
+      .mockResolvedValueOnce(
+        response(200, {
+          success: true,
+          data: { activeVirtualCardCount: 0 },
+          meta,
+        }) as never,
+      );
+    await expect(getAdminOverviewMetrics()).resolves.toMatchObject({
+      activeVirtualCardCount: 0,
+    });
+
+    jest
+      .mocked(reportsControllerGetAdminOverviewMetricsV1)
+      .mockResolvedValueOnce(
+        response(200, {
+          success: true,
+          data: { activeVirtualCardCount: -1 },
+          meta,
+        }) as never,
+      );
+    await expect(getAdminOverviewMetrics()).rejects.toMatchObject({
+      code: 'INVALID_API_RESPONSE',
+    });
   });
 
   it('normalizes API errors and honors Retry-After without automatic retries', async () => {

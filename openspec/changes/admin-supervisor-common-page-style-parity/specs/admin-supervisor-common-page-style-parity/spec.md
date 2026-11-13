@@ -50,6 +50,15 @@ The Admin pages `/admin`, `/admin/transactions`, `/admin/approvals`, `/admin/fra
 - **AND** profile edits, Admin status confirmation, linked-card management, and Admin return/card destinations remain available
 - **AND** the profile continues to use the authenticated Admin data scope.
 
+#### Scenario: Manage customer card dialog is compact for Admin and Supervisor
+
+- **GIVEN** a Supervisor or Admin opens `Manage card` from a verified customer's Virtual Card tab
+- **WHEN** the shared card-management dialog is displayed
+- **THEN** the dialog uses a compact width appropriate to its focused actions
+- **AND** the close icon is positioned at the top-right of the dialog
+- **AND** the status-appropriate card action buttons appear directly beneath the dialog heading, aligned under the close control
+- **AND** current authorization, authoritative verification, and lifecycle confirmation behavior remain unchanged.
+
 #### Scenario: Admin-specific functionality remains available
 
 - **GIVEN** the Admin is on a common page with role-specific actions

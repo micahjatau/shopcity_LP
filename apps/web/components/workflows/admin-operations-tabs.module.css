@@ -115,6 +115,21 @@
   border-color: var(--sc-color-brand-300);
 }
 
+.controlIcon {
+  display: inline-grid;
+  width: 40px;
+  height: 40px;
+  place-items: center;
+  border-radius: var(--sc-radius-md);
+  background: var(--sc-color-neutral-50);
+  color: var(--sc-color-brand-700);
+}
+
+.controlIconGraphic {
+  width: 21px;
+  height: 21px;
+}
+
 .controlTitle {
   color: var(--sc-color-semantic-textPrimary);
   font-size: var(--sc-font-size-profile-body);

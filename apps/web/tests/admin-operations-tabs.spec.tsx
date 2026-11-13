@@ -133,11 +133,11 @@ describe('Admin Operations tabs', () => {
     ];
 
     for (const [href, label] of routes) {
-      expect(
-        within(controlsPanel).getByRole('link', {
-          name: new RegExp(`${label}`),
-        }),
-      ).toHaveAttribute('href', href);
+      const link = within(controlsPanel).getByRole('link', {
+        name: new RegExp(`${label}`),
+      });
+      expect(link).toHaveAttribute('href', href);
+      expect(link.querySelector('svg')).toBeInTheDocument();
     }
   });
 

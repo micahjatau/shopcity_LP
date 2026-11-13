@@ -8,7 +8,7 @@ Define the tab structure, control destinations, and Admin navigation behavior of
 
 ### Requirement: Admin Operations separates health, reports, and controls into tabs
 
-The `/admin/operations` page MUST present the tabs **Overview**, **Reports**, and **Controls**, with Overview selected on initial entry. It MUST NOT show the removed static route/health badges, the `Back to admin` link, or the `Admin operations at a glance` alert/copy. In the Operations Overview panel, it MUST omit the pilot-health header and per-signal status pills. Signal detail text and the panel subtitle MUST use 12px regular text, a 1.45 line height, and readable secondary gray. It MUST show a `Needs attention` summary from known current API counts, the server-provided `generatedAt` timestamp, and available release metadata. Missing values MUST remain unavailable, not be presented as zero. The route, API contract, Admin role authorization, and dedicated workflows MUST remain unchanged.
+The `/admin/operations` page MUST present the tabs **Overview**, **Reports**, and **Controls**, with Overview selected on initial entry. It MUST NOT show the removed static route/health badges, the `Back to admin` link, or the `Admin operations at a glance` alert/copy. In the Operations Overview panel, it MUST omit the pilot-health header and per-signal status pills. The panel heading MUST use a 16px type size; signal labels MUST use a consistent 12px type size; numeric values MUST use a clear 20px emphasis; and signal detail text and panel subtitle MUST use 12px regular text, a 1.45 line height, and readable secondary gray. It MUST show a `Needs attention` summary from known current API counts, the server-provided `generatedAt` timestamp, and available release metadata. Missing values MUST remain unavailable, not be presented as zero. The route, API contract, Admin role authorization, and dedicated workflows MUST remain unchanged.
 
 #### Scenario: Admin opens Operations
 
@@ -61,6 +61,7 @@ The `/admin/operations` page MUST present the tabs **Overview**, **Reports**, an
 
 - **WHEN** an Admin selects Controls
 - **THEN** the panel provides links to `/admin/users`, `/admin/devices`, `/admin/branches`, `/admin/audit`, and `/admin/adjustments`
+- **AND** each link displays a recognizable icon appropriate to its destination
 - **AND** each link opens its existing dedicated workflow without embedding or duplicating its mutation form on the Operations page.
 
 #### Scenario: Admin follows a Controls link

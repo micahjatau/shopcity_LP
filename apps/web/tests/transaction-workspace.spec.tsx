@@ -78,16 +78,15 @@ describe('TransactionWorkspace', () => {
   it('accepts an explicit owning-workspace destination', () => {
     render(
       <TransactionWorkspace
-        backHref="/admin"
-        backLabel="Back to admin"
+        backHref="/workspace"
+        backLabel="Back to workspace"
         relatedRoutes={[['/admin/approvals', 'Approvals']]}
       />,
     );
 
-    expect(screen.getByRole('link', { name: 'Back to admin' })).toHaveAttribute(
-      'href',
-      '/admin',
-    );
+    expect(
+      screen.getByRole('link', { name: 'Back to workspace' }),
+    ).toHaveAttribute('href', '/workspace');
     expect(screen.getByRole('link', { name: 'Approvals' })).toHaveAttribute(
       'href',
       '/admin/approvals',

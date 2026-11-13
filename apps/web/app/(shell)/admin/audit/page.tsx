@@ -94,7 +94,6 @@ export default function AdminAuditPage() {
         >
           Actor-based audit trail lookup.
         </p>
-        <Link href="/admin">Back to admin</Link>
         <div style={routeRow}>
           {routeLinks.map(([href, label]) => (
             <Link key={href} href={href}>

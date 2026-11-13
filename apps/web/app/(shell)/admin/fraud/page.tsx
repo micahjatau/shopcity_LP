@@ -1,4 +1,3 @@
-import Link from 'next/link';
 import { FraudFlagsPanel } from '../../../../components/workflows';
 import { CashierPageHeader } from '../../../../components/shopcity';
 
@@ -9,11 +8,6 @@ export default function AdminFraudPage() {
         className="cashier-route-header supervisor-page__header"
         title="Fraud"
         description="Review flagged activity and record an acknowledgment or resolution."
-        actions={
-          <Link className="admin-parity-back-link" href="/admin">
-            Back to admin
-          </Link>
-        }
       />
       <FraudFlagsPanel />
     </section>

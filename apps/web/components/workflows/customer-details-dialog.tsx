@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { X } from 'lucide-react';
 import Link from 'next/link';
 import {
   customersControllerGetCustomerProfileProjectionV1,
@@ -2162,16 +2163,15 @@ export function CustomerDetailsDialog({
         title="Manage customer card"
         onClose={() => setCardManagementOpen(false)}
       >
-        <div className="space-y-4 p-4 sm:p-6">
-          <div className="flex justify-end">
-            <Button
-              type="button"
-              variant="secondary"
-              onClick={() => setCardManagementOpen(false)}
-            >
-              Close
-            </Button>
-          </div>
+        <div className="sc-card-management-dialog">
+          <button
+            type="button"
+            className="sc-card-management-dialog__close"
+            aria-label="Close manage customer card"
+            onClick={() => setCardManagementOpen(false)}
+          >
+            <X aria-hidden="true" size={18} />
+          </button>
           <SupervisorCardManagement
             initialSerial={
               typeof projection?.card?.identifier === 'string'

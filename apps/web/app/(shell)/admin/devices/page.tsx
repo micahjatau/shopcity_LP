@@ -1,7 +1,5 @@
-'use client';
-
-import { DeviceManagement } from '../../../../components/devices/device-management';
+import { AdminDeviceDirectory } from '../../../../components/devices/admin-device-workflows';
 
 export default function AdminDevicesPage() {
-  return <DeviceManagement />;
+  return <AdminDeviceDirectory />;
 }

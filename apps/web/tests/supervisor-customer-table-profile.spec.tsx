@@ -133,106 +133,121 @@ describe('table-first customer workflow', () => {
   });
   afterEach(() => jest.restoreAllMocks());
 
-  it('opens a compact card popup with only eligible management buttons', async () => {
-    jest.mocked(customersControllerGetCustomerV1).mockResolvedValue({
-      status: 200,
-      data: {
+  it.each([{ audience: 'supervisor' }, { audience: 'admin' }] as const)(
+    'opens a compact card popup with top-right close and eligible actions for $audience',
+    async ({ audience }) => {
+      jest.mocked(customersControllerGetCustomerV1).mockResolvedValue({
+        status: 200,
         data: {
-          id: 'profile-owner-id',
-          fullName: 'Profile Owner',
-          phoneE164: '+2348000000000',
-          status: 'ACTIVE',
-        },
-      },
-    } as never);
-    jest
-      .mocked(customersControllerGetCustomerProfileProjectionV1)
-      .mockImplementation(
-        async (id) =>
-          ({
-            status: 200,
-            data: {
-              data: {
-                customerId: id,
-                sourceErrors: [],
-                memberSince: '2025-01-01T00:00:00.000Z',
-                transactionCount: 0,
-                redemptionCount: 0,
-                pendingApprovalsCount: 0,
-                lifetimeEarnedKobo: 0,
-                expirySchedule: [],
-                expiryScheduleIsUpcomingWindow: true,
-                expiryScheduleLimit: 12,
-                recentActivity: [],
-                transactions: [],
-                redemptions: [],
-                walletLedger: [],
-                approvals: [],
-                consent: null,
-                card: {
-                  identifier: 'SER-1',
-                  status: 'ACTIVE',
-                  issuedAt: '2026-01-01T00:00:00.000Z',
-                  blockedAt: null,
-                },
-              },
-            },
-          }) as never,
-      );
-    jest.mocked(cardsControllerLookupManagementCardV1).mockResolvedValue({
-      status: 200,
-      data: {
-        data: {
-          id: 'card-1',
-          serialNumber: 'SER-1',
-          status: 'ACTIVE',
-          issuedAt: '2026-01-01T00:00:00.000Z',
-          blockedAt: null,
-          replacedAt: null,
-          replacedByCardId: null,
-          customer: {
+          data: {
             id: 'profile-owner-id',
             fullName: 'Profile Owner',
+            phoneE164: '+2348000000000',
             status: 'ACTIVE',
           },
         },
-      },
-    } as never);
+      } as never);
+      jest
+        .mocked(customersControllerGetCustomerProfileProjectionV1)
+        .mockImplementation(
+          async (id) =>
+            ({
+              status: 200,
+              data: {
+                data: {
+                  customerId: id,
+                  sourceErrors: [],
+                  memberSince: '2025-01-01T00:00:00.000Z',
+                  transactionCount: 0,
+                  redemptionCount: 0,
+                  pendingApprovalsCount: 0,
+                  lifetimeEarnedKobo: 0,
+                  expirySchedule: [],
+                  expiryScheduleIsUpcomingWindow: true,
+                  expiryScheduleLimit: 12,
+                  recentActivity: [],
+                  transactions: [],
+                  redemptions: [],
+                  walletLedger: [],
+                  approvals: [],
+                  consent: null,
+                  card: {
+                    identifier: 'SER-1',
+                    status: 'ACTIVE',
+                    issuedAt: '2026-01-01T00:00:00.000Z',
+                    blockedAt: null,
+                  },
+                },
+              },
+            }) as never,
+        );
+      jest.mocked(cardsControllerLookupManagementCardV1).mockResolvedValue({
+        status: 200,
+        data: {
+          data: {
+            id: 'card-1',
+            serialNumber: 'SER-1',
+            status: 'ACTIVE',
+            issuedAt: '2026-01-01T00:00:00.000Z',
+            blockedAt: null,
+            replacedAt: null,
+            replacedByCardId: null,
+            customer: {
+              id: 'profile-owner-id',
+              fullName: 'Profile Owner',
+              status: 'ACTIVE',
+            },
+          },
+        },
+      } as never);
 
-    render(
-      <SupervisorCustomerProfile
-        customerId="profile-owner-id"
-        initialTab="virtual-card"
-      />,
-    );
-    await screen.findByRole('heading', { level: 1, name: 'Profile Owner' });
-    fireEvent.click(await screen.findByRole('button', { name: 'Manage card' }));
-    const dialog = await screen.findByRole('dialog', {
-      name: 'Manage customer card',
-    });
-    expect(
-      await within(dialog).findByRole('group', {
+      render(
+        <SupervisorCustomerProfile
+          audience={audience}
+          customerId="profile-owner-id"
+          initialTab="virtual-card"
+        />,
+      );
+      await screen.findByRole('heading', { level: 1, name: 'Profile Owner' });
+      fireEvent.click(
+        await screen.findByRole('button', { name: 'Manage card' }),
+      );
+      const dialog = await screen.findByRole('dialog', {
+        name: 'Manage customer card',
+      });
+      const actionGroup = await within(dialog).findByRole('group', {
         name: 'Card management actions',
-      }),
-    ).toBeVisible();
-    expect(
-      within(dialog).getByRole('button', { name: 'Block card' }),
-    ).toBeVisible();
-    expect(
-      within(dialog).getByRole('button', { name: 'Replace card' }),
-    ).toBeVisible();
-    expect(within(dialog).queryByLabelText('Card serial')).toBeNull();
-    expect(
-      within(dialog).queryByRole('button', { name: 'Search card' }),
-    ).toBeNull();
-    expect(within(dialog).queryByText('Card status')).toBeNull();
-    expect(cardsControllerLookupManagementCardV1).toHaveBeenCalledTimes(2);
-    expect(cardsControllerLookupManagementCardV1).toHaveBeenNthCalledWith(
-      2,
-      'SER-1',
-      expect.any(Object),
-    );
-  });
+      });
+      const closeButton = within(dialog).getByRole('button', {
+        name: 'Close manage customer card',
+      });
+      expect(closeButton).toHaveClass('sc-card-management-dialog__close');
+      expect(closeButton.querySelector('svg')).toHaveAttribute(
+        'aria-hidden',
+        'true',
+      );
+      expect(actionGroup).toHaveClass('sc-card-management-dialog__actions');
+      expect(
+        within(actionGroup)
+          .getAllByRole('button')
+          .map((button) => button.textContent?.trim()),
+      ).toEqual(['Block card', 'Replace card']);
+      expect(
+        within(dialog).queryByRole('button', { name: 'Close' }),
+      ).toBeNull();
+      expect(within(dialog).queryByLabelText('Card serial')).toBeNull();
+      expect(
+        within(dialog).queryByRole('button', { name: 'Search card' }),
+      ).toBeNull();
+      expect(within(dialog).queryByText('Card status')).toBeNull();
+      expect(cardsControllerLookupManagementCardV1).toHaveBeenCalledTimes(2);
+      expect(cardsControllerLookupManagementCardV1).toHaveBeenNthCalledWith(
+        2,
+        'SER-1',
+        expect.any(Object),
+      );
+    },
+  );
 
   it('renders the shared profile for Cashier with safe data and no Supervisor controls', async () => {
     jest.mocked(customersControllerGetCustomerV1).mockResolvedValue({
@@ -1552,7 +1567,9 @@ describe('table-first customer workflow', () => {
     ).toBeNull();
     expect(push).not.toHaveBeenCalled();
     fireEvent.click(
-      within(cardManagementDialog).getByRole('button', { name: 'Close' }),
+      within(cardManagementDialog).getByRole('button', {
+        name: 'Close manage customer card',
+      }),
     );
     expect(
       screen.getByRole('button', { name: 'Virtual Card' }),

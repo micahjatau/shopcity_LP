@@ -51,6 +51,8 @@ async function mockAdminApis(page: Page) {
           offlineRedemptionDisabled: false,
         },
       };
+    } else if (path === '/api/v1/reports/admin-overview-metrics') {
+      data = { activeVirtualCardCount: 36 };
     } else if (path === '/api/v1/reports/executive-summary') {
       const from = url.searchParams.get('from') ?? '2026-10-20';
       const to = url.searchParams.get('to') ?? '2026-10-26';
@@ -152,6 +154,9 @@ test('Admin Overview matches the six-card/chart layout at desktop and 320px', as
     'border-top-right-radius',
     '16px',
   );
+  await expect
+    .poll(() => requests.get('/api/v1/reports/admin-overview-metrics'))
+    .toBe(1);
   await expect
     .poll(() => requests.get('/api/v1/reports/executive-summary'))
     .toBe(1);

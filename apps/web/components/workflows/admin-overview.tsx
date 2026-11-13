@@ -19,7 +19,6 @@ import {
 import { useAdminOverviewData } from '../../lib/admin-overview/use-admin-overview-data';
 import styles from './admin-overview.module.css';
 
-const ACTIVE_VIRTUAL_CARD_COUNT_AVAILABLE = false;
 const DISPLAYED_ACTIVITY_COUNT = 5;
 const CHART_WIDTH = 560;
 const CHART_HEIGHT = 160;
@@ -717,6 +716,7 @@ export function AdminOverview() {
     data.approvals.status === 'loading' && !data.approvals.data;
   const hasLoading = [
     data.reports,
+    data.activeCards,
     data.materialization,
     data.approvals,
     data.activity,
@@ -744,9 +744,15 @@ export function AdminOverview() {
     },
     {
       label: 'Active virtual cards',
-      value: ACTIVE_VIRTUAL_CARD_COUNT_AVAILABLE ? '—' : null,
-      detail: 'No tenant-wide active-card count source',
-      unavailable: !ACTIVE_VIRTUAL_CARD_COUNT_AVAILABLE,
+      value: data.activeCards.data
+        ? formatReportCount(data.activeCards.data.activeVirtualCardCount)
+        : null,
+      detail: data.activeCards.error
+        ? 'Active-card count could not be loaded'
+        : 'Current tenant total',
+      loading: data.activeCards.status === 'loading' && !data.activeCards.data,
+      error: data.activeCards.error,
+      retry: data.loadActiveCards,
     },
     {
       label: 'Credit issued',
@@ -845,7 +851,9 @@ export function AdminOverview() {
               </p>
             )}
             <span>{metric.detail}</span>
-            {metric.error && metric.label === 'Pending approvals' ? (
+            {metric.error &&
+            (metric.label === 'Pending approvals' ||
+              metric.label === 'Active virtual cards') ? (
               <ErrorState
                 error={metric.error}
                 now={data.now}

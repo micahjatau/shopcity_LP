@@ -1,4 +1,4 @@
-import { TransactionWorkspace } from '../../../../components/workflows/transaction-workspace';
+import { AdminTransactionsDashboard } from '../../../../components/workflows/supervisor-transactions-dashboard';
 
 const relatedRoutes = [
   ['/admin/approvals', 'Approvals'],
@@ -7,12 +7,5 @@ const relatedRoutes = [
 ] as const;
 
 export default function AdminTransactionsPage() {
-  return (
-    <TransactionWorkspace
-      backHref="/admin"
-      backLabel="Back to admin"
-      presentation="supervisor"
-      relatedRoutes={relatedRoutes}
-    />
-  );
+  return <AdminTransactionsDashboard relatedRoutes={relatedRoutes} />;
 }

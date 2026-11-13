@@ -19,6 +19,8 @@ export type ShellNavigationIconName =
   | 'sliders'
   | 'user-settings'
   | 'operations'
+  | 'activity'
+  | 'receipt'
   | 'chevron-left'
   | 'chevron-right';
 
@@ -174,8 +176,8 @@ export function ShellNavigationIcon({
             {...common}
             d="M12 3.5 19 6v5.5c0 4.7-3.2 8.6-7 9.5-3.8-.9-7-4.8-7-9.5V6l7-2.5Z"
           />
-          <path {...common} d="M9.5 9.5 14.5 14.5" />
-          <path {...common} d="M14.5 9.5 9.5 14.5" />
+          <path {...common} d="M12 8v4.5" />
+          <circle {...common} cx="12" cy="16" r="0.6" />
         </svg>
       );
     case 'chart':
@@ -303,6 +305,32 @@ export function ShellNavigationIcon({
           <path {...common} d="M4.5 6h1" />
           <path {...common} d="M4.5 12h1" />
           <path {...common} d="M4.5 18h1" />
+        </svg>
+      );
+    case 'activity':
+      return (
+        <svg
+          viewBox="0 0 24 24"
+          aria-hidden="true"
+          focusable="false"
+          {...svgProps}
+        >
+          <path {...common} d="M3.5 12h4l2.2-5.5 4.1 11 2.2-5.5h4.5" />
+        </svg>
+      );
+    case 'receipt':
+      return (
+        <svg
+          viewBox="0 0 24 24"
+          aria-hidden="true"
+          focusable="false"
+          {...svgProps}
+        >
+          <path
+            {...common}
+            d="M6 3.5 8 5l2-1.5L12 5l2-1.5L16 5l2-1.5v17l-2-1.5-2 1.5-2-1.5-2 1.5-2-1.5-2 1.5v-17Z"
+          />
+          <path {...common} d="M9 9h6M9 13h6M9 17h3" />
         </svg>
       );
     case 'chevron-left':

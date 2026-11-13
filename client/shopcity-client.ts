@@ -13611,6 +13611,303 @@ export type LoyaltyControllerGetCustomerLedgerV1503 = {
   meta: LoyaltyControllerGetCustomerLedgerV1503Meta;
 };
 
+export type AdminTransactionsControllerSearchTransactionsV1Params = {
+  receiptNumber?: string;
+  limit?: number;
+  cursor?: string;
+  status?: AdminTransactionsControllerSearchTransactionsV1Status;
+  branchId?: string;
+  staffId?: string;
+  /**
+   * Minimum receipt purchase amount in integer kobo
+   * @pattern ^[0-9]{1,19}$
+   */
+  minReceiptAmountKobo?: string;
+};
+
+export type AdminTransactionsControllerSearchTransactionsV1Status =
+  (typeof AdminTransactionsControllerSearchTransactionsV1Status)[keyof typeof AdminTransactionsControllerSearchTransactionsV1Status];
+
+export const AdminTransactionsControllerSearchTransactionsV1Status = {
+  CONFIRMED: 'CONFIRMED',
+  REVERSED: 'REVERSED',
+} as const;
+
+export type AdminTransactionsControllerSearchTransactionsV1200DataItemsItemOperation =
+  (typeof AdminTransactionsControllerSearchTransactionsV1200DataItemsItemOperation)[keyof typeof AdminTransactionsControllerSearchTransactionsV1200DataItemsItemOperation];
+
+export const AdminTransactionsControllerSearchTransactionsV1200DataItemsItemOperation =
+  {
+    EARN: 'EARN',
+    REDEEM: 'REDEEM',
+  } as const;
+
+export type AdminTransactionsControllerSearchTransactionsV1200DataItemsItemStatus =
+  (typeof AdminTransactionsControllerSearchTransactionsV1200DataItemsItemStatus)[keyof typeof AdminTransactionsControllerSearchTransactionsV1200DataItemsItemStatus];
+
+export const AdminTransactionsControllerSearchTransactionsV1200DataItemsItemStatus =
+  {
+    CONFIRMED: 'CONFIRMED',
+    REVERSED: 'REVERSED',
+  } as const;
+
+export type AdminTransactionsControllerSearchTransactionsV1200DataItemsItem = {
+  transactionId: string;
+  receiptNumber: string;
+  operation: AdminTransactionsControllerSearchTransactionsV1200DataItemsItemOperation;
+  amountKobo: number;
+  /** @nullable */
+  creditKobo: number | null;
+  /** @nullable */
+  customerName: string | null;
+  /** @nullable */
+  purchaseAmountKobo: number | null;
+  status: AdminTransactionsControllerSearchTransactionsV1200DataItemsItemStatus;
+  occurredAt: string;
+};
+
+export type AdminTransactionsControllerSearchTransactionsV1200DataStaffOptionsItem =
+  {
+    id: string;
+    label: string;
+  };
+
+export type AdminTransactionsControllerSearchTransactionsV1200Data = {
+  items: AdminTransactionsControllerSearchTransactionsV1200DataItemsItem[];
+  staffOptions: AdminTransactionsControllerSearchTransactionsV1200DataStaffOptionsItem[];
+  /** @nullable */
+  nextCursor: string | null;
+  hasMore: boolean;
+};
+
+export type AdminTransactionsControllerSearchTransactionsV1200Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type AdminTransactionsControllerSearchTransactionsV1200 = {
+  success: boolean;
+  data: AdminTransactionsControllerSearchTransactionsV1200Data;
+  meta: AdminTransactionsControllerSearchTransactionsV1200Meta;
+};
+
+/**
+ * @nullable
+ */
+export type AdminTransactionsControllerSearchTransactionsV1400ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type AdminTransactionsControllerSearchTransactionsV1400Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: AdminTransactionsControllerSearchTransactionsV1400ErrorDetails;
+};
+
+export type AdminTransactionsControllerSearchTransactionsV1400Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type AdminTransactionsControllerSearchTransactionsV1400 = {
+  success: boolean;
+  error: AdminTransactionsControllerSearchTransactionsV1400Error;
+  meta: AdminTransactionsControllerSearchTransactionsV1400Meta;
+};
+
+/**
+ * @nullable
+ */
+export type AdminTransactionsControllerSearchTransactionsV1401ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type AdminTransactionsControllerSearchTransactionsV1401Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: AdminTransactionsControllerSearchTransactionsV1401ErrorDetails;
+};
+
+export type AdminTransactionsControllerSearchTransactionsV1401Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type AdminTransactionsControllerSearchTransactionsV1401 = {
+  success: boolean;
+  error: AdminTransactionsControllerSearchTransactionsV1401Error;
+  meta: AdminTransactionsControllerSearchTransactionsV1401Meta;
+};
+
+/**
+ * @nullable
+ */
+export type AdminTransactionsControllerSearchTransactionsV1403ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type AdminTransactionsControllerSearchTransactionsV1403Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: AdminTransactionsControllerSearchTransactionsV1403ErrorDetails;
+};
+
+export type AdminTransactionsControllerSearchTransactionsV1403Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type AdminTransactionsControllerSearchTransactionsV1403 = {
+  success: boolean;
+  error: AdminTransactionsControllerSearchTransactionsV1403Error;
+  meta: AdminTransactionsControllerSearchTransactionsV1403Meta;
+};
+
+/**
+ * @nullable
+ */
+export type AdminTransactionsControllerSearchTransactionsV1404ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type AdminTransactionsControllerSearchTransactionsV1404Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: AdminTransactionsControllerSearchTransactionsV1404ErrorDetails;
+};
+
+export type AdminTransactionsControllerSearchTransactionsV1404Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type AdminTransactionsControllerSearchTransactionsV1404 = {
+  success: boolean;
+  error: AdminTransactionsControllerSearchTransactionsV1404Error;
+  meta: AdminTransactionsControllerSearchTransactionsV1404Meta;
+};
+
+/**
+ * @nullable
+ */
+export type AdminTransactionsControllerSearchTransactionsV1409ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type AdminTransactionsControllerSearchTransactionsV1409Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: AdminTransactionsControllerSearchTransactionsV1409ErrorDetails;
+};
+
+export type AdminTransactionsControllerSearchTransactionsV1409Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type AdminTransactionsControllerSearchTransactionsV1409 = {
+  success: boolean;
+  error: AdminTransactionsControllerSearchTransactionsV1409Error;
+  meta: AdminTransactionsControllerSearchTransactionsV1409Meta;
+};
+
+/**
+ * @nullable
+ */
+export type AdminTransactionsControllerSearchTransactionsV1422ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type AdminTransactionsControllerSearchTransactionsV1422Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: AdminTransactionsControllerSearchTransactionsV1422ErrorDetails;
+};
+
+export type AdminTransactionsControllerSearchTransactionsV1422Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type AdminTransactionsControllerSearchTransactionsV1422 = {
+  success: boolean;
+  error: AdminTransactionsControllerSearchTransactionsV1422Error;
+  meta: AdminTransactionsControllerSearchTransactionsV1422Meta;
+};
+
+/**
+ * @nullable
+ */
+export type AdminTransactionsControllerSearchTransactionsV1429ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type AdminTransactionsControllerSearchTransactionsV1429Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: AdminTransactionsControllerSearchTransactionsV1429ErrorDetails;
+};
+
+export type AdminTransactionsControllerSearchTransactionsV1429Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type AdminTransactionsControllerSearchTransactionsV1429 = {
+  success: boolean;
+  error: AdminTransactionsControllerSearchTransactionsV1429Error;
+  meta: AdminTransactionsControllerSearchTransactionsV1429Meta;
+};
+
+/**
+ * @nullable
+ */
+export type AdminTransactionsControllerSearchTransactionsV1503ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type AdminTransactionsControllerSearchTransactionsV1503Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: AdminTransactionsControllerSearchTransactionsV1503ErrorDetails;
+};
+
+export type AdminTransactionsControllerSearchTransactionsV1503Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type AdminTransactionsControllerSearchTransactionsV1503 = {
+  success: boolean;
+  error: AdminTransactionsControllerSearchTransactionsV1503Error;
+  meta: AdminTransactionsControllerSearchTransactionsV1503Meta;
+};
+
 export type RedemptionsControllerRedeemV1201DataState =
   (typeof RedemptionsControllerRedeemV1201DataState)[keyof typeof RedemptionsControllerRedeemV1201DataState];
 
@@ -15475,6 +15772,239 @@ export type FraudControllerDecideFraudFlagV1503 = {
   success: boolean;
   error: FraudControllerDecideFraudFlagV1503Error;
   meta: FraudControllerDecideFraudFlagV1503Meta;
+};
+
+export type ReportsControllerGetAdminOverviewMetricsV1200Data = {
+  /** @minimum 0 */
+  activeVirtualCardCount: number;
+};
+
+export type ReportsControllerGetAdminOverviewMetricsV1200Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type ReportsControllerGetAdminOverviewMetricsV1200 = {
+  success: boolean;
+  data: ReportsControllerGetAdminOverviewMetricsV1200Data;
+  meta: ReportsControllerGetAdminOverviewMetricsV1200Meta;
+};
+
+/**
+ * @nullable
+ */
+export type ReportsControllerGetAdminOverviewMetricsV1400ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type ReportsControllerGetAdminOverviewMetricsV1400Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: ReportsControllerGetAdminOverviewMetricsV1400ErrorDetails;
+};
+
+export type ReportsControllerGetAdminOverviewMetricsV1400Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type ReportsControllerGetAdminOverviewMetricsV1400 = {
+  success: boolean;
+  error: ReportsControllerGetAdminOverviewMetricsV1400Error;
+  meta: ReportsControllerGetAdminOverviewMetricsV1400Meta;
+};
+
+/**
+ * @nullable
+ */
+export type ReportsControllerGetAdminOverviewMetricsV1401ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type ReportsControllerGetAdminOverviewMetricsV1401Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: ReportsControllerGetAdminOverviewMetricsV1401ErrorDetails;
+};
+
+export type ReportsControllerGetAdminOverviewMetricsV1401Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type ReportsControllerGetAdminOverviewMetricsV1401 = {
+  success: boolean;
+  error: ReportsControllerGetAdminOverviewMetricsV1401Error;
+  meta: ReportsControllerGetAdminOverviewMetricsV1401Meta;
+};
+
+/**
+ * @nullable
+ */
+export type ReportsControllerGetAdminOverviewMetricsV1403ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type ReportsControllerGetAdminOverviewMetricsV1403Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: ReportsControllerGetAdminOverviewMetricsV1403ErrorDetails;
+};
+
+export type ReportsControllerGetAdminOverviewMetricsV1403Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type ReportsControllerGetAdminOverviewMetricsV1403 = {
+  success: boolean;
+  error: ReportsControllerGetAdminOverviewMetricsV1403Error;
+  meta: ReportsControllerGetAdminOverviewMetricsV1403Meta;
+};
+
+/**
+ * @nullable
+ */
+export type ReportsControllerGetAdminOverviewMetricsV1404ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type ReportsControllerGetAdminOverviewMetricsV1404Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: ReportsControllerGetAdminOverviewMetricsV1404ErrorDetails;
+};
+
+export type ReportsControllerGetAdminOverviewMetricsV1404Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type ReportsControllerGetAdminOverviewMetricsV1404 = {
+  success: boolean;
+  error: ReportsControllerGetAdminOverviewMetricsV1404Error;
+  meta: ReportsControllerGetAdminOverviewMetricsV1404Meta;
+};
+
+/**
+ * @nullable
+ */
+export type ReportsControllerGetAdminOverviewMetricsV1409ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type ReportsControllerGetAdminOverviewMetricsV1409Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: ReportsControllerGetAdminOverviewMetricsV1409ErrorDetails;
+};
+
+export type ReportsControllerGetAdminOverviewMetricsV1409Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type ReportsControllerGetAdminOverviewMetricsV1409 = {
+  success: boolean;
+  error: ReportsControllerGetAdminOverviewMetricsV1409Error;
+  meta: ReportsControllerGetAdminOverviewMetricsV1409Meta;
+};
+
+/**
+ * @nullable
+ */
+export type ReportsControllerGetAdminOverviewMetricsV1422ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type ReportsControllerGetAdminOverviewMetricsV1422Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: ReportsControllerGetAdminOverviewMetricsV1422ErrorDetails;
+};
+
+export type ReportsControllerGetAdminOverviewMetricsV1422Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type ReportsControllerGetAdminOverviewMetricsV1422 = {
+  success: boolean;
+  error: ReportsControllerGetAdminOverviewMetricsV1422Error;
+  meta: ReportsControllerGetAdminOverviewMetricsV1422Meta;
+};
+
+/**
+ * @nullable
+ */
+export type ReportsControllerGetAdminOverviewMetricsV1429ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type ReportsControllerGetAdminOverviewMetricsV1429Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: ReportsControllerGetAdminOverviewMetricsV1429ErrorDetails;
+};
+
+export type ReportsControllerGetAdminOverviewMetricsV1429Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type ReportsControllerGetAdminOverviewMetricsV1429 = {
+  success: boolean;
+  error: ReportsControllerGetAdminOverviewMetricsV1429Error;
+  meta: ReportsControllerGetAdminOverviewMetricsV1429Meta;
+};
+
+/**
+ * @nullable
+ */
+export type ReportsControllerGetAdminOverviewMetricsV1503ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type ReportsControllerGetAdminOverviewMetricsV1503Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: ReportsControllerGetAdminOverviewMetricsV1503ErrorDetails;
+};
+
+export type ReportsControllerGetAdminOverviewMetricsV1503Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type ReportsControllerGetAdminOverviewMetricsV1503 = {
+  success: boolean;
+  error: ReportsControllerGetAdminOverviewMetricsV1503Error;
+  meta: ReportsControllerGetAdminOverviewMetricsV1503Meta;
 };
 
 export type ReportsControllerListExecutiveSummaryV1Params = {
@@ -25899,6 +26429,117 @@ export const loyaltyControllerGetCustomerLedgerV1 = async (
   } as loyaltyControllerGetCustomerLedgerV1Response;
 };
 
+export type adminTransactionsControllerSearchTransactionsV1Response200 = {
+  data: AdminTransactionsControllerSearchTransactionsV1200;
+  status: 200;
+};
+
+export type adminTransactionsControllerSearchTransactionsV1Response400 = {
+  data: AdminTransactionsControllerSearchTransactionsV1400;
+  status: 400;
+};
+
+export type adminTransactionsControllerSearchTransactionsV1Response401 = {
+  data: AdminTransactionsControllerSearchTransactionsV1401;
+  status: 401;
+};
+
+export type adminTransactionsControllerSearchTransactionsV1Response403 = {
+  data: AdminTransactionsControllerSearchTransactionsV1403;
+  status: 403;
+};
+
+export type adminTransactionsControllerSearchTransactionsV1Response404 = {
+  data: AdminTransactionsControllerSearchTransactionsV1404;
+  status: 404;
+};
+
+export type adminTransactionsControllerSearchTransactionsV1Response409 = {
+  data: AdminTransactionsControllerSearchTransactionsV1409;
+  status: 409;
+};
+
+export type adminTransactionsControllerSearchTransactionsV1Response422 = {
+  data: AdminTransactionsControllerSearchTransactionsV1422;
+  status: 422;
+};
+
+export type adminTransactionsControllerSearchTransactionsV1Response429 = {
+  data: AdminTransactionsControllerSearchTransactionsV1429;
+  status: 429;
+};
+
+export type adminTransactionsControllerSearchTransactionsV1Response503 = {
+  data: AdminTransactionsControllerSearchTransactionsV1503;
+  status: 503;
+};
+
+export type adminTransactionsControllerSearchTransactionsV1ResponseSuccess =
+  adminTransactionsControllerSearchTransactionsV1Response200 & {
+    headers: Headers;
+  };
+export type adminTransactionsControllerSearchTransactionsV1ResponseError = (
+  | adminTransactionsControllerSearchTransactionsV1Response400
+  | adminTransactionsControllerSearchTransactionsV1Response401
+  | adminTransactionsControllerSearchTransactionsV1Response403
+  | adminTransactionsControllerSearchTransactionsV1Response404
+  | adminTransactionsControllerSearchTransactionsV1Response409
+  | adminTransactionsControllerSearchTransactionsV1Response422
+  | adminTransactionsControllerSearchTransactionsV1Response429
+  | adminTransactionsControllerSearchTransactionsV1Response503
+) & {
+  headers: Headers;
+};
+
+export type adminTransactionsControllerSearchTransactionsV1Response =
+  | adminTransactionsControllerSearchTransactionsV1ResponseSuccess
+  | adminTransactionsControllerSearchTransactionsV1ResponseError;
+
+export const getAdminTransactionsControllerSearchTransactionsV1Url = (
+  params?: AdminTransactionsControllerSearchTransactionsV1Params,
+) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value));
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/v1/admin/transactions?${stringifiedParams}`
+    : `/api/v1/admin/transactions`;
+};
+
+/**
+ * List and filter tenant transactions for Admin
+ * @summary List and filter tenant transactions for Admin
+ */
+export const adminTransactionsControllerSearchTransactionsV1 = async (
+  params?: AdminTransactionsControllerSearchTransactionsV1Params,
+  options?: RequestInit,
+): Promise<adminTransactionsControllerSearchTransactionsV1Response> => {
+  const res = await fetch(
+    getAdminTransactionsControllerSearchTransactionsV1Url(params),
+    {
+      ...options,
+      method: 'GET',
+    },
+  );
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: adminTransactionsControllerSearchTransactionsV1Response['data'] =
+    body ? JSON.parse(body) : {};
+  return {
+    data,
+    status: res.status,
+    headers: res.headers,
+  } as adminTransactionsControllerSearchTransactionsV1Response;
+};
+
 export type redemptionsControllerRedeemV1Response201 = {
   data: RedemptionsControllerRedeemV1201;
   status: 201;
@@ -26666,6 +27307,100 @@ export const fraudControllerDecideFraudFlagV1 = async (
     status: res.status,
     headers: res.headers,
   } as fraudControllerDecideFraudFlagV1Response;
+};
+
+export type reportsControllerGetAdminOverviewMetricsV1Response200 = {
+  data: ReportsControllerGetAdminOverviewMetricsV1200;
+  status: 200;
+};
+
+export type reportsControllerGetAdminOverviewMetricsV1Response400 = {
+  data: ReportsControllerGetAdminOverviewMetricsV1400;
+  status: 400;
+};
+
+export type reportsControllerGetAdminOverviewMetricsV1Response401 = {
+  data: ReportsControllerGetAdminOverviewMetricsV1401;
+  status: 401;
+};
+
+export type reportsControllerGetAdminOverviewMetricsV1Response403 = {
+  data: ReportsControllerGetAdminOverviewMetricsV1403;
+  status: 403;
+};
+
+export type reportsControllerGetAdminOverviewMetricsV1Response404 = {
+  data: ReportsControllerGetAdminOverviewMetricsV1404;
+  status: 404;
+};
+
+export type reportsControllerGetAdminOverviewMetricsV1Response409 = {
+  data: ReportsControllerGetAdminOverviewMetricsV1409;
+  status: 409;
+};
+
+export type reportsControllerGetAdminOverviewMetricsV1Response422 = {
+  data: ReportsControllerGetAdminOverviewMetricsV1422;
+  status: 422;
+};
+
+export type reportsControllerGetAdminOverviewMetricsV1Response429 = {
+  data: ReportsControllerGetAdminOverviewMetricsV1429;
+  status: 429;
+};
+
+export type reportsControllerGetAdminOverviewMetricsV1Response503 = {
+  data: ReportsControllerGetAdminOverviewMetricsV1503;
+  status: 503;
+};
+
+export type reportsControllerGetAdminOverviewMetricsV1ResponseSuccess =
+  reportsControllerGetAdminOverviewMetricsV1Response200 & {
+    headers: Headers;
+  };
+export type reportsControllerGetAdminOverviewMetricsV1ResponseError = (
+  | reportsControllerGetAdminOverviewMetricsV1Response400
+  | reportsControllerGetAdminOverviewMetricsV1Response401
+  | reportsControllerGetAdminOverviewMetricsV1Response403
+  | reportsControllerGetAdminOverviewMetricsV1Response404
+  | reportsControllerGetAdminOverviewMetricsV1Response409
+  | reportsControllerGetAdminOverviewMetricsV1Response422
+  | reportsControllerGetAdminOverviewMetricsV1Response429
+  | reportsControllerGetAdminOverviewMetricsV1Response503
+) & {
+  headers: Headers;
+};
+
+export type reportsControllerGetAdminOverviewMetricsV1Response =
+  | reportsControllerGetAdminOverviewMetricsV1ResponseSuccess
+  | reportsControllerGetAdminOverviewMetricsV1ResponseError;
+
+export const getReportsControllerGetAdminOverviewMetricsV1Url = () => {
+  return `/api/v1/reports/admin-overview-metrics`;
+};
+
+/**
+ * Get current tenant active virtual-card count
+ * @summary Get current tenant active virtual-card count
+ */
+export const reportsControllerGetAdminOverviewMetricsV1 = async (
+  options?: RequestInit,
+): Promise<reportsControllerGetAdminOverviewMetricsV1Response> => {
+  const res = await fetch(getReportsControllerGetAdminOverviewMetricsV1Url(), {
+    ...options,
+    method: 'GET',
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: reportsControllerGetAdminOverviewMetricsV1Response['data'] = body
+    ? JSON.parse(body)
+    : {};
+  return {
+    data,
+    status: res.status,
+    headers: res.headers,
+  } as reportsControllerGetAdminOverviewMetricsV1Response;
 };
 
 export type reportsControllerListExecutiveSummaryV1Response200 = {

@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { SupervisorCardAssignment } from './supervisor-card-assignment';
 import { SupervisorIssuedCardDirectory } from './supervisor-issued-card-directory';
@@ -51,13 +50,6 @@ export function SupervisorCardWorkflows({
         className="cashier-route-header supervisor-page__header"
         title="Cards"
         description="Review issued cards or assign a card."
-        actions={
-          isAdmin ? (
-            <Link className="admin-parity-back-link" href="/admin">
-              Back to admin
-            </Link>
-          ) : undefined
-        }
       />
       <div inert={assignmentOpen}>
         <SupervisorIssuedCardDirectory

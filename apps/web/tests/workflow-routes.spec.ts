@@ -1647,22 +1647,87 @@ test.describe('workflow route coverage', () => {
       adminProfileEditor.getByLabel('Type UPDATE to confirm'),
     ).toBeVisible();
 
+    const adminTransactionSearchRequests: string[] = [];
+    page.on('request', (request) => {
+      const requestUrl = new URL(request.url());
+      if (requestUrl.pathname === '/api/v1/admin/transactions') {
+        adminTransactionSearchRequests.push(requestUrl.pathname);
+      }
+    });
+    await page.route('**/api/v1/branches', (route) =>
+      route.fulfill(
+        json({
+          success: true,
+          data: [{ id: 'branch-1', name: 'Main branch', status: 'ACTIVE' }],
+          meta: meta('/api/v1/branches'),
+        }),
+      ),
+    );
+    await page.route('**/api/v1/admin/transactions**', (route) =>
+      route.fulfill(
+        json({
+          success: true,
+          data: {
+            items: [],
+            staffOptions: [],
+            nextCursor: null,
+            hasMore: false,
+          },
+          meta: meta('/api/v1/admin/transactions'),
+        }),
+      ),
+    );
     await page.goto(`${baseUrl}/admin/transactions`);
     await expect(
-      page.getByRole('heading', { level: 1, name: 'Review transactions' }),
+      page.getByRole('heading', { level: 1, name: 'Transactions' }),
     ).toBeVisible();
     await expect(
-      page.getByRole('textbox', { name: 'Transaction ID' }),
+      page.getByText(
+        'Review tenant transactions and filter by receipt number.',
+      ),
     ).toBeVisible();
     await expect(
-      page.locator('article[aria-label="Reversal preview"]'),
+      page.getByRole('textbox', { name: 'Receipt number' }),
     ).toBeVisible();
+    await expect(
+      page.getByRole('textbox', { name: 'Minimum amount (₦)' }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole('button', { name: 'Branch filter, All branches' }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole('button', { name: 'Status filter, All Statuses' }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole('button', { name: 'Staff filter, All Staff' }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole('table', { name: 'Admin tenant transactions' }),
+    ).toBeVisible();
+    await expect(page.getByRole('columnheader')).toHaveCount(6);
+    await expect(
+      page.getByRole('button', { name: 'Next transactions page' }),
+    ).toBeDisabled();
+    await expect.poll(() => adminTransactionSearchRequests.length).toBe(1);
     await expect(
       page.locator('main a[href="/admin/approvals"]'),
     ).toHaveAttribute('href', '/admin/approvals');
+    await expect(page.locator('main a[href="/admin/fraud"]')).toHaveAttribute(
+      'href',
+      '/admin/fraud',
+    );
+    await expect(page.locator('main a[href="/admin/reports"]')).toHaveAttribute(
+      'href',
+      '/admin/reports',
+    );
     await expect(
-      page.locator('main .sc-page-head__actions a[href="/admin"]'),
-    ).toBeVisible();
+      page.locator('main').getByRole('link', { name: 'Back to admin' }),
+    ).toHaveCount(0);
+    await page.setViewportSize({ width: 390, height: 844 });
+    expect(
+      await page.evaluate(() => document.documentElement.scrollWidth),
+    ).toBeLessThanOrEqual(390);
+    await page.setViewportSize({ width: 1440, height: 900 });
 
     await page.goto(`${baseUrl}/admin/approvals`);
     const approvalsHeading = page.getByRole('heading', {
@@ -1682,8 +1747,8 @@ test.describe('workflow route coverage', () => {
       page.locator('.admin-approval-page .approval-queue__decision'),
     ).toBeVisible();
     await expect(
-      page.locator('main a.admin-parity-back-link[href="/admin"]'),
-    ).toBeVisible();
+      page.locator('main').getByRole('link', { name: 'Back to admin' }),
+    ).toHaveCount(0);
     await expect(
       page.locator('.admin-approval-page .approval-queue--supervisor'),
     ).toBeVisible();
@@ -1703,8 +1768,8 @@ test.describe('workflow route coverage', () => {
       '16px',
     );
     await expect(
-      page.locator('main a.admin-parity-back-link[href="/admin"]'),
-    ).toBeVisible();
+      page.locator('main').getByRole('link', { name: 'Back to admin' }),
+    ).toHaveCount(0);
 
     await page.route('**/api/v1/cards/management/issued*', (route) =>
       route.fulfill(
@@ -1739,8 +1804,8 @@ test.describe('workflow route coverage', () => {
       }),
     ).toBeVisible();
     await expect(
-      page.locator('main a.admin-parity-back-link[href="/admin"]'),
-    ).toBeVisible();
+      page.locator('main').getByRole('link', { name: 'Back to admin' }),
+    ).toHaveCount(0);
     const adminIssuedCards = page.getByRole('table', {
       name: 'Issued cards',
     });
@@ -1768,6 +1833,9 @@ test.describe('workflow route coverage', () => {
       page.getByRole('heading', { level: 1, name: 'Operational reports' }),
     ).toBeVisible();
     await expect(page.locator('.supervisor-reports-page')).toBeVisible();
+    await expect(
+      page.locator('main').getByRole('link', { name: 'Back to admin' }),
+    ).toHaveCount(0);
 
     await page.goto(`${baseUrl}/admin`);
     const adminOverviewHeading = page.getByRole('heading', {
@@ -1791,6 +1859,9 @@ test.describe('workflow route coverage', () => {
       '/admin/reports',
     ]) {
       await page.goto(`${baseUrl}${path}`);
+      await expect(
+        page.locator('main').getByRole('link', { name: 'Back to admin' }),
+      ).toHaveCount(0);
       for (const width of [1440, 768, 375]) {
         await page.setViewportSize({ width, height: 900 });
         const documentWidth = await page.evaluate(() =>
@@ -1824,6 +1895,23 @@ test.describe('workflow route coverage', () => {
       }
     }
 
+    for (const path of [
+      '/admin/operations',
+      '/admin/users',
+      '/admin/devices',
+      '/admin/branches',
+      '/admin/audit',
+      '/admin/adjustments',
+      '/admin/policies',
+      '/admin/customers/new',
+    ]) {
+      await page.goto(`${baseUrl}${path}`);
+      await expect(page.locator('.shell-loading-screen')).toBeHidden();
+      await expect(
+        page.locator('main').getByRole('link', { name: 'Back to admin' }),
+      ).toHaveCount(0);
+    }
+
     await mockShell(page, 'CASHIER');
     await page.goto(`${baseUrl}/cashier/customers`);
     await expect(
@@ -1834,6 +1922,140 @@ test.describe('workflow route coverage', () => {
         'Search, inspect, and trace customer balance, history, and card state.',
       ),
     ).toBeVisible();
+  });
+
+  test('keeps the Supervisor and Admin Manage customer card dialog compact and action-focused', async ({
+    page,
+  }) => {
+    const rolePages = [
+      { role: 'SUPERVISOR', route: 'supervisor' },
+      { role: 'ADMIN', route: 'admin' },
+    ] as const;
+
+    for (const [index, { role, route }] of rolePages.entries()) {
+      const profilePage = index === 0 ? page : await page.context().newPage();
+      await mockShell(profilePage, role);
+      await profilePage.route(
+        '**/api/v1/customers/customer-1/profile-projection',
+        (requestRoute) =>
+          requestRoute.fulfill(
+            json({
+              success: true,
+              data: {
+                customerId: 'customer-1',
+                sourceErrors: [],
+                memberSince: '2025-01-01T00:00:00.000Z',
+                transactionCount: 0,
+                redemptionCount: 0,
+                pendingApprovalsCount: 0,
+                lifetimeEarnedKobo: 0,
+                expirySchedule: [],
+                expiryScheduleIsUpcomingWindow: true,
+                expiryScheduleLimit: 12,
+                recentActivity: [],
+                transactions: [],
+                redemptions: [],
+                walletLedger: [],
+                approvals: [],
+                consent: null,
+                card: {
+                  identifier: 'CARD-001',
+                  status: 'ACTIVE',
+                  issuedAt: '2026-01-01T00:00:00.000Z',
+                  blockedAt: null,
+                },
+              },
+              meta: meta('/api/v1/customers/customer-1/profile-projection'),
+            }),
+          ),
+      );
+      await profilePage.route(
+        '**/api/v1/cards/management/lookup/CARD-001',
+        (requestRoute) =>
+          requestRoute.fulfill(
+            json({
+              success: true,
+              data: {
+                id: 'card-1',
+                serialNumber: 'CARD-001',
+                status: 'ACTIVE',
+                issuedAt: '2026-01-01T00:00:00.000Z',
+                blockedAt: null,
+                replacedAt: null,
+                replacedByCardId: null,
+                customer: {
+                  id: 'customer-1',
+                  fullName: 'Ada Shopper',
+                  status: 'ACTIVE',
+                },
+              },
+              meta: meta('/api/v1/cards/management/lookup/CARD-001'),
+            }),
+          ),
+      );
+
+      await profilePage.setViewportSize({ width: 1440, height: 900 });
+      const profileHref =
+        route === 'supervisor'
+          ? `${baseUrl}/supervisor/customers/customer-1?tab=virtual-card`
+          : `${baseUrl}/admin/customers?id=customer-1&tab=virtual-card`;
+      await profilePage.goto(profileHref);
+      await profilePage.getByRole('button', { name: 'Manage card' }).click();
+      const dialog = profilePage.getByRole('dialog', {
+        name: 'Manage customer card',
+      });
+      await expect(dialog).toBeVisible();
+      await expect(
+        dialog.getByRole('button', { name: 'Close manage customer card' }),
+      ).toBeVisible();
+      const actions = dialog.getByRole('group', {
+        name: 'Card management actions',
+      });
+      await expect(
+        actions.getByRole('button', { name: 'Block card' }),
+      ).toBeVisible();
+      await expect(
+        actions.getByRole('button', { name: 'Replace card' }),
+      ).toBeVisible();
+
+      for (const width of [1440, 390]) {
+        await profilePage.setViewportSize({ width, height: 900 });
+        const geometry = await dialog.evaluate((element) => {
+          const panel = element.getBoundingClientRect();
+          const close = element
+            .querySelector('.sc-card-management-dialog__close')!
+            .getBoundingClientRect();
+          const actionGroup = element
+            .querySelector('.sc-card-management-dialog__actions')!
+            .getBoundingClientRect();
+          return {
+            panelWidth: panel.width,
+            panelTop: panel.top,
+            panelRight: panel.right,
+            closeTop: close.top,
+            closeBottom: close.bottom,
+            closeRight: close.right,
+            actionTop: actionGroup.top,
+            actionRight: actionGroup.right,
+            documentWidth: document.documentElement.scrollWidth,
+          };
+        });
+        expect(geometry.panelWidth, `${role} panel at ${width}px`).toBeLessThan(
+          460,
+        );
+        expect(geometry.closeTop - geometry.panelTop).toBeLessThan(28);
+        expect(geometry.panelRight - geometry.closeRight).toBeLessThan(28);
+        expect(
+          Math.abs(geometry.actionRight - geometry.closeRight),
+        ).toBeLessThan(8);
+        expect(geometry.actionTop).toBeGreaterThanOrEqual(
+          geometry.closeBottom - 1,
+        );
+        expect(geometry.actionTop - geometry.closeBottom).toBeLessThan(20);
+        expect(geometry.documentWidth).toBeLessThanOrEqual(width);
+      }
+      if (profilePage !== page) await profilePage.close();
+    }
   });
 
   test('searches a receipt and confirms a Supervisor reversal in the transaction dialog', async ({

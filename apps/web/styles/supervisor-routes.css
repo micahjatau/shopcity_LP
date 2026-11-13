@@ -1812,6 +1812,23 @@
   border-collapse: collapse;
 }
 
+.device-management-page--profile .device-management__workspace {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.device-management-page--profile .device-management__list-panel {
+  overflow: hidden;
+}
+
+.device-management-page--profile .device-management__summary-table {
+  table-layout: fixed;
+}
+
+.device-management-page--profile .device-management__summary-table td {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
 .device-management__summary-table :is(th, td) {
   padding: 9px 12px;
   border-bottom: 1px solid var(--sc-prototype-border);
@@ -1864,6 +1881,15 @@
   flex-wrap: wrap;
   align-items: center;
   gap: var(--sc-spacing-2);
+}
+
+.device-management-page--profile .device-management__actions {
+  justify-content: flex-end;
+}
+
+.device-management-page--profile .device-management__actions > .sc-button {
+  max-width: 100%;
+  white-space: normal;
 }
 
 .device-management__pairing-dialog {
@@ -1943,6 +1969,13 @@
 
 .supervisor-transactions-dashboard {
   gap: 18px;
+}
+
+.supervisor-transaction-admin-links {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
 }
 
 .supervisor-transactions-dashboard > .supervisor-page__header {
@@ -2450,6 +2483,51 @@
   color: var(--sc-color-brand-500);
   font-size: var(--sc-font-size-h3);
   font-weight: var(--sc-font-weight-semibold);
+}
+
+.sc-page .sc-dialog__panel:has(.sc-card-management-dialog) {
+  width: min(100%, 26rem);
+  gap: var(--sc-spacing-3);
+  padding: var(--sc-spacing-5);
+}
+
+.sc-page .sc-dialog__panel:has(.sc-card-management-dialog) > header {
+  padding-right: calc(var(--sc-size-controlCompact) + var(--sc-spacing-3));
+}
+
+.sc-page .sc-card-management-dialog {
+  display: grid;
+  min-width: 0;
+  gap: var(--sc-spacing-3);
+}
+
+.sc-page .sc-card-management-dialog__close {
+  position: absolute;
+  top: var(--sc-spacing-4);
+  right: var(--sc-spacing-4);
+  display: grid;
+  width: var(--sc-size-controlCompact);
+  height: var(--sc-size-controlCompact);
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: var(--sc-radius-full);
+  background: transparent;
+  color: var(--sc-color-neutral-700);
+  cursor: pointer;
+}
+
+.sc-page .sc-card-management-dialog__close:hover {
+  background: var(--sc-color-neutral-100);
+}
+
+.sc-page .sc-card-management-dialog__close:focus-visible {
+  outline: 2px solid var(--sc-color-semantic-focus);
+  outline-offset: 2px;
+}
+
+.sc-page .sc-card-management-dialog__actions {
+  justify-content: flex-end;
 }
 
 .sc-page .sc-registration-review__subtitle {

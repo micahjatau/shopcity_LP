@@ -8,6 +8,25 @@ import {
 } from '../components/shell-navigation';
 
 describe('canonical shell navigation', () => {
+  it('uses Admin icons that fit operational destinations', () => {
+    const items = shellNavigationByRole.ADMIN.flatMap(
+      (section) => section.items,
+    );
+    const icons = Object.fromEntries(items.map((item) => [item.id, item.icon]));
+
+    expect(icons).toMatchObject({
+      'admin-overview': 'home',
+      'admin-operations-panel': 'activity',
+      'admin-transactions': 'receipt',
+      'admin-approvals': 'check',
+      'admin-fraud': 'shield',
+      'admin-customers': 'users',
+      'admin-cards': 'credit-card',
+      'admin-reports': 'chart',
+      'admin-policies': 'sliders',
+    });
+  });
+
   it('keeps Cashier navigation in the approved workflow order', () => {
     expect(
       shellNavigationByRole.CASHIER.flatMap((section) => section.items).map(

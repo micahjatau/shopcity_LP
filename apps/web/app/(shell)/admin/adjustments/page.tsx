@@ -204,7 +204,6 @@ export default function AdminAdjustmentsPage() {
         >
           Manual credit and debit adjustments with consequence preview.
         </p>
-        <Link href="/admin">Back to admin</Link>
         <div style={routeRow}>
           {routeLinks.map(([href, label]) => (
             <Link key={href} href={href}>

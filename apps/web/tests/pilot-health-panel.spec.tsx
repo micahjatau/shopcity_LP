@@ -77,6 +77,20 @@ describe('PilotHealthPanel card surfaces and status pills', () => {
     const panel = container.querySelector('section');
     const metric = screen.getByText('Pending events').closest('article');
 
+    expect(screen.getByRole('heading', { name: 'System health' })).toHaveStyle({
+      fontSize: '16px',
+      lineHeight: '1.35',
+    });
+    expect(screen.getByText('Pending events')).toHaveStyle({
+      fontSize: '12px',
+      fontWeight: '600',
+      lineHeight: '1.45',
+    });
+    expect(metric?.querySelector('strong')).toHaveStyle({
+      fontSize: '20px',
+      lineHeight: '1.2',
+      fontVariantNumeric: 'tabular-nums',
+    });
     expect(panel).toHaveStyle({
       border: '1px solid #e4e4e4',
       borderRadius: '16px',

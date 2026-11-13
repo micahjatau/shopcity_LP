@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import {
   Check,
   ChevronDown,
@@ -16,6 +17,8 @@ import type {
   PointerEvent as ReactPointerEvent,
 } from 'react';
 import {
+  adminTransactionsControllerSearchTransactionsV1,
+  branchesControllerListBranchesV1,
   loyaltyControllerGetTransactionV1,
   loyaltyControllerSearchTransactionsByReceiptV1,
   reversalsControllerReverseV1,
@@ -294,7 +297,18 @@ function SupervisorTransactionFilterDropdown({
   );
 }
 
-export function SupervisorTransactionsDashboard() {
+type TransactionDashboardAudience = 'ADMIN' | 'SUPERVISOR';
+type TransactionRelatedRoute = readonly [string, string];
+
+export function SupervisorTransactionsDashboard({
+  audience = 'SUPERVISOR',
+  relatedRoutes = [],
+}: Readonly<{
+  audience?: TransactionDashboardAudience;
+  relatedRoutes?: ReadonlyArray<TransactionRelatedRoute>;
+}> = {}) {
+  const isAdmin = audience === 'ADMIN';
+  const transactionScope = isAdmin ? 'tenant' : 'branch';
   const [columnWidths, setColumnWidths] = useState<number[]>(() => [
     ...DEFAULT_TRANSACTION_COLUMN_WIDTHS,
   ]);
@@ -302,6 +316,11 @@ export function SupervisorTransactionsDashboard() {
   const [searchedReceipt, setSearchedReceipt] = useState('');
   const [items, setItems] = useState<SearchItem[]>([]);
   const [staffOptions, setStaffOptions] = useState<StaffOption[]>([]);
+  const [branchOptions, setBranchOptions] = useState<TransactionFilterOption[]>(
+    [{ value: '', label: 'All branches' }],
+  );
+  const [branchOptionsError, setBranchOptionsError] = useState(false);
+  const [branchFilter, setBranchFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState<
     LoyaltyControllerSearchTransactionsByReceiptV1Status | ''
   >('');
@@ -310,7 +329,9 @@ export function SupervisorTransactionsDashboard() {
   const [filterError, setFilterError] = useState('');
   const [filtersDirty, setFiltersDirty] = useState(false);
   const [listState, setListState] = useState<ListState>('loading');
-  const [message, setMessage] = useState('Loading branch transactions…');
+  const [message, setMessage] = useState(
+    `Loading ${transactionScope} transactions…`,
+  );
   const [hasMore, setHasMore] = useState(false);
   const [nextCursor, setNextCursor] = useState<string | null>(null);
   const [cursorStack, setCursorStack] = useState<CursorStack>([undefined]);
@@ -430,25 +451,33 @@ export function SupervisorTransactionsDashboard() {
     setMessage(
       normalizedReceiptNumber
         ? `Searching for receipt ${normalizedReceiptNumber}…`
-        : 'Loading branch transactions…',
+        : `Loading ${transactionScope} transactions…`,
     );
 
     try {
-      const response = await loyaltyControllerSearchTransactionsByReceiptV1(
-        {
-          ...(normalizedReceiptNumber
-            ? { receiptNumber: normalizedReceiptNumber }
-            : {}),
-          limit: 10,
-          cursor,
-          ...(statusFilter ? { status: statusFilter } : {}),
-          ...(staffFilter ? { staffId: staffFilter } : {}),
-          ...(minimumReceiptAmountKobo
-            ? { minReceiptAmountKobo: minimumReceiptAmountKobo }
-            : {}),
-        },
-        createApiRequest({ csrf: true }),
-      );
+      const searchParams = {
+        ...(normalizedReceiptNumber
+          ? { receiptNumber: normalizedReceiptNumber }
+          : {}),
+        limit: 10,
+        cursor,
+        ...(isAdmin && branchFilter ? { branchId: branchFilter } : {}),
+        ...(statusFilter ? { status: statusFilter } : {}),
+        ...(staffFilter ? { staffId: staffFilter } : {}),
+        ...(minimumReceiptAmountKobo
+          ? { minReceiptAmountKobo: minimumReceiptAmountKobo }
+          : {}),
+      };
+      const requestOptions = createApiRequest({ csrf: true });
+      const response = isAdmin
+        ? await adminTransactionsControllerSearchTransactionsV1(
+            searchParams,
+            requestOptions,
+          )
+        : await loyaltyControllerSearchTransactionsByReceiptV1(
+            searchParams,
+            requestOptions,
+          );
       if (searchGeneration.current !== generation) return;
       if (response.status !== 200)
         throw new Error('receipt search unavailable');
@@ -462,7 +491,7 @@ export function SupervisorTransactionsDashboard() {
       setMessage(
         normalizedReceiptNumber
           ? `${result.items.length} transaction${result.items.length === 1 ? '' : 's'} found for receipt ${normalizedReceiptNumber}.`
-          : `${result.items.length} branch transaction${result.items.length === 1 ? '' : 's'} loaded.`,
+          : `${result.items.length} ${transactionScope} transaction${result.items.length === 1 ? '' : 's'} loaded.`,
       );
     } catch {
       if (searchGeneration.current !== generation) return;
@@ -472,7 +501,9 @@ export function SupervisorTransactionsDashboard() {
         setNextCursor(null);
       }
       setListState('error');
-      setMessage('The branch transaction list is temporarily unavailable.');
+      setMessage(
+        `The ${transactionScope} transaction list is temporarily unavailable.`,
+      );
     } finally {
       if (searchGeneration.current === generation) setSearching(false);
     }
@@ -483,8 +514,31 @@ export function SupervisorTransactionsDashboard() {
     initialListRequestStarted.current = true;
     void loadReceiptResults('');
     // The first request intentionally uses the initial empty filter state.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- Run once; later search changes are submitted explicitly.
   }, []);
+
+  useEffect(() => {
+    if (!isAdmin) return;
+    let active = true;
+    void branchesControllerListBranchesV1(createApiRequest({ csrf: true }))
+      .then((response) => {
+        if (response.status !== 200) throw new Error('branch list unavailable');
+        if (!active) return;
+        const options = response.data.data.flatMap((branch) => {
+          const id = typeof branch.id === 'string' ? branch.id : '';
+          const name = typeof branch.name === 'string' ? branch.name : '';
+          return id && name ? [{ value: id, label: name }] : [];
+        });
+        setBranchOptions([{ value: '', label: 'All branches' }, ...options]);
+        setBranchOptionsError(false);
+      })
+      .catch(() => {
+        if (active) setBranchOptionsError(true);
+      });
+    return () => {
+      active = false;
+    };
+  }, [isAdmin]);
 
   function search(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -698,30 +752,44 @@ export function SupervisorTransactionsDashboard() {
         className="cashier-route-header supervisor-page__header"
         dataOdId="transactions-heading"
         title={<span id="supervisor-transactions-title">Transactions</span>}
-        description="Review branch transactions and filter by receipt number."
+        description={`Review ${transactionScope} transactions and filter by receipt number.`}
         actions={
-          <button
-            className="supervisor-transaction-refresh"
-            type="button"
-            onClick={refreshResults}
-            disabled={
-              listState === 'idle' ||
-              listState === 'loading' ||
-              searching ||
-              filtersDirty
-            }
-            aria-label="Refresh transactions"
-            title="Refresh transactions"
-          >
-            <span className="supervisor-transaction-refresh-content-shell">
-              <span className="supervisor-transaction-refresh-content">
-                <RefreshCw aria-hidden="true" size={14} />
-                <span>
-                  {listState === 'loading' ? 'Refreshing' : 'Refresh'}
+          <>
+            {relatedRoutes.length > 0 ? (
+              <nav
+                className="supervisor-transaction-admin-links"
+                aria-label="Admin transaction shortcuts"
+              >
+                {relatedRoutes.map(([href, label]) => (
+                  <Link key={href} href={href}>
+                    {label}
+                  </Link>
+                ))}
+              </nav>
+            ) : null}
+            <button
+              className="supervisor-transaction-refresh"
+              type="button"
+              onClick={refreshResults}
+              disabled={
+                listState === 'idle' ||
+                listState === 'loading' ||
+                searching ||
+                filtersDirty
+              }
+              aria-label="Refresh transactions"
+              title="Refresh transactions"
+            >
+              <span className="supervisor-transaction-refresh-content-shell">
+                <span className="supervisor-transaction-refresh-content">
+                  <RefreshCw aria-hidden="true" size={14} />
+                  <span>
+                    {listState === 'loading' ? 'Refreshing' : 'Refresh'}
+                  </span>
                 </span>
               </span>
-            </span>
-          </button>
+            </button>
+          </>
         }
       />
 
@@ -730,7 +798,11 @@ export function SupervisorTransactionsDashboard() {
         variant="table"
         className="transaction-table-card supervisor-transaction-table-card"
         data-od-id="transactions-table"
-        aria-label="Supervisor transaction results"
+        aria-label={
+          isAdmin
+            ? 'Admin transaction results'
+            : 'Supervisor transaction results'
+        }
       >
         <form
           className="supervisor-transaction-search"
@@ -761,6 +833,29 @@ export function SupervisorTransactionsDashboard() {
               }}
             />
           </label>
+          {isAdmin ? (
+            <div className="supervisor-transaction-filter">
+              <span>Branch</span>
+              <SupervisorTransactionFilterDropdown
+                id="admin-transaction-branch-filter"
+                label="Branch filter"
+                value={branchFilter}
+                options={branchOptions}
+                disabled={searching || branchOptionsError}
+                onChange={(value) => {
+                  setBranchFilter(value);
+                  setCursorStack([undefined]);
+                  setPageIndex(0);
+                  setHasMore(false);
+                  setNextCursor(null);
+                  setStaffFilter('');
+                  setStaffOptions([]);
+                  setFiltersDirty(true);
+                  setFilterError('');
+                }}
+              />
+            </div>
+          ) : null}
           <div className="supervisor-transaction-filter">
             <span>Status</span>
             <SupervisorTransactionFilterDropdown
@@ -818,12 +913,20 @@ export function SupervisorTransactionsDashboard() {
             className="supervisor-customer-directory__register"
             loading={searching}
           >
-            {searchedReceipt || statusFilter || staffFilter || minimumAmount
-              ? 'Apply filters'
-              : 'Search'}
+            {isAdmin
+              ? 'Apply'
+              : searchedReceipt || statusFilter || staffFilter || minimumAmount
+                ? 'Apply filters'
+                : 'Search'}
           </Button>
         </form>
 
+        {branchOptionsError ? (
+          <p className="supervisor-transaction-filter-error" role="alert">
+            Branch filters are unavailable. All-branches transaction search
+            remains available.
+          </p>
+        ) : null}
         {filterError ? (
           <p className="supervisor-transaction-filter-error" role="alert">
             {filterError}
@@ -843,7 +946,9 @@ export function SupervisorTransactionsDashboard() {
         <div className="supervisor-customer-table-wrap supervisor-transaction-table-scroll">
           <Table className="supervisor-customer-table supervisor-transaction-table">
             <caption className="sr-only">
-              Supervisor branch transactions
+              {isAdmin
+                ? 'Admin tenant transactions'
+                : 'Supervisor branch transactions'}
             </caption>
             <colgroup>
               {columnWidths.map((width, index) => (
@@ -990,21 +1095,21 @@ export function SupervisorTransactionsDashboard() {
                             : listState === 'loaded'
                               ? searchedReceipt
                                 ? 'No transactions found'
-                                : 'No branch transactions found'
-                              : 'Loading branch transactions'}
+                                : `No ${transactionScope} transactions found`
+                              : `Loading ${transactionScope} transactions`}
                       </strong>
                       <p>
                         {listState === 'loading'
                           ? searchedReceipt
                             ? `Loading transactions for receipt ${searchedReceipt}.`
-                            : 'Loading the first page of branch transactions.'
+                            : `Loading the first page of ${transactionScope} transactions.`
                           : listState === 'error'
-                            ? 'The branch transaction list could not be completed.'
+                            ? `The ${transactionScope} transaction list could not be completed.`
                             : listState === 'loaded'
                               ? searchedReceipt
                                 ? 'No matching transactions were found for this receipt number.'
-                                : 'No transactions were found in this branch.'
-                              : 'The branch transaction list loads automatically.'}
+                                : `No transactions were found in this ${transactionScope}.`
+                              : `The ${transactionScope} transaction list loads automatically.`}
                       </p>
                     </div>
                   </td>
@@ -1195,7 +1300,9 @@ export function SupervisorTransactionsDashboard() {
                   ) : (
                     <form
                       className="supervisor-transaction-reversal"
-                      onSubmit={submitReversal}
+                      onSubmit={(event) => {
+                        void submitReversal(event);
+                      }}
                     >
                       <h3>Request reversal</h3>
                       <p className="cashier-workflow-hint">
@@ -1253,5 +1360,16 @@ export function SupervisorTransactionsDashboard() {
         </div>
       ) : null}
     </section>
+  );
+}
+
+export function AdminTransactionsDashboard({
+  relatedRoutes = [],
+}: Readonly<{ relatedRoutes?: ReadonlyArray<TransactionRelatedRoute> }> = {}) {
+  return (
+    <SupervisorTransactionsDashboard
+      audience="ADMIN"
+      relatedRoutes={relatedRoutes}
+    />
   );
 }

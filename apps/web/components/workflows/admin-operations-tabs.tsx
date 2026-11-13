@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { ShellNavigationIcon } from '../shell-navigation-icon';
 import { useId, useRef, useState } from 'react';
 import type { KeyboardEvent } from 'react';
 import { PilotHealthPanel } from './pilot-health-panel';
@@ -20,30 +21,35 @@ const controlRoutes = [
   {
     href: '/admin/users',
     label: 'Users',
+    icon: 'users',
     description: 'Manage staff accounts and roles.',
     action: 'Manage users',
   },
   {
     href: '/admin/devices',
     label: 'Devices',
+    icon: 'device',
     description: 'Register and manage POS devices.',
     action: 'Manage devices',
   },
   {
     href: '/admin/branches',
     label: 'Branches',
+    icon: 'branch',
     description: 'Manage branch details and assigned devices.',
     action: 'Manage branches',
   },
   {
     href: '/admin/audit',
     label: 'Audit',
+    icon: 'clipboard',
     description: 'Search activity by user.',
     action: 'Review audit history',
   },
   {
     href: '/admin/adjustments',
     label: 'Adjustments',
+    icon: 'sliders',
     description: 'Create credit or debit adjustments.',
     action: 'Manage adjustments',
   },
@@ -179,6 +185,12 @@ export function AdminOperationsTabs() {
                         className={styles.controlCard}
                         href={route.href}
                       >
+                        <span className={styles.controlIcon}>
+                          <ShellNavigationIcon
+                            name={route.icon}
+                            className={styles.controlIconGraphic}
+                          />
+                        </span>
                         <span className={styles.controlTitle}>
                           {route.label}
                         </span>

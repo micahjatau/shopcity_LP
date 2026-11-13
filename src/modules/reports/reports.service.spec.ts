@@ -6,6 +6,28 @@ import type { PrismaService } from '../../database/prisma.service';
 import { ReportsService } from './reports.service';
 
 describe('ReportsService', () => {
+  it('counts active virtual cards for the authenticated Admin tenant only', async () => {
+    const countActiveCards = jest.fn().mockResolvedValue(3);
+    const prisma = {
+      card: { count: countActiveCards },
+    } as unknown as PrismaService;
+    const service = new ReportsService(prisma, configService());
+
+    await expect(
+      service.getAdminOverviewMetrics('tenant-1', adminContext()),
+    ).resolves.toEqual({ activeVirtualCardCount: 3 });
+    expect(countActiveCards).toHaveBeenCalledWith({
+      where: { tenantId: 'tenant-1', status: 'ACTIVE' },
+    });
+
+    await expect(
+      service.getAdminOverviewMetrics('tenant-2', adminContext()),
+    ).rejects.toBeInstanceOf(ForbiddenException);
+    await expect(
+      service.getAdminOverviewMetrics('tenant-1', supervisorContext()),
+    ).rejects.toBeInstanceOf(ForbiddenException);
+  });
+
   it('reconciles executive summary rows against authoritative source totals', async () => {
     const source = sourceFixture();
     const prisma = prismaStub({

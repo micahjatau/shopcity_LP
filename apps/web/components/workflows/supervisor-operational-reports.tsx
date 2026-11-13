@@ -12,7 +12,6 @@ import {
   ShoppingBasket,
   Wallet,
 } from 'lucide-react';
-import Link from 'next/link';
 import {
   useEffect,
   useId,
@@ -781,13 +780,6 @@ export function OperationalReportsDashboard({
           isAdmin
             ? 'Review tenant or selected-branch performance, investigate patterns, and generate detailed reports.'
             : 'Review branch performance over time, investigate patterns, and generate detailed reports.'
-        }
-        actions={
-          isAdmin ? (
-            <Link className="supervisor-reports-back" href="/admin">
-              Back to admin
-            </Link>
-          ) : undefined
         }
       />
 

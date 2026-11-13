@@ -647,7 +647,9 @@ test('maps role-authorized reports and scope controls to Admin', async ({
   await expect(
     page.getByRole('heading', { name: 'Tenant at a glance' }),
   ).toBeVisible();
-  await expect(page.getByRole('link', { name: 'Back to admin' })).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Back to admin' })).toHaveCount(
+    0,
+  );
   await page.getByRole('tab', { name: 'Reports' }).click();
   await expect(
     page.getByRole('option', { name: 'Audit report' }),
@@ -773,7 +775,9 @@ test('maps role-authorized reports and scope controls to Admin', async ({
     fullPage: false,
   });
   await page.setViewportSize({ width: 390, height: 960 });
-  await expect(page.getByRole('link', { name: 'Back to admin' })).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Back to admin' })).toHaveCount(
+    0,
+  );
   await page.screenshot({
     path: '/tmp/shopcity-admin-reports-mobile.png',
     fullPage: false,

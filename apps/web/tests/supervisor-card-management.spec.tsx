@@ -264,10 +264,7 @@ describe('Supervisor card management tabs', () => {
       'href',
       '/admin/customers?id=customer-1&tab=virtual-card',
     );
-    expect(screen.getByRole('link', { name: 'Back to admin' })).toHaveAttribute(
-      'href',
-      '/admin',
-    );
+    expect(screen.queryByRole('link', { name: 'Back to admin' })).toBeNull();
     expect(cardsControllerListIssuedManagementCardsV1).toHaveBeenCalledWith(
       { limit: '25', cursor: '' },
       expect.any(Object),

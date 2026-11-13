@@ -160,7 +160,7 @@ export const shellNavigationByRole: Record<
           id: 'admin-operations-panel',
           label: 'Operations',
           href: '/admin/operations',
-          icon: 'operations',
+          icon: 'activity',
           routeAliases: [
             '/admin/users',
             '/admin/devices',
@@ -173,7 +173,7 @@ export const shellNavigationByRole: Record<
           id: 'admin-transactions',
           label: 'Transactions',
           href: '/admin/transactions',
-          icon: 'list',
+          icon: 'receipt',
         },
         {
           id: 'admin-approvals',

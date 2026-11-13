@@ -11,6 +11,26 @@ Use this tracker when preparing a spec proposal. Run `npm run proposal:impact --
 
 ## Findings
 
+### 2026-11-12 — Admin device and branch workflow implementation
+
+GitNexus impact was attempted before editing the Admin device and branch surfaces. `DeviceManagement` was reported with 0 impacted symbols/LOW and a corrupted symbol UID, while `AdminBranchesPage` resolved to an unrelated `Folder:prisma/migrations/20260802_financial_guardrail_repair` instead of its source definition. These results cannot establish an implementation blast radius and must not be treated as valid zero-impact assessments. `npm run gitnexus:analyze` could not refresh the index: GitNexus reported an inconsistent `file_fts` index (document offset 2276 missing during delete; drop and recreate the index). No HIGH/CRITICAL result can be substantiated by this broken index. Source/test review confirms `DeviceManagement` serves both Admin and Supervisor routes; the Admin profile changes are confined to an opt-in profile prop, and the existing Supervisor presentation and security flows remain in place. Backend APIs, tenant/branch authorization, and database schemas are unchanged.
+
+```text
+npm run proposal:impact -- --file 'apps/web/app/(shell)/admin/branches/page.tsx' AdminBranchesPage
+npm run proposal:impact -- --file apps/web/components/devices/device-management.tsx DeviceManagement
+node .gitnexus/run.cjs context DeviceManagement --repo shopcity_LP
+npm run gitnexus:analyze
+```
+
+### 2026-11-12 — Admin device and branch workflow proposal
+
+Pre-proposal impacts were attempted for `DeviceManagement` and `AdminBranchesPage`. The stale GitNexus index returned CRITICAL for `DeviceManagement` (145 impacted, 2 direct, 33 processes, 20 modules) and LOW/0 for `AdminBranchesPage`; however, both targets resolved to unrelated `Folder:` nodes rather than the requested source symbols (`openspec/changes/approval-review-queue` and `prisma/migrations/20260802_financial_guardrail_repair`). Treat these counts as unreliable, not as a valid component blast radius. No implementation symbol is being changed in this proposal. Source review confirms the device UI is used on Admin and Supervisor routes and invokes security-sensitive pairing/credential/status flows; the proposal explicitly preserves those flows, backend tenant/branch scope, and existing APIs. No usable symbol-level risk assessment or HIGH/CRITICAL code-change warning can be derived from this index state.
+
+```text
+node .gitnexus/run.cjs impact --repo shopcity_LP --file apps/web/components/devices/device-management.tsx --direction upstream --include-tests DeviceManagement
+node .gitnexus/run.cjs impact --repo shopcity_LP --file 'apps/web/app/(shell)/admin/branches/page.tsx' --direction upstream --include-tests AdminBranchesPage
+```
+
 ### 2026-11-12 — Keep Admin Operations Control routes authorized
 
 GitNexus impact for `shellNavigationByRole` is LOW/exact with 0 indexed dependants; `AppShellContent` is LOW/exact with 3 impacted symbols (1 direct), the ShellLayout process, and Components module. No HIGH/CRITICAL risk. The shell uses visible navigation routes as its route allowlist, so removing Control links from the Admin sidebar caused direct Control destinations to fall back to `/admin`. Add the five Controls paths as aliases on the Operations navigation item; this keeps them off the sidebar, authorizes them for Admin only, and makes Operations the active navigation item without changing route implementations.
@@ -59,6 +79,29 @@ Before extending `collapsible-sidebar-repair`, fresh GitNexus impacts were LOW/e
 ```text
 npm run proposal:impact -- --file apps/web/components/app-shell.tsx AppShellContent
 npm run proposal:impact -- --file apps/web/components/app-sidebar.tsx AppSidebar
+```
+
+### 2026-11-12 — Admin transaction workspace replication
+
+Before drafting `admin-transaction-workspace-parity`, the GitNexus index was refreshed successfully (18,726 nodes, 29,905 edges, 300 flows). Fresh impacts: `AdminTransactionsPage` LOW/exact (0 upstream callers/processes); `SupervisorTransactionsDashboard` LOW/exact (2 direct dependants, its Supervisor page process, Workflows module); controller `searchTransactionsByReceipt` LOW/exact (0 upstream callers/processes); service `searchTransactionsByReceipt` LOW/exact (1 direct dependant, Loyalty module); `LoyaltyController` LOW/exact (6 impacted symbols: 1 direct); `LoyaltyModule` LOW/exact (14 impacted symbols: 4 direct); and `LoyaltyService` MEDIUM/exact (24 impacted symbols: 14 direct, 8 at depth 2, 2 at depth 3, Loyalty module). No HIGH/CRITICAL risk was reported. Source review confirms the existing `GET /api/v1/transactions` list is Supervisor-only and branch-scoped, whereas transaction-detail reads and reversals permit Admin. To contain the MEDIUM service blast radius, add a separate Admin-only tenant-scoped list controller/provider and leave the existing Supervisor endpoint/service untouched. No database/schema migration is planned.
+
+```text
+npm run proposal:impact -- --file 'apps/web/app/(shell)/admin/transactions/page.tsx' AdminTransactionsPage
+npm run proposal:impact -- --file apps/web/components/workflows/supervisor-transactions-dashboard.tsx SupervisorTransactionsDashboard
+npm run proposal:impact -- --file src/modules/loyalty/loyalty.controller.ts searchTransactionsByReceipt
+npm run proposal:impact -- --file src/modules/loyalty/loyalty.service.ts searchTransactionsByReceipt
+```
+
+### 2026-11-11 — Remove Admin overview self-links
+
+GitNexus impact is LOW/exact for the planned Admin route surfaces: `AdminTransactionsPage`, `AdminApprovalsPage`, `AdminFraudPage`, `AdminPoliciesPage`, `AdminAuditPage`, `AdminUsersPage`, `AdminAdjustmentsPage`, and `AdminBranchesPage` each report 0 indexed callers/processes. `SupervisorCardWorkflows` reports 1 direct caller (`SupervisorCardsPage`); `OperationalReportsDashboard` reports 2 direct callers and 1 depth-2 route caller; neither has affected processes. No HIGH/CRITICAL risk. The index is stale at the preceding commit, so coverage is incomplete and counts are lower-bound context. Scope removes only the Admin overview self-links from all Admin shell pages; preserve Admin/Operations navigation, report/card workflows, profile `Back to customers`, and non-Admin behavior.
+
+```text
+npm run proposal:impact -- --file apps/web/components/workflows/supervisor-card-workflows.tsx SupervisorCardWorkflows
+npm run proposal:impact -- --file apps/web/components/workflows/supervisor-operational-reports.tsx OperationalReportsDashboard
+npm run proposal:impact -- --file 'apps/web/app/(shell)/admin/transactions/page.tsx' AdminTransactionsPage
+npm run proposal:impact -- --file 'apps/web/app/(shell)/admin/policies/page.tsx' AdminPoliciesPage
+npm run proposal:impact -- --file 'apps/web/app/(shell)/admin/users/page.tsx' AdminUsersPage
 ```
 
 ### 2026-11-12 — Admin/Supervisor common-page style parity
@@ -2359,6 +2402,18 @@ npm run proposal:impact -- --file src/modules/users/users.service.ts listUsers
 npm run proposal:impact -- --file src/modules/users/users.service.ts createUser
 npm run proposal:impact -- --file src/modules/users/users.dto.ts CreateUserDto
 npm run proposal:impact -- --file prisma/schema.prisma User
+```
+
+### 2026-11-12 — Admin navigation icons, overview live metric, and tenant branch filter
+
+Before drafting the follow-up scope, GitNexus impact was attempted for `getShellNavigationSections`, `ShellNavigationIcon`, `SupervisorTransactionsDashboard`, `ReportsService.getExecutiveSnapshot`, and `AdminTransactionSearchService.searchTransactions`. The navigation query returned **HIGH** with 17 direct dependants and no indexed process groups; the dashboard component returned LOW/0 with a corrupted symbol UID; and both backend method queries were unresolved. The index has a documented history of corruption/inconsistent results, so none of these counts is treated as authoritative. The HIGH result was surfaced before edits. Source review confirms navigation is rendered by both `AppSidebar` and `AppShellContent`; the branch filter can remain isolated to the existing Admin search contract and must not alter the Supervisor endpoint. Overview work is an additive Admin-only count of tenant-owned active cards; report materialization semantics and registration snapshot meaning stay unchanged. The selected transaction filter is a branch within the authenticated Admin's tenant, never a tenant selector.
+
+```text
+./node_modules/.bin/gitnexus impact getShellNavigationSections -r shopcity_LP --summary-only --include-tests --file apps/web/components/shell-navigation.ts
+./node_modules/.bin/gitnexus impact ShellNavigationIcon -r shopcity_LP --summary-only --include-tests --file apps/web/components/shell-navigation-icon.tsx
+./node_modules/.bin/gitnexus impact SupervisorTransactionsDashboard -r shopcity_LP --summary-only --include-tests --file apps/web/components/workflows/supervisor-transactions-dashboard.tsx
+./node_modules/.bin/gitnexus impact ReportsService.getExecutiveSnapshot -r shopcity_LP --summary-only --include-tests --file src/modules/reports/reports.service.ts
+./node_modules/.bin/gitnexus impact AdminTransactionSearchService.searchTransactions -r shopcity_LP --summary-only --include-tests --file src/modules/loyalty/admin-transaction-search.service.ts
 ```
 
 ### 2026-11-12 — Cashier virtual-card preview text and Operations monitoring clarity

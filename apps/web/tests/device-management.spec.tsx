@@ -34,6 +34,7 @@ const activeUnpairedDevice = {
   branchId: 'branch-1',
   branch: { name: 'Central' },
   authBindingMode: 'UNPAIRED',
+  fingerprintHash: 'device-fingerprint-must-not-render',
   pairedAt: null,
   webAuthnCredentials: [],
 };
@@ -89,6 +90,61 @@ describe('DeviceManagement', () => {
       Reflect.deleteProperty(navigator, 'credentials');
     }
     jest.restoreAllMocks();
+  });
+
+  it('shows only the authorized device profile and preserves secure controls when renaming', async () => {
+    jest.mocked(branchesControllerUpdateDeviceV1).mockResolvedValue({
+      status: 200,
+      data: { success: true, data: { id: 'device-1' } },
+    } as never);
+
+    render(<DeviceManagement profileDeviceId="device-1" />);
+    expect(
+      await screen.findByRole('heading', { name: 'Device profile' }),
+    ).toBeVisible();
+    expect(await screen.findByDisplayValue('Front register')).toHaveAttribute(
+      'aria-label',
+      'Device name',
+    );
+    expect(
+      screen.queryByRole('button', { name: 'Device: Front register' }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('region', { name: 'Create device' }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByText('device-fingerprint-must-not-render'),
+    ).not.toBeInTheDocument();
+
+    fireEvent.change(screen.getByRole('textbox', { name: 'Device name' }), {
+      target: { value: 'Renamed register' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Save device name' }));
+    await waitFor(() =>
+      expect(branchesControllerUpdateDeviceV1).toHaveBeenCalledWith(
+        'device-1',
+        expect.objectContaining({ name: 'Renamed register' }),
+        expect.any(Object),
+      ),
+    );
+  });
+
+  it('does not expose device details when the requested device is outside the authorized result', async () => {
+    jest.mocked(branchesControllerListDevicesV1).mockResolvedValue(
+      deviceListResponse({
+        ...activeUnpairedDevice,
+        id: 'another-tenant-device',
+      }) as never,
+    );
+
+    render(<DeviceManagement profileDeviceId="not-authorized-device" />);
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'Device unavailable',
+    );
+    expect(
+      screen.queryByRole('button', { name: 'Deactivate device' }),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByText('Front register')).not.toBeInTheDocument();
   });
 
   it('requires target-browser confirmation and stores only the non-secret device locator', async () => {

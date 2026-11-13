@@ -11,6 +11,7 @@ import { AdminOverview } from '../components/workflows/admin-overview';
 import {
   approvalsControllerListApprovalsV1,
   auditControllerListV1,
+  reportsControllerGetAdminOverviewMetricsV1,
   reportsControllerListExecutiveSummaryV1,
   reportsControllerListMaterializationStateV1,
 } from '../lib/api/generated-client';
@@ -19,6 +20,7 @@ import { recentReportPeriod } from '../lib/reports/supervisor-report-metrics';
 jest.mock('../lib/api/generated-client', () => ({
   approvalsControllerListApprovalsV1: jest.fn(),
   auditControllerListV1: jest.fn(),
+  reportsControllerGetAdminOverviewMetricsV1: jest.fn(),
   reportsControllerListExecutiveSummaryV1: jest.fn(),
   reportsControllerListMaterializationStateV1: jest.fn(),
 }));
@@ -42,6 +44,18 @@ function reportResponse(items: unknown[]) {
         timezone: 'Africa/Lagos',
         items,
       },
+      meta,
+    },
+  } as never;
+}
+
+function activeCardResponse(activeVirtualCardCount = 36) {
+  return {
+    status: 200,
+    headers: new Headers(),
+    data: {
+      success: true,
+      data: { activeVirtualCardCount },
       meta,
     },
   } as never;
@@ -119,6 +133,9 @@ function setupResponses() {
     .mocked(reportsControllerListExecutiveSummaryV1)
     .mockResolvedValue(reportResponse(rows));
   jest
+    .mocked(reportsControllerGetAdminOverviewMetricsV1)
+    .mockResolvedValue(activeCardResponse());
+  jest
     .mocked(reportsControllerListMaterializationStateV1)
     .mockResolvedValue(materializationResponse());
   jest
@@ -154,6 +171,7 @@ describe('Admin Overview', () => {
     render(<AdminOverview />);
 
     expect(await screen.findByText('27')).toBeInTheDocument();
+    expect(screen.getByText('36')).toBeInTheDocument();
     expect(screen.getByText('₦1.9K')).toBeInTheDocument();
     expect(screen.getByText('₦750.00')).toBeInTheDocument();
     expect(screen.getByText('₦9.4K')).toBeInTheDocument();
@@ -162,6 +180,10 @@ describe('Admin Overview', () => {
     expect(screen.getByText('Report materialized')).toBeInTheDocument();
 
     const period = recentReportPeriod(7);
+    expect(reportsControllerGetAdminOverviewMetricsV1).toHaveBeenCalledTimes(1);
+    expect(reportsControllerGetAdminOverviewMetricsV1).toHaveBeenCalledWith(
+      expect.objectContaining({ credentials: 'include' }),
+    );
     expect(reportsControllerListExecutiveSummaryV1).toHaveBeenCalledTimes(1);
     expect(reportsControllerListExecutiveSummaryV1).toHaveBeenCalledWith(
       { from: period.from, to: period.to, timezone: 'Africa/Lagos' },
@@ -184,7 +206,7 @@ describe('Admin Overview', () => {
     );
   });
 
-  it('does not invent the tenant-wide card count or expose actor/entity IDs as names', async () => {
+  it('shows the authoritative active-card count without exposing actor/entity IDs as names', async () => {
     render(<AdminOverview />);
 
     expect(
@@ -195,10 +217,8 @@ describe('Admin Overview', () => {
     const cardsMetric = screen.getByRole('heading', {
       name: 'Active virtual cards',
     }).parentElement;
-    expect(cardsMetric).toHaveTextContent('—');
-    expect(cardsMetric).toHaveTextContent(
-      'No tenant-wide active-card count source',
-    );
+    expect(cardsMetric).toHaveTextContent('36');
+    expect(cardsMetric).toHaveTextContent('Current tenant total');
     expect(screen.getByText('Virtual card')).toBeVisible();
     expect(screen.getByText('Staff member')).toBeInTheDocument();
     expect(screen.queryByText('staff-id')).not.toBeInTheDocument();
@@ -261,6 +281,29 @@ describe('Admin Overview', () => {
     expect(
       screen.getAllByRole('button', { name: 'Try again' }).length,
     ).toBeGreaterThan(0);
+  });
+
+  it('shows an unavailable active-card value and retries its own metric request', async () => {
+    jest
+      .mocked(reportsControllerGetAdminOverviewMetricsV1)
+      .mockRejectedValueOnce(new Error('offline'));
+    render(<AdminOverview />);
+
+    const metric = screen.getByRole('heading', {
+      name: 'Active virtual cards',
+    }).parentElement;
+    expect(
+      await within(metric!).findByText('Active-card count could not be loaded'),
+    ).toBeInTheDocument();
+    expect(within(metric!).getByText('—')).toBeInTheDocument();
+    fireEvent.click(within(metric!).getByRole('button', { name: 'Try again' }));
+
+    await waitFor(() =>
+      expect(reportsControllerGetAdminOverviewMetricsV1).toHaveBeenCalledTimes(
+        2,
+      ),
+    );
+    expect(await within(metric!).findByText('36')).toBeInTheDocument();
   });
 
   it('shows a per-section Retry-After countdown and disables global refresh', async () => {
