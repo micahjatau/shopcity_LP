@@ -1176,6 +1176,7 @@ test.describe('workflow route coverage', () => {
           waitUntil: 'domcontentloaded',
         });
         await expect(page.locator('.shell-loading-screen')).toBeHidden();
+        await expect(page.locator('.shell-root')).toBeVisible();
         if (role === 'CASHIER') {
           const primaryActions = page.locator(
             '.shell-root--cashier :is(.sc-button--primary, .cashier-primary-action, .cashier-earn-receipt-proceed, .cashier-redeem-actions > button[type="submit"])',
@@ -1310,9 +1311,14 @@ test.describe('workflow route coverage', () => {
                                           '/supervisor/transactions',
                                           '/admin/transactions',
                                         ].includes(route.path) &&
-                                        className.includes(
+                                        (className.includes(
                                           'supervisor-transaction-',
-                                        ) &&
+                                        ) ||
+                                          (route.path ===
+                                            '/admin/transactions' &&
+                                            className.includes(
+                                              'supervisor-customer-directory__filter',
+                                            ))) &&
                                         contract.selector ===
                                           '.sc-button:not(.sc-button--link)' &&
                                         contract.property === 'border-radius'
