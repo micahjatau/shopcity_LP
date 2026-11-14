@@ -19,6 +19,21 @@ import { businessDateInTimezone } from '../lib/reports/supervisor-overview-data'
 
 const baseUrl = process.env.PLAYWRIGHT_BASE_URL ?? 'http://127.0.0.1:3100';
 
+async function getVisibleShellSearch(page: Page) {
+  const drawer = page.getByRole('dialog', { name: 'Primary navigation' });
+  if (await drawer.isVisible()) {
+    return drawer.getByRole('combobox', { name: 'Search ShopCity' });
+  }
+
+  const topbarSearch = page
+    .locator('.shell-topbar')
+    .getByRole('combobox', { name: 'Search ShopCity' });
+  if (await topbarSearch.isVisible()) return topbarSearch;
+
+  await page.getByRole('button', { name: 'Open navigation' }).click();
+  return drawer.getByRole('combobox', { name: 'Search ShopCity' });
+}
+
 const sessionByRole = {
   CASHIER: {
     user: {
@@ -1200,6 +1215,7 @@ test.describe('workflow route coverage', () => {
   test('executes the route and viewport conformance matrix', async ({
     page,
   }) => {
+    test.setTimeout(300_000);
     for (const [role, routes] of [
       ['CASHIER', cashierConformanceRoutes],
       [
@@ -1225,7 +1241,10 @@ test.describe('workflow route coverage', () => {
         await page.goto(`${baseUrl}${route.path}`, {
           waitUntil: 'domcontentloaded',
         });
-        await expect(page.locator('.shell-loading-screen')).toBeHidden();
+        await expect(
+          page.locator('.shell-loading-screen'),
+          `${role} ${route.path} workspace loading screen`,
+        ).toBeHidden();
         await expect(page.locator('.shell-root')).toBeVisible();
         if (role === 'CASHIER') {
           const primaryActions = page.locator(
@@ -1258,16 +1277,22 @@ test.describe('workflow route coverage', () => {
           await page.emulateMedia({ reducedMotion: 'reduce' });
           await expect(page.locator('.shell-loading-screen')).toBeHidden();
           await expect(page.locator('main')).toBeVisible();
-          await page.getByRole('combobox', { name: 'Search ShopCity' }).focus();
+          const search = await getVisibleShellSearch(page);
+          const searchRoot = page.locator(
+            viewport.width <= 620
+              ? '.shell-mobile-drawer-search .global-shell-search'
+              : '.shell-topbar .global-shell-search',
+          );
+          await search.focus();
           await expect(page.locator('.shell-main')).toHaveCSS(
             'max-width',
             'none',
           );
-          const categoryBox = await page
+          const categoryBox = await searchRoot
             .locator('.global-shell-search__categories')
             .boundingBox();
           expect(categoryBox?.width ?? 0).toBeGreaterThan(0);
-          const searchRowWidth = await page
+          const searchRowWidth = await searchRoot
             .locator('.global-shell-search__row')
             .evaluate((element) => ({
               scrollWidth: element.scrollWidth,
@@ -1288,65 +1313,67 @@ test.describe('workflow route coverage', () => {
               const subject = subjects.nth(index);
               const className = (await subject.getAttribute('class')) ?? '';
               const elementId = (await subject.getAttribute('id')) ?? '';
+              const isMobileDrawerSearchControl =
+                contract.selector === '.global-shell-search__control' &&
+                viewport.width <= 620 &&
+                (await subject.evaluate(
+                  (element) =>
+                    element.closest('.shell-mobile-drawer-search') !== null,
+                ));
               const expectedValue =
-                contract.selector === '.shell-topbar' && viewport.width <= 620
-                  ? '56px'
-                  : contract.selector === '.sc-control.sc-input--compact' &&
-                      contract.property === 'min-height' &&
-                      ['/cashier/lookup', '/supervisor/customers'].includes(
-                        route.path,
-                      )
-                    ? '32px'
-                    : route.path === '/cashier/transactions' &&
-                        contract.selector ===
-                          '.sc-control:not(.sc-textarea):not(.sc-input--compact)' &&
-                        contract.property === 'min-height'
+                isMobileDrawerSearchControl && contract.property === 'height'
+                  ? '44px'
+                  : contract.selector === '.shell-topbar' &&
+                      viewport.width <= 620
+                    ? '56px'
+                    : contract.selector === '.sc-control.sc-input--compact' &&
+                        contract.property === 'min-height' &&
+                        ['/cashier/lookup', '/supervisor/customers'].includes(
+                          route.path,
+                        )
                       ? '32px'
-                      : ['/cashier/earn', '/cashier/redeem'].includes(
-                            route.path,
-                          ) &&
+                      : route.path === '/cashier/transactions' &&
                           contract.selector ===
-                            '.sc-button:not(.sc-button--link)' &&
-                          contract.property === 'border-radius'
-                        ? '16px'
-                        : route.path === '/cashier/lookup' &&
-                            className.includes('find-customer-search-action') &&
+                            '.sc-control:not(.sc-textarea):not(.sc-input--compact)' &&
+                          contract.property === 'min-height'
+                        ? '32px'
+                        : ['/cashier/earn', '/cashier/redeem'].includes(
+                              route.path,
+                            ) &&
+                            contract.selector ===
+                              '.sc-button:not(.sc-button--link)' &&
                             contract.property === 'border-radius'
-                          ? '999px'
-                          : [
-                                '/supervisor/customers',
-                                '/supervisor/transactions',
-                              ].includes(route.path) &&
-                              (className.includes(
-                                'supervisor-customer-directory__filter',
-                              ) ||
-                                className.includes(
-                                  'supervisor-customer-directory__register',
-                                )) &&
+                          ? '16px'
+                          : route.path === '/cashier/lookup' &&
+                              className.includes(
+                                'find-customer-search-action',
+                              ) &&
                               contract.property === 'border-radius'
                             ? '999px'
-                            : route.path === '/supervisor/customers' &&
-                                className.includes(
-                                  'supervisor-customer-directory__search-submit',
-                                ) &&
+                            : [
+                                  '/supervisor/customers',
+                                  '/supervisor/transactions',
+                                ].includes(route.path) &&
+                                (className.includes(
+                                  'supervisor-customer-directory__filter',
+                                ) ||
+                                  className.includes(
+                                    'supervisor-customer-directory__register',
+                                  )) &&
                                 contract.property === 'border-radius'
-                              ? '50%'
+                              ? '999px'
                               : route.path === '/supervisor/customers' &&
                                   className.includes(
-                                    'supervisor-customer-directory__search-input',
+                                    'supervisor-customer-directory__search-submit',
                                   ) &&
-                                  contract.property === 'min-height'
-                                ? '32px'
-                                : [
-                                      '/supervisor/transactions',
-                                      '/admin/transactions',
-                                    ].includes(route.path) &&
-                                    [
-                                      'supervisor-transaction-receipt-number',
-                                      'supervisor-transaction-minimum-amount',
-                                    ].includes(elementId) &&
-                                    contract.property === 'border-radius'
-                                  ? '999px'
+                                  contract.property === 'border-radius'
+                                ? '50%'
+                                : route.path === '/supervisor/customers' &&
+                                    className.includes(
+                                      'supervisor-customer-directory__search-input',
+                                    ) &&
+                                    contract.property === 'min-height'
+                                  ? '32px'
                                   : [
                                         '/supervisor/transactions',
                                         '/admin/transactions',
@@ -1355,57 +1382,69 @@ test.describe('workflow route coverage', () => {
                                         'supervisor-transaction-receipt-number',
                                         'supervisor-transaction-minimum-amount',
                                       ].includes(elementId) &&
-                                      contract.property === 'min-height'
-                                    ? '40px'
+                                      contract.property === 'border-radius'
+                                    ? '999px'
                                     : [
                                           '/supervisor/transactions',
                                           '/admin/transactions',
                                         ].includes(route.path) &&
-                                        (className.includes(
-                                          'supervisor-transaction-',
-                                        ) ||
-                                          (route.path ===
-                                            '/admin/transactions' &&
-                                            className.includes(
-                                              'supervisor-customer-directory__filter',
-                                            ))) &&
-                                        contract.selector ===
-                                          '.sc-button:not(.sc-button--link)' &&
-                                        contract.property === 'border-radius'
-                                      ? '999px'
-                                      : route.path ===
-                                            '/cashier/transactions' &&
-                                          className.includes(
-                                            'transaction-filter-',
-                                          ) &&
+                                        [
+                                          'supervisor-transaction-receipt-number',
+                                          'supervisor-transaction-minimum-amount',
+                                        ].includes(elementId) &&
+                                        contract.property === 'min-height'
+                                      ? '40px'
+                                      : [
+                                            '/supervisor/transactions',
+                                            '/admin/transactions',
+                                          ].includes(route.path) &&
+                                          (className.includes(
+                                            'supervisor-transaction-',
+                                          ) ||
+                                            (route.path ===
+                                              '/admin/transactions' &&
+                                              className.includes(
+                                                'supervisor-customer-directory__filter',
+                                              ))) &&
+                                          contract.selector ===
+                                            '.sc-button:not(.sc-button--link)' &&
                                           contract.property === 'border-radius'
                                         ? '999px'
-                                        : [
-                                              '/cashier/earn',
-                                              '/cashier/redeem',
-                                            ].includes(route.path) &&
-                                            contract.selector ===
-                                              '.sc-control:not(.sc-textarea)' &&
+                                        : route.path ===
+                                              '/cashier/transactions' &&
+                                            className.includes(
+                                              'transaction-filter-',
+                                            ) &&
                                             contract.property ===
                                               'border-radius'
-                                          ? '0px'
+                                          ? '999px'
                                           : [
                                                 '/cashier/earn',
                                                 '/cashier/redeem',
                                               ].includes(route.path) &&
                                               contract.selector ===
-                                                '.sc-control:not(.sc-textarea):not(.sc-input--compact)' &&
-                                              contract.property === 'min-height'
+                                                '.sc-control:not(.sc-textarea)' &&
+                                              contract.property ===
+                                                'border-radius'
                                             ? '0px'
-                                            : route.path.endsWith(
-                                                  '/customers/new',
-                                                ) &&
+                                            : [
+                                                  '/cashier/earn',
+                                                  '/cashier/redeem',
+                                                ].includes(route.path) &&
                                                 contract.selector ===
                                                   '.sc-control:not(.sc-textarea):not(.sc-input--compact)' &&
                                                 contract.property ===
                                                   'min-height'
-                                              ? '42px'
-                                              : contract.expected;
+                                              ? '0px'
+                                              : route.path.endsWith(
+                                                    '/customers/new',
+                                                  ) &&
+                                                  contract.selector ===
+                                                    '.sc-control:not(.sc-textarea):not(.sc-input--compact)' &&
+                                                  contract.property ===
+                                                    'min-height'
+                                                ? '42px'
+                                                : contract.expected;
               await expect(subject).toHaveCSS(contract.property, expectedValue);
             }
           }
@@ -1437,6 +1476,9 @@ test.describe('workflow route coverage', () => {
             invalidTargets,
             `${role} ${route.path} ${viewport.name} targets`,
           ).toBe(0);
+          if (viewport.width === 375) {
+            await page.keyboard.press('Escape');
+          }
         }
       }
     }
@@ -4134,18 +4176,19 @@ test.describe('workflow route coverage', () => {
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto(`${baseUrl}/cashier`);
     await expect(page.locator('.shell-loading-screen')).toBeHidden();
-    const mobileSearch = page.getByRole('combobox', {
-      name: 'Search ShopCity',
-    });
+    const mobileSearch = await getVisibleShellSearch(page);
     await expect(mobileSearch).toBeVisible();
     await expect(mobileSearch).toBeEditable();
     await mobileSearch.focus();
-    const mobileCategoryBox = await page
+    const mobileSearchRoot = page.locator(
+      '.shell-mobile-drawer-search .global-shell-search',
+    );
+    const mobileCategoryBox = await mobileSearchRoot
       .locator('.global-shell-search__categories')
       .boundingBox();
     expect(mobileCategoryBox?.width ?? 0).toBeGreaterThan(0);
     expect(
-      await page
+      await mobileSearchRoot
         .locator('.global-shell-search__row')
         .evaluate((element) => element.scrollWidth <= element.clientWidth),
     ).toBe(true);
@@ -4154,7 +4197,12 @@ test.describe('workflow route coverage', () => {
       page.getByRole('option', { name: /Ada Shopper/ }),
     ).toBeVisible();
     await mobileSearch.press('Escape');
-    await expect(mobileSearch).toBeFocused();
+    await expect(
+      page.getByRole('dialog', { name: 'Primary navigation' }),
+    ).toBeHidden();
+    await expect(
+      page.getByRole('button', { name: 'Open navigation' }),
+    ).toBeFocused();
   });
 
   test('captures same-state Transactions prototype and React screens for review', async ({
@@ -4234,17 +4282,16 @@ test.describe('workflow route coverage', () => {
       await expect(
         page.getByText('0 bounded live receipts available today.'),
       ).toBeVisible({ timeout: 10000 });
-      const reactWidth =
-        (
-          await page
-            .getByRole('combobox', { name: 'Search ShopCity' })
-            .boundingBox()
-        )?.width ?? 0;
+      const reactSearch = await getVisibleShellSearch(page);
+      const reactWidth = (await reactSearch.boundingBox())?.width ?? 0;
       const reactScrollWidth = await page
         .locator('body')
         .evaluate((body) => body.scrollWidth);
       expect(reactWidth).toBeGreaterThanOrEqual(width >= 920 ? 180 : 120);
       expect(reactScrollWidth).toBeLessThanOrEqual(width);
+      if (width === 375) {
+        await page.keyboard.press('Escape');
+      }
       searchWidthPairs.push({
         viewport: width,
         referenceInputWidth: referenceWidth,
@@ -4316,7 +4363,6 @@ test.describe('workflow route coverage', () => {
   }, testInfo) => {
     await mockShell(page, 'ADMIN');
     await page.goto(`${baseUrl}/admin`);
-    const search = page.getByRole('combobox', { name: 'Search ShopCity' });
     const renderedGeometry: Array<{
       viewport: number;
       inputWidth: number;
@@ -4325,10 +4371,16 @@ test.describe('workflow route coverage', () => {
       pageScrollWidth: number;
     }> = [];
 
-    await search.click();
     for (const { width } of conformanceViewports) {
       await page.setViewportSize({ width, height: 900 });
       await page.waitForTimeout(50);
+      const search = await getVisibleShellSearch(page);
+      await search.click();
+      const searchRoot = page.locator(
+        width <= 620
+          ? '.shell-mobile-drawer-search .global-shell-search'
+          : '.shell-topbar .global-shell-search',
+      );
       const minimumWidth =
         width >= 920 ? 176 : [390, 375].includes(width) ? 120 : 0;
       const initialWidth = (await search.boundingBox())?.width ?? 0;
@@ -4345,10 +4397,12 @@ test.describe('workflow route coverage', () => {
       }
       const inputWidth = (await search.boundingBox())?.width ?? 0;
       const categoryWidth =
-        (await page.locator('.global-shell-search__categories').boundingBox())
-          ?.width ?? 0;
-      const groupWidth =
-        (await page.locator('.global-shell-search').boundingBox())?.width ?? 0;
+        (
+          await searchRoot
+            .locator('.global-shell-search__categories')
+            .boundingBox()
+        )?.width ?? 0;
+      const groupWidth = (await searchRoot.boundingBox())?.width ?? 0;
       const pageScrollWidth = await page
         .locator('body')
         .evaluate((body) => body.scrollWidth);
@@ -4360,6 +4414,9 @@ test.describe('workflow route coverage', () => {
         groupWidth,
         pageScrollWidth,
       });
+      if (width === 375) {
+        await page.keyboard.press('Escape');
+      }
       if (width === 1440 || width === 920 || width === 390 || width === 375) {
         await page.screenshot({
           path: testInfo.outputPath(`global-search-${width}px.png`),

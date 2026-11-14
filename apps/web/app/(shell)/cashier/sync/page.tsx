@@ -2,7 +2,6 @@
 
 import { X } from 'lucide-react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useSessionBootstrapState } from '../../../../components/session-bootstrap';
 import {
@@ -57,7 +56,6 @@ export default function CashierSyncPage() {
   > | null>(null);
   const { deviceId: sessionDeviceId, reset: resetSession } =
     useSessionBootstrapState();
-  const router = useRouter();
   const hasDeviceIdentity = Boolean(deviceId.trim());
   const deviceUnavailable =
     queueAccessAvailable === false ||
@@ -184,7 +182,7 @@ export default function CashierSyncPage() {
       // Reset locally and send the cashier through the supported sign-in flow.
     } finally {
       resetSession();
-      router.replace('/login');
+      window.location.assign('/login');
       setBusy(false);
     }
   }
