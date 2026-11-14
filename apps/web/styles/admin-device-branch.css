@@ -28,6 +28,10 @@
   flex: 0 0 auto;
 }
 
+.admin-control-return {
+  margin: 0 0 var(--sc-spacing-4);
+}
+
 .admin-device-branch-back-link {
   display: inline-flex;
   align-items: center;

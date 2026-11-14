@@ -2,6 +2,7 @@
 
 import Image from 'next/image';
 import Link from 'next/link';
+import { ArrowLeft } from 'lucide-react';
 import { usePathname, useRouter } from 'next/navigation';
 import type { ReactNode } from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -9,6 +10,7 @@ import { BrowserStateBootstrap } from './browser-state-bootstrap';
 import { AppSidebar } from './app-sidebar';
 import { AppTopbar } from './app-topbar';
 import { ShellNavigationIcon } from './shell-navigation-icon';
+import { GlobalShellSearch } from './global-shell-search';
 import {
   SessionBootstrapProvider,
   useSessionBootstrapState,
@@ -334,6 +336,19 @@ function AppShellContent({ children }: Readonly<{ children: ReactNode }>) {
                 )}
               </div>
               <OfflineIndicator />
+              {showProtectedContent &&
+              role === 'ADMIN' &&
+              isAdminControlRoute(pathname) ? (
+                <div className="admin-control-return">
+                  <Link
+                    className="admin-device-branch-back-link"
+                    href="/admin/operations"
+                  >
+                    <ArrowLeft aria-hidden="true" size={16} />
+                    <span>Back to operations</span>
+                  </Link>
+                </div>
+              ) : null}
               {showProtectedContent ? (
                 children
               ) : (
@@ -393,6 +408,17 @@ function AppShellContent({ children }: Readonly<{ children: ReactNode }>) {
                 Close
               </button>
             </div>
+            <div className="shell-mobile-drawer-search">
+              <GlobalShellSearch
+                userRole={
+                  role === 'CASHIER' ||
+                  role === 'SUPERVISOR' ||
+                  role === 'ADMIN'
+                    ? role
+                    : null
+                }
+              />
+            </div>
             <ShellNavigation
               sections={navigationSections}
               pathname={pathname}
@@ -419,6 +445,20 @@ function AppShellContent({ children }: Readonly<{ children: ReactNode }>) {
         </div>
       ) : null}
     </div>
+  );
+}
+
+function isAdminControlRoute(pathname: string | null) {
+  const controlRoutes = [
+    '/admin/users',
+    '/admin/devices',
+    '/admin/branches',
+    '/admin/audit',
+    '/admin/adjustments',
+  ];
+
+  return controlRoutes.some(
+    (route) => pathname === route || pathname?.startsWith(`${route}/`),
   );
 }
 

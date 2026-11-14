@@ -52,6 +52,33 @@ const sessionByRole = {
 test.describe.configure({ timeout: 120000 });
 
 test.describe('workflow route coverage', () => {
+  test('returns to Admin Operations from every Controls route', async ({
+    page,
+  }) => {
+    test.setTimeout(240_000);
+    await mockShell(page, 'ADMIN');
+
+    for (const path of [
+      '/admin/users',
+      '/admin/users/new',
+      '/admin/users/admin-user-1',
+      '/admin/devices',
+      '/admin/devices/new',
+      '/admin/devices/device-1',
+      '/admin/branches',
+      '/admin/branches/new',
+      '/admin/branches/branch-1',
+      '/admin/audit',
+      '/admin/adjustments',
+    ]) {
+      await page.goto(`${baseUrl}${path}`);
+      await expect(page.locator('.shell-loading-screen')).toBeHidden();
+      await expect(
+        page.locator('main').getByRole('link', { name: 'Back to operations' }),
+      ).toHaveAttribute('href', '/admin/operations');
+    }
+  });
+
   test('renders the native Supervisor overview cards and table responsively', async ({
     page,
   }) => {
@@ -415,19 +442,42 @@ test.describe('workflow route coverage', () => {
     await page.setViewportSize({ width: 390, height: 844 });
     await page.reload();
     await expect(sidebar).toBeHidden();
-    await page.getByRole('button', { name: 'Menu' }).click();
+    const mobileMenuButton = page.getByRole('button', {
+      name: 'Open navigation',
+    });
+    await expect(page.locator('.shell-mobile-brand')).toHaveAttribute(
+      'src',
+      /Frame%202147224881\.svg/,
+    );
+    await expect(mobileMenuButton.locator('svg')).toBeVisible();
+    await mobileMenuButton.click();
     const drawer = page.getByRole('dialog', { name: 'Primary navigation' });
     await expect(drawer).toBeVisible();
+    await expect(
+      drawer.getByRole('img', { name: 'ShopCity Supermarket' }),
+    ).toBeVisible();
+    await expect(
+      drawer.getByRole('combobox', { name: 'Search ShopCity' }),
+    ).toBeVisible();
+    await expect(drawer.getByRole('link', { name: 'Overview' })).toBeVisible();
+    await expect(
+      drawer
+        .getByRole('navigation', { name: 'Primary navigation' })
+        .getByRole('link'),
+    ).toHaveCount(6);
     await expect(
       drawer.getByRole('link', { name: /help & training/i }),
     ).toBeVisible();
     await expect(drawer.getByRole('button', { name: 'Logout' })).toBeVisible();
+    await expect(
+      page.locator('.shell-brand-row > .global-shell-search'),
+    ).toBeHidden();
     await expect(page).toHaveScreenshot('sidebar-mobile-drawer.png', {
       maxDiffPixelRatio: 0.08,
     });
     await page.keyboard.press('Escape');
     await expect(drawer).not.toBeVisible();
-    const menuButton = page.getByRole('button', { name: 'Menu' });
+    const menuButton = page.getByRole('button', { name: 'Open navigation' });
     await expect(menuButton).toBeFocused();
     expect(
       await menuButton.evaluate((element) => {
@@ -1912,8 +1962,14 @@ test.describe('workflow route coverage', () => {
     for (const path of [
       '/admin/operations',
       '/admin/users',
+      '/admin/users/new',
+      '/admin/users/admin-user-1',
       '/admin/devices',
+      '/admin/devices/new',
+      '/admin/devices/device-1',
       '/admin/branches',
+      '/admin/branches/new',
+      '/admin/branches/branch-1',
       '/admin/audit',
       '/admin/adjustments',
       '/admin/policies',
@@ -1924,6 +1980,23 @@ test.describe('workflow route coverage', () => {
       await expect(
         page.locator('main').getByRole('link', { name: 'Back to admin' }),
       ).toHaveCount(0);
+      const isControlRoute = [
+        '/admin/users',
+        '/admin/devices',
+        '/admin/branches',
+        '/admin/audit',
+        '/admin/adjustments',
+      ].some((prefix) => path === prefix || path.startsWith(`${prefix}/`));
+      const backToOperations = page
+        .locator('main')
+        .getByRole('link', { name: 'Back to operations' });
+      await expect(backToOperations).toHaveCount(isControlRoute ? 1 : 0);
+      if (isControlRoute) {
+        await expect(backToOperations).toHaveAttribute(
+          'href',
+          '/admin/operations',
+        );
+      }
     }
 
     await mockShell(page, 'CASHIER');
@@ -4472,7 +4545,9 @@ test.describe('workflow route coverage', () => {
     ).toBeVisible();
     await expect(page.getByText('0 waiting · 0 need attention')).toBeVisible();
     await expect(page.locator('.shell-sidebar')).toBeHidden();
-    await expect(page.getByRole('button', { name: 'Menu' })).toBeVisible();
+    await expect(
+      page.getByRole('button', { name: 'Open navigation' }),
+    ).toBeVisible();
     expect(
       await page.locator('[data-od-id="sync-queue-toolbar"]').count(),
     ).toBe(1);

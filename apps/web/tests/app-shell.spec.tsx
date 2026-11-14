@@ -306,12 +306,25 @@ describe('AppShell', () => {
       expect(screen.getByText('Protected content')).toBeInTheDocument();
     });
 
-    fireEvent.click(screen.getByText('Menu', { selector: 'button' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Open navigation' }));
     const drawer = screen.getByRole('dialog', { name: /primary navigation/i });
     expect((document.querySelector('.shell-frame') as HTMLElement).inert).toBe(
       true,
     );
 
+    expect(
+      within(drawer).getByRole('img', { name: 'ShopCity Supermarket' }),
+    ).toBeInTheDocument();
+    expect(
+      within(drawer).getByRole('combobox', { name: 'Search ShopCity' }),
+    ).toBeInTheDocument();
+    const searchIds = Array.from(
+      document.querySelectorAll('[id^="global-shell-search-"]'),
+    ).map((element) => element.id);
+    expect(new Set(searchIds).size).toBe(searchIds.length);
+    expect(
+      within(drawer).getByRole('link', { name: 'Overview' }),
+    ).toBeInTheDocument();
     expect(
       within(drawer).getByRole('link', { name: /help & training/i }),
     ).toBeInTheDocument();
@@ -412,7 +425,7 @@ describe('AppShell', () => {
       expect(screen.getByText('Protected content')).toBeInTheDocument();
     });
 
-    fireEvent.click(screen.getByText('Menu', { selector: 'button' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Open navigation' }));
     const drawer = screen.getByRole('dialog', {
       name: /primary navigation/i,
     });
@@ -429,7 +442,9 @@ describe('AppShell', () => {
     expect(
       screen.queryByRole('dialog', { name: /primary navigation/i }),
     ).not.toBeInTheDocument();
-    expect(screen.getByText('Menu', { selector: 'button' })).toHaveFocus();
+    expect(
+      screen.getByRole('button', { name: 'Open navigation' }),
+    ).toHaveFocus();
   });
 
   it('closes the mobile drawer with Escape', async () => {
@@ -453,7 +468,7 @@ describe('AppShell', () => {
       expect(screen.getByText('Protected content')).toBeInTheDocument();
     });
 
-    fireEvent.click(screen.getByText('Menu', { selector: 'button' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Open navigation' }));
     expect(
       screen.getByRole('dialog', { name: /primary navigation/i }),
     ).toBeInTheDocument();
@@ -462,7 +477,9 @@ describe('AppShell', () => {
     expect(
       screen.queryByRole('dialog', { name: /primary navigation/i }),
     ).not.toBeInTheDocument();
-    expect(screen.getByText('Menu', { selector: 'button' })).toHaveFocus();
+    expect(
+      screen.getByRole('button', { name: 'Open navigation' }),
+    ).toHaveFocus();
   });
 
   it('shows the protected shell gate when unauthenticated', async () => {

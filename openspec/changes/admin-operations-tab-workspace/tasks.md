@@ -32,6 +32,7 @@
 - [x] 2.25 Normalize the Operations Overview heading, signal labels, and values to an explicit type hierarchy while retaining 12px supporting text.
 - [x] 2.26 Add destination-specific icons to the existing Operations → Controls directory cards without adding duplicate sidebar links.
 - [x] 2.27 Label the Sentry DSN configuration state precisely; do not imply that a configured DSN proves event ingestion or processing.
+- [x] 2.28 Add a shared `Back to operations` arrow link to the Users, Devices, Branches, Audit, and Adjustments Control routes and all create/profile subroutes, while preserving existing local back links.
 
 ## 3. Verification
 
@@ -50,3 +51,4 @@
 - [x] 3.13 Focused Admin navigation and Operations Controls tests passed (12 tests); web typecheck, isolated ESLint, Prettier, strict OpenSpec validation, and `git diff --check` passed. The first root Jest invocation selected the backend-only config and found no web tests; rerunning through the web `unit:test` script passed.
 - [x] 3.14 Focused navigation/AppShell tests passed; authenticated browser smoke confirmed all five Controls links open their dedicated pages and keep Operations active without redirecting to `/admin`.
 - [x] 3.15 Verify configured/unconfigured Sentry labels and Operations-only health metadata in focused tests; report that live Sentry ingestion was not verifiable without Sentry query access. All five PilotHealthPanel tests pass; web typecheck, targeted ESLint, Semgrep (0 findings), Prettier, `git diff --check`, and OpenSpec validation passed. Sentry CLI/API access is unavailable, so issue ingestion remains unverified.
+- [x] 3.16 Verify mobile drawer search/routes/logo and Admin Controls return links across directory, create, and profile routes at narrow viewports. Focused Playwright checks passed: mobile drawer workflow and all 11 Control route variants; AppShell/global-search unit tests passed (25); web typecheck passed. ESLint is blocked by the existing ESLint 9/Next config patch incompatibility.

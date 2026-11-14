@@ -10,7 +10,9 @@ The Admin Operations page mixes pilot health, a partial route map, a full report
 - Add an attention summary, last-checked time, and release/Sentry configuration metadata using the existing pilot-operations summary response only; don't synthesize historical chart data.
 - Put the existing `ReportsWorkspace` in Reports; it is the reports component already embedded on the Operations page.
 - Put route cards for existing Users, Devices, Branches, Audit, and Adjustments pages in Controls.
+- Provide a consistent arrow-style `Back to operations` link on the Control landing pages and their create/profile subpages so the Operations workspace remains an easy return destination.
 - Keep the current page URL, role authorization, route implementations, and backend contracts unchanged. Remove duplicate sidebar entries for Users, Devices, Branches, Audit, and Adjustments; those workflows remain available under Operations → Controls.
+- Every route reachable from a Controls card, including its create/profile subroutes, offers a `Back to operations` link with a left-arrow visual consistent with the existing `Back to devices` action.
 - Register those five dedicated routes as aliases of the Operations sidebar item so the Admin shell's route allowlist does not redirect them to the overview when a Control link is followed.
 
 ## Capabilities
