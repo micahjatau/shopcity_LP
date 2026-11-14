@@ -910,7 +910,11 @@ export function SupervisorTransactionsDashboard({
           </label>
           <Button
             type="submit"
-            className="supervisor-customer-directory__register"
+            className={
+              isAdmin
+                ? 'admin-transaction-apply supervisor-customer-directory__register'
+                : 'supervisor-customer-directory__register'
+            }
             loading={searching}
           >
             {isAdmin

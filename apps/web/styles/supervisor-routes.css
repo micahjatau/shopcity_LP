@@ -705,6 +705,10 @@
   font-size: 12px;
 }
 
+.admin-transaction-apply.sc-button {
+  border-radius: 9999px;
+}
+
 .supervisor-customer-directory__status {
   min-height: 0;
   margin: 0;
