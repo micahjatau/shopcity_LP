@@ -185,7 +185,6 @@ export default function CashierSyncPage() {
     } finally {
       resetSession();
       router.replace('/login');
-      router.refresh();
       setBusy(false);
     }
   }
