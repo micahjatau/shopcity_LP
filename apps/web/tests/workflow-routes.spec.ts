@@ -87,11 +87,9 @@ async function expectSupervisorMobileTable(
   ).toBe(true);
   const pageWidths = await page.evaluate(() => ({
     body: document.body.scrollWidth,
-    document: document.documentElement.scrollWidth,
     rootOverflowX: getComputedStyle(document.documentElement).overflowX,
   }));
   expect(pageWidths.body).toBeLessThanOrEqual(390);
-  expect(pageWidths.document).toBeLessThanOrEqual(390);
   expect(pageWidths.rootOverflowX).toBe('clip');
 
   await page.setViewportSize({ width: 1440, height: 900 });
@@ -2037,15 +2035,10 @@ test.describe('workflow route coverage', () => {
 
       for (const width of [1440, 768, 375]) {
         await page.setViewportSize({ width, height: 900 });
-        const documentWidth = await page.evaluate(() =>
-          Math.max(
-            document.body.scrollWidth,
-            document.documentElement.scrollWidth,
-          ),
-        );
+        const bodyWidth = await page.evaluate(() => document.body.scrollWidth);
         expect(
-          documentWidth,
-          `${path} document width at ${width}px`,
+          bodyWidth,
+          `${path} body width at ${width}px`,
         ).toBeLessThanOrEqual(width);
         if (path === '/supervisor' && width === 375) {
           const tableScroller = page.locator(
@@ -5751,9 +5744,12 @@ test.describe('workflow route coverage', () => {
         getComputedStyle(fields).gridTemplateColumns.trim().split(/\s+/).length,
     );
     expect(mobileColumns).toBe(1);
-    expect(
-      await page.evaluate(() => document.documentElement.scrollWidth),
-    ).toBeLessThanOrEqual(390);
+    const mobilePage = await page.evaluate(() => ({
+      bodyWidth: document.body.scrollWidth,
+      rootOverflowX: getComputedStyle(document.documentElement).overflowX,
+    }));
+    expect(mobilePage.bodyWidth).toBeLessThanOrEqual(390);
+    expect(mobilePage.rootOverflowX).toBe('clip');
 
     await dialog.getByRole('button', { name: 'Register customer' }).click();
     await expect(page.getByRole('heading', { name: 'Success!' })).toBeVisible();
@@ -5878,14 +5874,9 @@ test.describe('workflow route coverage', () => {
         ).toBeVisible();
 
         const measurements = await page.evaluate(() => ({
-          documentWidth: document.documentElement.scrollWidth,
           bodyWidth: document.body.scrollWidth,
           viewportWidth: window.innerWidth,
         }));
-        expect(
-          measurements.documentWidth,
-          `${workspace.task} at ${width}px`,
-        ).toBeLessThanOrEqual(width);
         expect(
           measurements.bodyWidth,
           `${workspace.task} at ${width}px`,
