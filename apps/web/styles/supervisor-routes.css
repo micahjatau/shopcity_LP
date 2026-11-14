@@ -701,7 +701,7 @@
 .supervisor-customer-directory__register.sc-button {
   min-height: 40px;
   padding-inline: 15px;
-  border-radius: 9999px;
+  border-radius: 999px;
   font-size: 12px;
 }
 
