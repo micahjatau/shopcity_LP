@@ -19,6 +19,48 @@ import { businessDateInTimezone } from '../lib/reports/supervisor-overview-data'
 
 const baseUrl = process.env.PLAYWRIGHT_BASE_URL ?? 'http://127.0.0.1:3100';
 
+async function expectAdminMobileTable(
+  page: Page,
+  tableSelector: string,
+  scrollRegionSelector: string,
+  filterSelectors: ReadonlyArray<string> = [],
+  mobileVisibleSelectors: ReadonlyArray<string> = [],
+) {
+  await page.setViewportSize({ width: 390, height: 844 });
+  const table = page.locator(tableSelector);
+  await expect(table.locator('thead')).toBeVisible();
+  for (const selector of filterSelectors) {
+    await expect(page.locator(selector).first()).toHaveCSS(
+      'min-height',
+      '40px',
+    );
+  }
+  for (const selector of mobileVisibleSelectors) {
+    await expect(page.locator(selector).first()).toBeVisible();
+  }
+  expect(
+    await table.evaluate((element) => getComputedStyle(element).display),
+  ).toBe('table');
+  const scrollRegion = page.locator(scrollRegionSelector);
+  const scrollMetrics = await scrollRegion.evaluate((element) => ({
+    scrollWidth: element.scrollWidth,
+    clientWidth: element.clientWidth,
+    overflowX: getComputedStyle(element).overflowX,
+  }));
+  expect(
+    scrollMetrics.scrollWidth > scrollMetrics.clientWidth,
+    JSON.stringify(scrollMetrics),
+  ).toBe(true);
+  const mobilePageLayout = await page.evaluate(() => ({
+    bodyWidth: document.body.scrollWidth,
+    rootOverflowX: getComputedStyle(document.documentElement).overflowX,
+  }));
+  expect(mobilePageLayout.bodyWidth).toBeLessThanOrEqual(390);
+  expect(mobilePageLayout.rootOverflowX).toBe('clip');
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await expect(table).toHaveCSS('display', 'table');
+}
+
 async function getVisibleShellSearch(page: Page) {
   const drawer = page.getByRole('dialog', { name: 'Primary navigation' });
   if (await drawer.isVisible()) {
@@ -91,6 +133,171 @@ test.describe('workflow route coverage', () => {
       await expect(
         page.locator('main').getByRole('link', { name: 'Back to operations' }),
       ).toHaveAttribute('href', '/admin/operations');
+    }
+  });
+
+  test('keeps Admin mobile list tables and filters in desktop presentation', async ({
+    page,
+  }) => {
+    await mockShell(page, 'ADMIN');
+    const branch = {
+      id: 'branch-1',
+      name: 'Main branch',
+      status: 'ACTIVE',
+      timezone: 'Africa/Lagos',
+      receiptWeekStartDay: 1,
+    };
+    const fulfill = (path: string, data: unknown) =>
+      json({ success: true, data, meta: meta(path) });
+
+    await page.route('**/api/v1/admin/transactions**', (route) =>
+      route.fulfill(
+        fulfill('/api/v1/admin/transactions', {
+          items: [],
+          staffOptions: [],
+          nextCursor: null,
+          hasMore: false,
+        }),
+      ),
+    );
+    await page.route('**/api/v1/cards/management/issued*', (route) =>
+      route.fulfill(
+        fulfill('/api/v1/cards/management/issued', {
+          items: [
+            {
+              cardNumber: 'SER-1',
+              status: 'ACTIVE',
+              issuedAt: '2026-01-01T00:00:00.000Z',
+              customer: { id: 'customer-1', fullName: 'Ada Shopper' },
+            },
+          ],
+          nextCursor: null,
+          hasMore: false,
+        }),
+      ),
+    );
+    await page.route('**/api/v1/fraud*', (route) =>
+      route.fulfill(
+        fulfill('/api/v1/fraud/flags', { items: [], nextCursor: null }),
+      ),
+    );
+    await page.route('**/api/v1/users**', (route) =>
+      route.fulfill(
+        fulfill('/api/v1/users', [
+          {
+            id: 'staff-1',
+            firstName: 'Ada',
+            lastName: 'Lovelace',
+            username: 'ada@example.test',
+            phoneNumber: '+234 801 234 5678',
+            role: 'CASHIER',
+            status: 'ACTIVE',
+            branchId: branch.id,
+          },
+        ]),
+      ),
+    );
+    await page.route('**/api/v1/branches', (route) =>
+      route.fulfill(fulfill('/api/v1/branches', [branch])),
+    );
+    await page.route('**/api/v1/devices', (route) =>
+      route.fulfill(
+        fulfill('/api/v1/devices', [
+          {
+            id: 'device-1',
+            name: 'Front POS',
+            status: 'ACTIVE',
+            authBindingMode: 'WEBAUTHN',
+            branchId: branch.id,
+            branch: { name: branch.name },
+            lastSeenAt: '2026-10-02T09:00:00.000Z',
+          },
+        ]),
+      ),
+    );
+
+    const routes = [
+      {
+        path: '/admin/customers',
+        table: '.admin-customer-directory-page .supervisor-customer-table',
+        scrollRegion:
+          '.admin-customer-directory-page .supervisor-customer-table-wrap',
+        filters: [
+          '.admin-customer-directory-page .supervisor-customer-directory__filter',
+        ],
+      },
+      {
+        path: '/admin/transactions',
+        table: '.admin-transactions-dashboard .supervisor-transaction-table',
+        scrollRegion:
+          '.admin-transactions-dashboard .supervisor-transaction-table-scroll',
+        filters: [
+          '.admin-transactions-dashboard .supervisor-transaction-filter-dropdown .supervisor-customer-directory__filter',
+        ],
+      },
+      {
+        path: '/admin/cards',
+        table:
+          '.admin-card-management-page .supervisor-issued-card-directory__table',
+        scrollRegion:
+          '.admin-card-management-page .supervisor-customer-table-wrap',
+        filters: [
+          '.admin-card-management-page .supervisor-customer-directory__filter',
+          '.admin-card-management-page .supervisor-issued-card-directory__date-trigger',
+        ],
+        mobileVisible: [
+          '.admin-card-management-page .supervisor-issued-card-directory__search input',
+        ],
+      },
+      {
+        path: '/admin/fraud',
+        table: '.admin-fraud-page .fraud-flags__table',
+        scrollRegion: '.admin-fraud-page .fraud-flags__table-wrap',
+        filters: ['.admin-fraud-page .fraud-flags__filter'],
+      },
+      {
+        path: '/admin/users',
+        table: 'main section[aria-label="Staff directory"] table',
+        scrollRegion:
+          'main section[aria-label="Staff directory"] [class*="tableWrap"]',
+        filters: ['select[aria-label="Filter staff by status"]'],
+      },
+      {
+        path: '/admin/branches',
+        table: 'main section[aria-label="Branch directory"] table',
+        scrollRegion:
+          'main section[aria-label="Branch directory"] [class*="tableWrap"]',
+        filters: ['select[aria-label="Filter branches by status"]'],
+      },
+      {
+        path: '/admin/devices',
+        table: 'main section[aria-label="Device directory"] table',
+        scrollRegion:
+          'main section[aria-label="Device directory"] [class*="tableWrap"]',
+        filters: [
+          'select[aria-label="Filter devices by status"]',
+          'select[aria-label="Filter devices by binding"]',
+        ],
+      },
+    ];
+
+    const selectedRoutes = process.env.ADMIN_MOBILE_PARITY_ROUTE
+      ? routes.filter(
+          (route) => route.path === process.env.ADMIN_MOBILE_PARITY_ROUTE,
+        )
+      : routes;
+    for (const route of selectedRoutes) {
+      await page.goto(`${baseUrl}${route.path}`, {
+        waitUntil: 'domcontentloaded',
+      });
+      await expect(page.locator(route.table)).toBeVisible();
+      await expectAdminMobileTable(
+        page,
+        route.table,
+        route.scrollRegion,
+        route.filters,
+        'mobileVisible' in route ? route.mobileVisible : [],
+      );
     }
   });
 
@@ -468,6 +675,17 @@ test.describe('workflow route coverage', () => {
     await mobileMenuButton.click();
     const drawer = page.getByRole('dialog', { name: 'Primary navigation' });
     await expect(drawer).toBeVisible();
+    const drawerBackground = await drawer.evaluate(
+      (element) => getComputedStyle(element).backgroundColor,
+    );
+    const headerBackground = await page
+      .locator('.shell-topbar')
+      .evaluate((element) => getComputedStyle(element).backgroundColor);
+    expect(headerBackground).toBe(drawerBackground);
+    await expect(page.locator('.shell-avatar')).toHaveCSS(
+      'background-color',
+      'rgb(255, 255, 255)',
+    );
     await expect(
       drawer.getByRole('img', { name: 'ShopCity Supermarket' }),
     ).toBeVisible();

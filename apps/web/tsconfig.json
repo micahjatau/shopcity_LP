@@ -29,7 +29,14 @@
   "include": [
     "**/*.ts",
     "**/*.tsx",
+    ".next-a11y-fix/types/**/*.ts",
+    ".next-ci-fix/types/**/*.ts",
+    ".next-ci-fix2/types/**/*.ts",
+    ".next-ci-fix3/types/**/*.ts",
+    ".next-ci-fix4/types/**/*.ts",
+    ".next-ci-fix5/types/**/*.ts",
     ".next-dev/types/**/*.ts",
+    ".next-mobile-menu-check/types/**/*.ts",
     ".next-playwright-dev/types/**/*.ts",
     ".next/types/**/*.ts",
     "next-env.d.ts"

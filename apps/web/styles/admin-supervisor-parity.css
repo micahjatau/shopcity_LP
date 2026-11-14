@@ -215,3 +215,229 @@
     flex-direction: column;
   }
 }
+
+/* Admin list tables keep their desktop table language on narrow screens. */
+@media (max-width: 767px) {
+  html:has(
+    .admin-customer-directory-page,
+    .admin-card-management-page,
+    .admin-transactions-dashboard,
+    .admin-fraud-page,
+    [aria-label='Staff directory'],
+    [aria-label='Branch directory'],
+    [aria-label='Device directory']
+  ) {
+    overflow-x: clip;
+  }
+
+  .admin-fraud-page .fraud-flags__filter,
+  .admin-fraud-page .fraud-flags__filter > .sc-control,
+  .admin-fraud-page .fraud-flags__dropdown-trigger.sc-button {
+    min-height: 40px;
+  }
+
+  .admin-customer-directory-page .supervisor-customer-table-wrap,
+  .admin-card-management-page .supervisor-customer-table-wrap,
+  .admin-transactions-dashboard .supervisor-transaction-table-scroll {
+    max-width: 100%;
+    overflow-x: auto;
+    overscroll-behavior-inline: contain;
+  }
+
+  :is(
+      .admin-customer-directory-page,
+      .admin-card-management-page,
+      .admin-transactions-dashboard
+    )
+    .supervisor-customer-table {
+    display: table;
+    width: max(100%, 740px);
+    min-width: 740px;
+    table-layout: auto;
+  }
+
+  :is(
+      .admin-customer-directory-page,
+      .admin-card-management-page,
+      .admin-transactions-dashboard
+    )
+    .supervisor-customer-table
+    thead {
+    position: static;
+    width: auto;
+    height: auto;
+    margin: 0;
+    padding: 0;
+    overflow: visible;
+    clip: auto;
+    clip-path: none;
+    white-space: normal;
+  }
+
+  :is(
+      .admin-customer-directory-page,
+      .admin-card-management-page,
+      .admin-transactions-dashboard
+    )
+    .supervisor-customer-table
+    tbody {
+    display: table-row-group;
+    width: auto;
+  }
+
+  :is(
+      .admin-customer-directory-page,
+      .admin-card-management-page,
+      .admin-transactions-dashboard
+    )
+    .supervisor-customer-table
+    tr {
+    display: table-row;
+    width: auto;
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+  }
+
+  :is(
+      .admin-customer-directory-page,
+      .admin-card-management-page,
+      .admin-transactions-dashboard
+    )
+    .supervisor-customer-table
+    td {
+    display: table-cell;
+    min-width: 0;
+    padding: 12px;
+    border-bottom: 1px solid #e7e5e5;
+    text-align: left;
+  }
+
+  :is(
+      .admin-customer-directory-page,
+      .admin-card-management-page,
+      .admin-transactions-dashboard
+    )
+    .supervisor-customer-table
+    td[data-label]::before {
+    display: none;
+    content: none;
+  }
+
+  .admin-transactions-dashboard .supervisor-transaction-table {
+    width: max(100%, 882px);
+    min-width: 882px;
+    table-layout: fixed;
+  }
+
+  .admin-fraud-page .fraud-flags__table-wrap {
+    max-width: 100%;
+    overflow-x: auto;
+    overscroll-behavior-inline: contain;
+  }
+
+  .admin-fraud-page .fraud-flags__table {
+    display: table;
+    width: max(100%, 58rem);
+    min-width: 58rem;
+  }
+
+  .admin-fraud-page .fraud-flags__table thead {
+    position: static;
+    width: auto;
+    height: auto;
+    margin: 0;
+    overflow: visible;
+    clip: auto;
+    clip-path: none;
+    white-space: normal;
+  }
+
+  .admin-fraud-page .fraud-flags__table tbody {
+    display: table-row-group;
+    width: auto;
+  }
+
+  .admin-fraud-page .fraud-flags__table tbody tr.fraud-flags__row,
+  .admin-fraud-page .fraud-flags__table tbody tr:not(.fraud-flags__row) {
+    display: table-row;
+    width: auto;
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+  }
+
+  .admin-fraud-page .fraud-flags__table tbody th[data-label],
+  .admin-fraud-page .fraud-flags__table tbody td[data-label] {
+    display: table-cell;
+    min-width: 0;
+    padding: 12px;
+    border-bottom: 1px solid var(--sc-color-semantic-border);
+  }
+
+  .admin-fraud-page .fraud-flags__table tbody th[data-label]::before,
+  .admin-fraud-page .fraud-flags__table tbody td[data-label]::before {
+    display: none;
+    content: none;
+  }
+
+  .admin-fraud-page .fraud-flags__table tbody td.fraud-flags__empty {
+    display: table-cell;
+    padding: var(--sc-spacing-6) var(--sc-spacing-3) !important;
+  }
+
+  .admin-card-management-page > div,
+  .admin-card-management-page .supervisor-issued-card-directory {
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .admin-card-management-page .supervisor-issued-card-directory__toolbar-left {
+    display: flex;
+    flex-wrap: wrap;
+    grid-template-columns: none;
+  }
+
+  .admin-card-management-page .supervisor-issued-card-directory__search-toggle {
+    display: none;
+  }
+
+  .admin-card-management-page .supervisor-issued-card-directory__search {
+    display: flex;
+    width: 100%;
+    min-width: 0;
+    flex: 1 1 100%;
+  }
+
+  .admin-card-management-page .supervisor-issued-card-directory__toolbar-right {
+    flex-wrap: wrap;
+    justify-content: space-between;
+  }
+
+  .admin-card-management-page .supervisor-issued-card-directory__date-filter {
+    min-width: 0;
+    flex: 1 1 12rem;
+  }
+
+  .admin-card-management-page .supervisor-issued-card-directory__assign-button {
+    min-height: 40px;
+    white-space: nowrap;
+  }
+}
+
+@media (max-width: 620px) {
+  .admin-transactions-dashboard .supervisor-transaction-search {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .admin-transactions-dashboard .supervisor-transaction-filter--receipt {
+    grid-column: 1 / -1;
+  }
+
+  .admin-transactions-dashboard .supervisor-transaction-search > .sc-button {
+    width: auto;
+    grid-column: 1 / -1;
+    justify-self: start;
+  }
+}

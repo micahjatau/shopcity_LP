@@ -306,7 +306,9 @@ export function SupervisorCustomerWorkflows({
     );
   }
   return (
-    <section className="supervisor-page sc-page">
+    <section
+      className={`supervisor-page sc-page${isAdmin ? ' admin-customer-directory-page' : ''}`}
+    >
       <CashierPageHeader
         className="cashier-route-header supervisor-page__header"
         title="Customers"

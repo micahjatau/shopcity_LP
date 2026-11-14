@@ -744,7 +744,7 @@ export function SupervisorTransactionsDashboard({
 
   return (
     <section
-      className="supervisor-page transaction-dashboard supervisor-transactions-dashboard"
+      className={`supervisor-page transaction-dashboard supervisor-transactions-dashboard${isAdmin ? ' admin-transactions-dashboard' : ''}`}
       data-od-id="transactions-view"
       aria-labelledby="supervisor-transactions-title"
     >

@@ -72,3 +72,16 @@ The Admin pages `/admin`, `/admin/transactions`, `/admin/approvals`, `/admin/fra
 - **WHEN** the page is rendered at desktop, tablet, or mobile widths
 - **THEN** its equivalent state and controls follow the paired Supervisor page's styling and responsive treatment
 - **AND** existing Admin state handling and accessible behavior remain intact.
+
+### Requirement: Admin mobile list tables preserve desktop presentation
+
+The Admin list pages `/admin/transactions`, `/admin/customers`, `/admin/cards`, `/admin/fraud`, `/admin/users`, `/admin/branches`, and `/admin/devices` MUST retain the desktop table's visual language on mobile, including table headers, cell typography, row dividers, status treatments, and actions. Wide tables MAY use a horizontally scrollable table region contained within the page. Filter controls MUST retain their desktop visual treatment and remain usable within the mobile viewport. Data, filters, pagination, route destinations, actions, authorization, and operational behavior MUST remain unchanged.
+
+#### Scenario: Admin views a mobile list table
+
+- **GIVEN** an authorized Admin opens one of the seven list pages at a mobile viewport
+- **WHEN** the directory or results table is rendered
+- **THEN** it retains the desktop table header and cell presentation instead of converting records into a visually unrelated label/value card layout
+- **AND** any horizontal overflow is contained within the table region and does not cause page-level horizontal scrolling
+- **AND** filter controls remain legible, touch-usable, and visually consistent with their desktop counterparts
+- **AND** the route's existing data, filtering, pagination, actions, and authorization remain unchanged.

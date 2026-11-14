@@ -1,0 +1,2 @@
+schema: spec-driven
+goal: Remove redundant Back to admin self-links from every Admin shell page while preserving meaningful navigation and all workflows.

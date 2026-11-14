@@ -11,6 +11,22 @@ Use this tracker when preparing a spec proposal. Run `npm run proposal:impact --
 
 ## Findings
 
+### 2026-11-13 — Admin mobile table and filter parity
+
+Before extending `admin-supervisor-common-page-style-parity`, GitNexus upstream impacts resolved the planned component owners as LOW/exact: `SupervisorTransactionsDashboard` 5 impacted symbols (3 direct); `AdminTransactionsDashboard` 2; `SupervisorCustomerWorkflows` 4; `SupervisorCardWorkflows` 4; `SupervisorIssuedCardDirectory` 5 (1 direct); `FraudFlagsPanel` 3; and `AdminStaffDirectory`, `AdminBranchDirectory`, and `AdminDeviceDirectory` 2 each. All reported 0 affected processes/modules and no HIGH/CRITICAL findings. The local index is stale at `0d281bc` versus current HEAD `dd70a2c3`, so these graph counts are limited to the indexed surface; source/test review remains required. Planned scope is Admin-only responsive presentation: retain desktop table headers/cells and desktop visual styling on mobile with contained horizontal scrolling where needed, and align responsive filter-control styling. Preserve data, role authorization, filter behavior, pagination, actions, and Supervisor presentation.
+
+```text
+npm run proposal:impact -- --file apps/web/components/workflows/supervisor-transactions-dashboard.tsx AdminTransactionsDashboard
+npm run proposal:impact -- --file apps/web/components/workflows/supervisor-transactions-dashboard.tsx SupervisorTransactionsDashboard
+npm run proposal:impact -- --file apps/web/components/workflows/supervisor-customer-workflows.tsx SupervisorCustomerWorkflows
+npm run proposal:impact -- --file apps/web/components/workflows/supervisor-card-workflows.tsx SupervisorCardWorkflows
+npm run proposal:impact -- --file apps/web/components/workflows/supervisor-issued-card-directory.tsx SupervisorIssuedCardDirectory
+npm run proposal:impact -- --file apps/web/components/workflows/fraud-flags-panel.tsx FraudFlagsPanel
+npm run proposal:impact -- --file apps/web/components/workflows/admin-staff-management.tsx AdminStaffDirectory
+npm run proposal:impact -- --file apps/web/components/workflows/admin-branch-management.tsx AdminBranchDirectory
+npm run proposal:impact -- --file apps/web/components/devices/admin-device-workflows.tsx AdminDeviceDirectory
+```
+
 ### 2026-11-12 — Admin device and branch workflow implementation
 
 GitNexus impact was attempted before editing the Admin device and branch surfaces. `DeviceManagement` was reported with 0 impacted symbols/LOW and a corrupted symbol UID, while `AdminBranchesPage` resolved to an unrelated `Folder:prisma/migrations/20260802_financial_guardrail_repair` instead of its source definition. These results cannot establish an implementation blast radius and must not be treated as valid zero-impact assessments. `npm run gitnexus:analyze` could not refresh the index: GitNexus reported an inconsistent `file_fts` index (document offset 2276 missing during delete; drop and recreate the index). No HIGH/CRITICAL result can be substantiated by this broken index. Source/test review confirms `DeviceManagement` serves both Admin and Supervisor routes; the Admin profile changes are confined to an opt-in profile prop, and the existing Supervisor presentation and security flows remain in place. Backend APIs, tenant/branch authorization, and database schemas are unchanged.

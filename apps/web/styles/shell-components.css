@@ -1172,6 +1172,8 @@
     min-height: 56px;
     margin-bottom: 28px;
     padding: 10px 12px;
+    background: var(--sc-color-brand-700);
+    color: var(--sc-color-neutral-0);
   }
 
   .shell-brand-row {
@@ -1197,6 +1199,11 @@
   .shell-avatar {
     width: 28px;
     height: 28px;
+  }
+
+  .shell-avatar {
+    background: var(--sc-color-neutral-0);
+    color: var(--sc-color-brand-700);
   }
 
   .shell-system-status {

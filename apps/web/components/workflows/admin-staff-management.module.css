@@ -576,3 +576,57 @@
     width: 100%;
   }
 }
+
+@media (max-width: 767px) {
+  .filterSelect {
+    min-height: 40px;
+  }
+
+  .tableWrap {
+    max-width: 100%;
+    overflow-x: auto;
+    overscroll-behavior-inline: contain;
+  }
+
+  .table {
+    display: table;
+    width: 100%;
+    min-width: 720px;
+  }
+
+  .table thead {
+    position: static;
+    width: auto;
+    height: auto;
+    margin: 0;
+    overflow: visible;
+    clip: auto;
+    white-space: normal;
+  }
+
+  .table tbody {
+    display: table-row-group;
+    width: auto;
+  }
+
+  .table tr {
+    display: table-row;
+    width: auto;
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+  }
+
+  .table td {
+    display: table-cell;
+    padding: 12px;
+    border-bottom: 1px solid #e7e5e5;
+    overflow-wrap: anywhere;
+  }
+
+  .table td[data-label]::before {
+    display: none;
+    content: none;
+  }
+}

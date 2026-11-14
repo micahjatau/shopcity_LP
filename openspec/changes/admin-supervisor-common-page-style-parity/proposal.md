@@ -6,6 +6,7 @@ The Admin and Supervisor sidebars expose seven comparable destinations, but Admi
 
 - Match the visual treatment of the shared destinations to the existing Supervisor pages: **Overview, Transactions, Approvals, Fraud, Customers, Cards, and Reports**.
 - Align comparable page headers, widths, spacing, surface/card treatments, controls, tables, pagination, focus states, and responsive behavior using the existing Supervisor styling as the source of truth.
+- On mobile, preserve the desktop table's header/cell styling across Admin Transactions, Customers, Cards, Fraud, Users, Branches, and Devices; use contained horizontal scrolling for wide tables and keep filters visually consistent with desktop controls while fitting the viewport.
 - Preserve each Admin page's role-specific operational data, endpoints, management and reversal/decision actions, tenant scope, and Admin authorization. Presentation labels and duplicate prototype scaffolding may be simplified or adapted to match the shared page chrome; retain operational content and route destinations. Use existing presentation props only where source review confirms they do not change workflow capabilities.
 - Keep Supervisor routes and behavior unchanged. Do not introduce new APIs, data, actions, or role permissions.
 

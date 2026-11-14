@@ -1,0 +1,5 @@
+schema: spec-driven
+created: 2026-11-12
+goal: Provide an Admin tenant-wide transaction listing, filters, cursor
+  navigation, detail dialog, and reversal workflow without changing Supervisor
+  branch scope.
