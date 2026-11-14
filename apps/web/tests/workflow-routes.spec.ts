@@ -387,7 +387,7 @@ test.describe('workflow route coverage', () => {
         }),
       ),
     );
-    await page.route('**/api/v1/fraud/flags*', (route) =>
+    await page.route('**/api/v1/fraud-flags*', (route) =>
       route.fulfill(
         json({
           success: true,
