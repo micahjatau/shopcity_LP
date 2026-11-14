@@ -2899,7 +2899,7 @@ test.describe('workflow route coverage', () => {
     ).toHaveCSS('width', '34px');
     await expect(
       page.locator('.supervisor-transaction-table-scroll'),
-    ).toHaveCSS('overflow-x', 'visible');
+    ).toHaveCSS('overflow-x', 'auto');
     expect(
       await page.locator('body').evaluate((body) => body.scrollWidth),
     ).toBeLessThanOrEqual(375);
