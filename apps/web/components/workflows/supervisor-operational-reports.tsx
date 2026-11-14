@@ -503,11 +503,19 @@ export function OperationalReportsDashboard({
     typeof latest?.materializedAt === 'string' ? latest.materializedAt : null;
   const displayTimezone =
     reportScope?.timezone || appliedScope.timezone || 'Africa/Lagos';
+  const confirmedBranchId = reportScope?.branchId?.trim() || null;
   const branchName =
-    reportScope?.branchName ??
-    (reportScope?.branchId && reportScope.branchId === publicConfig?.branch?.id
-      ? publicConfig.branch.name
+    reportScope?.branchName?.trim() ||
+    (confirmedBranchId && confirmedBranchId === publicConfig?.branch?.id
+      ? publicConfig.branch.name.trim() || null
       : null);
+  const branchScopeLabel =
+    branchName ||
+    (confirmedBranchId
+      ? `Branch ID ${confirmedBranchId}`
+      : reportScope?.scope === 'TENANT'
+        ? 'Tenant-wide'
+        : '');
   const freshLabel = materializedAt
     ? formatReportUpdatedAt(materializedAt, displayTimezone)
     : null;
@@ -597,6 +605,15 @@ export function OperationalReportsDashboard({
   async function refreshDashboardData() {
     if (loading || refreshingMaterialization || rateLimitSeconds > 0) return;
 
+    const supervisorBranchId =
+      reportScope?.scope === 'BRANCH' ? reportScope.branchId?.trim() || '' : '';
+    if (!isAdmin && !supervisorBranchId) {
+      setRefreshMessage(
+        'Branch scope is unavailable. Reload report data before refreshing.',
+      );
+      return;
+    }
+
     if (mode === 'week' || mode === 'month') {
       selectPeriod(mode);
     }
@@ -613,7 +630,7 @@ export function OperationalReportsDashboard({
             scope: appliedScope.branchId ? 'BRANCH' : 'TENANT',
             scopeKey: appliedScope.branchId || undefined,
           }
-        : { scope: 'BRANCH', scopeKey: publicConfig?.branch?.id };
+        : { scope: 'BRANCH', scopeKey: supervisorBranchId };
     const scopeLabel = targetScope.scope === 'BRANCH' ? 'branch' : 'tenant';
 
     setRefreshingMaterialization(true);
@@ -895,9 +912,7 @@ export function OperationalReportsDashboard({
             </span>
           ) : null}
           <span className="supervisor-reports-branch-name">
-            ·{' '}
-            {branchName ||
-              (reportScope?.scope === 'TENANT' ? 'Tenant-wide' : '')}
+            · {branchScopeLabel}
           </span>
         </div>
         {mode === 'custom' ? (

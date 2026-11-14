@@ -61,6 +61,44 @@ async function expectAdminMobileTable(
   await expect(table).toHaveCSS('display', 'table');
 }
 
+async function expectSupervisorMobileTable(
+  page: Page,
+  tableSelector: string,
+  scrollRegionSelector: string,
+  filterSelectors: ReadonlyArray<string>,
+) {
+  await page.setViewportSize({ width: 390, height: 844 });
+  const table = page.locator(tableSelector);
+  await expect(table.locator('thead')).toBeVisible();
+  await expect(table).toHaveCSS('display', 'table');
+  for (const selector of filterSelectors) {
+    await expect(page.locator(selector).first()).toBeVisible();
+  }
+  const scrollRegion = page.locator(scrollRegionSelector);
+  const scrollMetrics = await scrollRegion.evaluate((element) => ({
+    scrollWidth: element.scrollWidth,
+    clientWidth: element.clientWidth,
+    overflowX: getComputedStyle(element).overflowX,
+  }));
+  expect(scrollMetrics.overflowX).toBe('auto');
+  expect(
+    scrollMetrics.scrollWidth > scrollMetrics.clientWidth,
+    JSON.stringify(scrollMetrics),
+  ).toBe(true);
+  const pageWidths = await page.evaluate(() => ({
+    body: document.body.scrollWidth,
+    document: document.documentElement.scrollWidth,
+    rootOverflowX: getComputedStyle(document.documentElement).overflowX,
+  }));
+  expect(pageWidths.body).toBeLessThanOrEqual(390);
+  expect(pageWidths.document).toBeLessThanOrEqual(390);
+  expect(pageWidths.rootOverflowX).toBe('clip');
+
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await expect(table).toHaveCSS('display', 'table');
+  await expect(table.locator('thead')).toBeVisible();
+}
+
 async function getVisibleShellSearch(page: Page) {
   const drawer = page.getByRole('dialog', { name: 'Primary navigation' });
   if (await drawer.isVisible()) {
@@ -297,6 +335,141 @@ test.describe('workflow route coverage', () => {
         route.scrollRegion,
         route.filters,
         'mobileVisible' in route ? route.mobileVisible : [],
+      );
+    }
+  });
+
+  test('keeps Supervisor mobile list tables in desktop presentation', async ({
+    page,
+  }) => {
+    await mockShell(page, 'SUPERVISOR');
+    await page.route('**/api/v1/cards/management/issued*', (route) =>
+      route.fulfill(
+        json({
+          success: true,
+          data: {
+            items: [
+              {
+                cardNumber: 'SER-1',
+                status: 'ACTIVE',
+                issuedAt: '2026-01-01T00:00:00.000Z',
+                customer: { id: 'customer-1', fullName: 'Ada Shopper' },
+              },
+            ],
+            nextCursor: null,
+            hasMore: false,
+          },
+          meta: meta('/api/v1/cards/management/issued'),
+        }),
+      ),
+    );
+    await page.route('**/api/v1/transactions**', (route) =>
+      route.fulfill(
+        json({
+          success: true,
+          data: {
+            items: [
+              {
+                transactionId: 'ledger-1',
+                receiptNumber: 'R-001',
+                operation: 'EARN',
+                amountKobo: 500,
+                creditKobo: 500,
+                customerName: 'Ada Shopper',
+                purchaseAmountKobo: 10_000,
+                status: 'CONFIRMED',
+                occurredAt: '2030-01-01T10:00:00.000Z',
+              },
+            ],
+            staffOptions: [],
+            nextCursor: null,
+            hasMore: false,
+          },
+          meta: meta('/api/v1/transactions'),
+        }),
+      ),
+    );
+    await page.route('**/api/v1/fraud/flags*', (route) =>
+      route.fulfill(
+        json({
+          success: true,
+          data: {
+            items: [
+              {
+                id: 'flag-1',
+                ruleCode: 'FR-HV-001',
+                severity: 'HIGH',
+                status: 'OPEN',
+                branchId: 'branch-1',
+                branchName: 'Main branch',
+                customerName: 'Ada Shopper',
+                receiptNumber: 'R-001',
+                amountKobo: 120_000,
+                firstDetectedAt: '2030-01-01T10:00:00.000Z',
+                lastDetectedAt: '2030-01-01T10:00:00.000Z',
+              },
+            ],
+            summary: {
+              needReviewCount: 1,
+              highPriorityCount: 1,
+              underReviewCount: 0,
+            },
+            nextCursor: null,
+            hasMore: false,
+          },
+          meta: meta('/api/v1/fraud/flags'),
+        }),
+      ),
+    );
+
+    const routes = [
+      {
+        path: '/supervisor/customers',
+        table: '.supervisor-customer-directory .supervisor-customer-table',
+        scrollRegion: '.supervisor-customer-table-wrap',
+        rowText: 'Ada Shopper',
+        filters: ['.supervisor-customer-directory__filter'],
+      },
+      {
+        path: '/supervisor/cards',
+        table: '.supervisor-issued-card-directory__table',
+        scrollRegion: '.supervisor-customer-table-wrap',
+        rowText: 'SER-1',
+        filters: [
+          '.supervisor-issued-card-directory .supervisor-customer-directory__status-trigger',
+          '.supervisor-issued-card-directory__date-trigger',
+        ],
+      },
+      {
+        path: '/supervisor/transactions',
+        table:
+          '.supervisor-transactions-dashboard .supervisor-transaction-table',
+        scrollRegion: '.supervisor-transaction-table-scroll',
+        rowText: 'R-001',
+        filters: ['.supervisor-transaction-filter-dropdown button'],
+      },
+      {
+        path: '/supervisor/fraud',
+        table: '.supervisor-page .fraud-review__table',
+        scrollRegion: '.fraud-flags__table-wrap',
+        rowText: 'Purchase above the review threshold',
+        filters: ['.fraud-review__filters .fraud-flags__filter'],
+      },
+    ];
+
+    for (const route of routes) {
+      await page.goto(`${baseUrl}${route.path}`, {
+        waitUntil: 'domcontentloaded',
+      });
+      await expect(page.locator(route.table)).toBeVisible();
+      await expect(
+        page.locator(route.table).getByText(route.rowText).first(),
+      ).toBeVisible();
+      await expectSupervisorMobileTable(
+        page,
+        route.table,
+        route.scrollRegion,
+        route.filters,
       );
     }
   });

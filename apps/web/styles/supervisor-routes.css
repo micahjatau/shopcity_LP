@@ -6304,3 +6304,169 @@
     font-size: 0.8125rem;
   }
 }
+
+/* Supervisor mobile lists retain their desktop table language with local scrolling. */
+@media (max-width: 767px) {
+  html:has(
+    .shell-root--supervisor .supervisor-customer-table,
+    .shell-root--supervisor .fraud-review__table
+  ) {
+    overflow-x: clip;
+  }
+
+  .shell-root--supervisor .supervisor-page {
+    min-width: 0;
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .shell-root--supervisor .supervisor-page > * {
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .shell-root--supervisor
+    :is(
+      .supervisor-customer-table-wrap,
+      .supervisor-transaction-table-scroll,
+      .fraud-flags__table-wrap
+    ) {
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+    overflow-x: auto;
+    overscroll-behavior-inline: contain;
+  }
+
+  .shell-root--supervisor .supervisor-customer-table {
+    display: table;
+    width: max(100%, 740px);
+    min-width: 740px;
+    table-layout: auto;
+  }
+
+  .shell-root--supervisor .supervisor-customer-table thead {
+    position: static;
+    display: table-header-group;
+    width: auto;
+    height: auto;
+    margin: 0;
+    padding: 0;
+    overflow: visible;
+    clip: auto;
+    clip-path: none;
+    white-space: normal;
+  }
+
+  .shell-root--supervisor .supervisor-customer-table tbody {
+    display: table-row-group;
+    width: auto;
+  }
+
+  .shell-root--supervisor .supervisor-customer-table tr {
+    display: table-row;
+    width: auto;
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+  }
+
+  .shell-root--supervisor .supervisor-customer-table td {
+    display: table-cell;
+    min-width: 0;
+    padding: 12px;
+    border-bottom: 1px solid #e7e5e5;
+    text-align: left;
+  }
+
+  .shell-root--supervisor .supervisor-customer-table td[data-label]::before {
+    display: none;
+    content: none;
+  }
+
+  .shell-root--supervisor
+    .supervisor-customer-table
+    td.supervisor-customer-table__empty {
+    display: table-cell !important;
+    padding: 24px 12px !important;
+    text-align: center !important;
+  }
+
+  .shell-root--supervisor
+    .supervisor-transactions-dashboard
+    .supervisor-transaction-table {
+    width: max(100%, 882px);
+    min-width: 882px;
+    table-layout: fixed;
+  }
+
+  .shell-root--supervisor
+    .supervisor-transactions-dashboard
+    .supervisor-transaction-table__column-resizer {
+    display: none;
+  }
+
+  .shell-root--supervisor .supervisor-page .fraud-review__table {
+    display: table;
+    width: max(100%, 58rem);
+    min-width: 58rem;
+    table-layout: auto;
+  }
+
+  .shell-root--supervisor .supervisor-page .fraud-review__table thead {
+    position: static;
+    display: table-header-group;
+    width: auto;
+    height: auto;
+    margin: 0;
+    padding: 0;
+    overflow: visible;
+    clip: auto;
+    clip-path: none;
+    white-space: normal;
+  }
+
+  .shell-root--supervisor .supervisor-page .fraud-review__table tbody {
+    display: table-row-group;
+    width: auto;
+  }
+
+  .shell-root--supervisor .supervisor-page .fraud-review__table tbody tr {
+    display: table-row;
+    width: auto;
+    padding: 0;
+    border-radius: 0;
+  }
+
+  .shell-root--supervisor
+    .supervisor-page
+    .fraud-review__table
+    tbody
+    tr.fraud-flags__row
+    > :is(th, td)[data-label] {
+    display: table-cell;
+    min-width: 0;
+    padding: 12px;
+    border-bottom: 1px solid #e7e5e5;
+    text-align: left;
+  }
+
+  .shell-root--supervisor
+    .supervisor-page
+    .fraud-review__table
+    tbody
+    :is(th, td)[data-label]::before {
+    display: none;
+    content: none;
+  }
+
+  .shell-root--supervisor
+    .supervisor-page
+    .fraud-review__table
+    tbody
+    td.fraud-flags__empty {
+    display: table-cell !important;
+    padding: 24px 12px !important;
+    text-align: center !important;
+  }
+}
