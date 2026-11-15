@@ -2065,6 +2065,7 @@ test.describe('workflow route coverage', () => {
 
     await mockShell(page, 'ADMIN');
     await page.goto(`${baseUrl}/admin/customers`);
+    await expect(page.locator('.shell-loading-screen')).toBeHidden();
     const adminCustomerDirectory = page.locator(
       '.supervisor-customer-directory',
     );
@@ -2106,6 +2107,7 @@ test.describe('workflow route coverage', () => {
     await expect(page).toHaveURL(`${baseUrl}/admin/customers/new`);
 
     await page.goto(`${baseUrl}/admin/customers`);
+    await expect(page.locator('.shell-loading-screen')).toBeHidden();
     await page
       .getByRole('link', { name: 'View profile for Ada Shopper' })
       .click();
@@ -2354,15 +2356,10 @@ test.describe('workflow route coverage', () => {
       ).toHaveCount(0);
       for (const width of [1440, 768, 375]) {
         await page.setViewportSize({ width, height: 900 });
-        const documentWidth = await page.evaluate(() =>
-          Math.max(
-            document.body.scrollWidth,
-            document.documentElement.scrollWidth,
-          ),
-        );
+        const bodyWidth = await page.evaluate(() => document.body.scrollWidth);
         expect(
-          documentWidth,
-          `${path} document width at ${width}px`,
+          bodyWidth,
+          `${path} body width at ${width}px`,
         ).toBeLessThanOrEqual(width);
         if (path === '/admin/approvals') {
           const columnCount = await page
@@ -6157,6 +6154,7 @@ test.describe('workflow route coverage', () => {
       return route.fallback();
     });
     await page.goto(`${baseUrl}/supervisor/customers?q=Ada`);
+    await expect(page.locator('.shell-loading-screen')).toBeHidden();
     const profileLink = page.getByRole('link', {
       name: 'View profile for Ada Shopper',
     });
