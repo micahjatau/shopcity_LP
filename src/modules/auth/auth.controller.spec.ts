@@ -7,6 +7,39 @@ import {
 
 const TAILSCALE_ORIGIN = 'https://shopcity-dev.tailnet.ts.net:8445';
 
+describe('authentication request rate limits', () => {
+  it('allows ten password-login attempts while retaining five cashier-completion attempts', () => {
+    const loginHandler = Object.getOwnPropertyDescriptor(
+      AuthController.prototype,
+      'login',
+    )?.value as object;
+    const completionHandler = Object.getOwnPropertyDescriptor(
+      AuthController.prototype,
+      'completeCashierLogin',
+    )?.value as object;
+    const loginThrottle = Reflect.getMetadata(THROTTLE_KEY, loginHandler) as {
+      bucket: string;
+      limit: number;
+      windowMs: number;
+    };
+    const completionThrottle = Reflect.getMetadata(
+      THROTTLE_KEY,
+      completionHandler,
+    ) as { bucket: string; limit: number; windowMs: number };
+
+    expect(loginThrottle).toMatchObject({
+      bucket: 'auth.login',
+      limit: 10,
+      windowMs: 15 * 60 * 1000,
+    });
+    expect(completionThrottle).toMatchObject({
+      bucket: 'auth.cashier_login.complete',
+      limit: 5,
+      windowMs: 15 * 60 * 1000,
+    });
+  });
+});
+
 describe('password recovery routing', () => {
   it('builds a fixed callback from the validated origin, ignoring URL paths', () => {
     expect(
