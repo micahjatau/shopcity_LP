@@ -11,6 +11,16 @@ Use this tracker when preparing a spec proposal. Run `npm run proposal:impact --
 
 ## Findings
 
+### 2026-11-14 — Increase public login throttle limit
+
+Before proposing `increase-login-throttle-limit`, GitNexus upstream impact for `AuthController.login` resolved exactly to `Method:src/modules/auth/auth.controller.ts:AuthController.login#9` and reported LOW risk: 1 direct dependent (`src/modules/auth/auth.service.spec.ts`), 0 affected processes, and 0 affected modules. The index was stale at `b69befc` versus HEAD `97aca7f`; refresh failed because the FTS `file_fts` index was inconsistent (missing document offset 2021 during delete). Treat graph counts as limited stale-index evidence; source/test review is required. Scope is to raise only `/api/v1/auth/login` from 5 to 10 attempts per 15 minutes, preserving IP/account/pair buckets. Cashier WebAuthn completion and password-recovery limits remain unchanged.
+
+```text
+npm run proposal:impact -- --file src/modules/auth/auth.controller.ts AuthController.login
+node .gitnexus/run.cjs impact login -r shopcity_LP --file src/modules/auth/auth.controller.ts --kind Method --include-tests
+node .gitnexus/run.cjs analyze
+```
+
 ### 2026-11-13 — Admin mobile table and filter parity
 
 Before extending `admin-supervisor-common-page-style-parity`, GitNexus upstream impacts resolved the planned component owners as LOW/exact: `SupervisorTransactionsDashboard` 5 impacted symbols (3 direct); `AdminTransactionsDashboard` 2; `SupervisorCustomerWorkflows` 4; `SupervisorCardWorkflows` 4; `SupervisorIssuedCardDirectory` 5 (1 direct); `FraudFlagsPanel` 3; and `AdminStaffDirectory`, `AdminBranchDirectory`, and `AdminDeviceDirectory` 2 each. All reported 0 affected processes/modules and no HIGH/CRITICAL findings. The local index is stale at `0d281bc` versus current HEAD `dd70a2c3`, so these graph counts are limited to the indexed surface; source/test review remains required. Planned scope is Admin-only responsive presentation: retain desktop table headers/cells and desktop visual styling on mobile with contained horizontal scrolling where needed, and align responsive filter-control styling. Preserve data, role authorization, filter behavior, pagination, actions, and Supervisor presentation.
