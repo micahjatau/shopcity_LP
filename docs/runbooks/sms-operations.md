@@ -10,13 +10,15 @@ report keyed by the matching provider message ID supplies a recognized terminal
 status. For Arkesel, `SUBMITTED` and `QUEUED` remain `SENT`; `NOT_DELIVERED`,
 `PROHIBITED`, and `EXPIRED` map to `FAILED`. An absent, unknown, failed, or
 mismatched report leaves the message `SENT`; Twilio and Africa's Talking
-callbacks are not ingested, so their accepted messages remain `SENT`. Raw
+callbacks are not ingested, and Termii delivery reports are not integrated, so
+accepted messages from those providers remain `SENT`. Raw
 provider responses are not stored or logged.
 
 ## Provider selection and Arkesel sandbox
 
-`SMS_PROVIDER_VENDOR` selects `ebulksms`, `arkesel`, `africastalking`, or
-`twilio` and defaults to `ebulksms`, preserving existing deployments. Each
+`SMS_PROVIDER_VENDOR` selects `ebulksms`, `arkesel`, `africastalking`,
+`twilio`, or `termii` and defaults to `ebulksms`, preserving existing
+deployments. Each
 vendor has separate credentials; never reuse credentials across providers.
 
 Arkesel real mode uses `ARKESEL_API_KEY`, `ARKESEL_SENDER_ID`, and the optional
@@ -69,6 +71,22 @@ replay. Only an explicit HTTP 429 is automatically
 retryable. Treat timeouts, transport failures, malformed success responses, and
 HTTP 5xx as terminal/ambiguous; do not replay them until history is checked.
 
+Termii is selected only with `SMS_PROVIDER_MODE=real` and
+`SMS_PROVIDER_VENDOR=termii`. Configure `TERMII_API_KEY`, the registered
+`TERMII_SENDER_ID` (3–11 alphanumeric characters), and the account-specific
+HTTPS `TERMII_API_URL` (default `https://api.ng.termii.com/api/sms/send`). The
+adapter sends one plain-text message over the `dnd` route; it never falls back
+to promotional `generic` routing. The account must have DND routing enabled and
+the sender ID registered before live use. Do not make a test request as part of
+configuration. A `code: ok` response means accepted (`SENT`), not delivered;
+Termii delivery evidence is not currently ingested. Only an explicit HTTP 429
+is automatically retryable. HTTP 5xx, timeouts, transport failures, and
+malformed successful responses are outcome-unknown and terminal; verify Termii
+history before manual replay. The
+worker reserves the tenant/outbox event locally, with a reservation window at
+least five seconds longer than the configured provider timeout. Never log or
+persist the API key, raw recipient, message body, or response body.
+
 DLR polling has its own timer and does not run on every outbox recovery tick. The
 default interval is five minutes (`SMS_DLR_POLL_INTERVAL_MS=300000`) and the
 default batch is ten (`SMS_DLR_POLL_BATCH_SIZE=10`). The worker schedules each
@@ -80,7 +98,8 @@ startup; interval is bounded to 1 second–24 hours and batch size to 1–100.
 
 eBulkSMS may require outbound TCP access to port `8443` on
 `api.ebulksms.com`; Arkesel uses HTTPS at `sms.arkesel.com`; Twilio uses HTTPS
-at `api.twilio.com`. On shared hosting,
+at `api.twilio.com`; Termii uses the account's HTTPS API endpoint (default host
+`api.ng.termii.com`). On shared hosting,
 ask the hosting provider to allow the required destination before diagnosing
 provider failures. Do not place API credentials in the support request; identify
 only the destination, port, and application environment.

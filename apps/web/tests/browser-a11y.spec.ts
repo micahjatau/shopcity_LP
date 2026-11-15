@@ -1,7 +1,7 @@
 import { expect, test, type Page } from '@playwright/test';
 import axe from 'axe-core';
 
-const baseUrl = 'http://127.0.0.1:3100';
+const baseUrl = process.env.PLAYWRIGHT_BASE_URL ?? 'http://127.0.0.1:3100';
 
 const sessionByRole = {
   CASHIER: {
@@ -119,8 +119,11 @@ test.describe('browser accessibility', () => {
     await page.setViewportSize({ width: 375, height: 812 });
     await page.goto(`${baseUrl}/cashier`);
 
-    await expect(page.getByRole('button', { name: /menu/i })).toBeVisible();
-    await page.getByRole('button', { name: /menu/i }).click();
+    const menuButton = page.getByRole('button', {
+      name: 'Open navigation',
+    });
+    await expect(menuButton).toBeVisible();
+    await menuButton.click();
     await expect(
       page.getByRole('dialog', { name: /primary navigation/i }),
     ).toBeVisible();
@@ -130,7 +133,7 @@ test.describe('browser accessibility', () => {
     await expect(
       page.getByRole('dialog', { name: /primary navigation/i }),
     ).toHaveCount(0);
-    await expect(page.getByRole('button', { name: /menu/i })).toBeFocused();
+    await expect(menuButton).toBeFocused();
   });
 });
 

@@ -1,0 +1,4 @@
+schema: spec-driven
+created: 2026-11-12
+goal: Let Admins find, register, review, and manage staff accounts without
+  changing backend-owned authorization.

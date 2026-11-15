@@ -1,0 +1,4 @@
+schema: spec-driven
+created: 2026-10-28
+goal: Allow SMS/outbox and other background worker configuration to validate
+  without weakening API/auth KEK requirements

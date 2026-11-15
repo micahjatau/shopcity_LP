@@ -1,5 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
 import {
+  Equals,
   IsEmail,
   IsEnum,
   IsObject,
@@ -19,6 +20,37 @@ export class LoginDto {
   @ApiProperty({ minLength: 1, example: 'password' })
   @IsString()
   @MinLength(1)
+  password!: string;
+}
+
+export class PasswordRecoveryRequestDto {
+  @ApiProperty({ maxLength: 254, example: 'staff@example.com' })
+  @IsEmail()
+  @MaxLength(254)
+  email!: string;
+}
+
+export class PasswordRecoveryCompleteDto {
+  @ApiProperty({ writeOnly: true, maxLength: 8192 })
+  @IsString()
+  @MinLength(1)
+  @MaxLength(8192)
+  accessToken!: string;
+
+  @ApiProperty({ writeOnly: true, maxLength: 8192 })
+  @IsString()
+  @MinLength(1)
+  @MaxLength(8192)
+  refreshToken!: string;
+
+  @ApiProperty({ enum: ['recovery'] })
+  @Equals('recovery')
+  type!: 'recovery';
+
+  @ApiProperty({ writeOnly: true, minLength: 6, maxLength: 72 })
+  @IsString()
+  @MinLength(6)
+  @MaxLength(72)
   password!: string;
 }
 

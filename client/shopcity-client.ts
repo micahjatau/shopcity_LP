@@ -5,6 +5,31 @@
  * ShopCity backend API
  * OpenAPI spec version: 1.0.0
  */
+export interface PasswordRecoveryRequestDto {
+  /** @maxLength 254 */
+  email: string;
+}
+
+export type PasswordRecoveryCompleteDtoType =
+  (typeof PasswordRecoveryCompleteDtoType)[keyof typeof PasswordRecoveryCompleteDtoType];
+
+export const PasswordRecoveryCompleteDtoType = {
+  recovery: 'recovery',
+} as const;
+
+export interface PasswordRecoveryCompleteDto {
+  /** @maxLength 8192 */
+  accessToken: string;
+  /** @maxLength 8192 */
+  refreshToken: string;
+  type: PasswordRecoveryCompleteDtoType;
+  /**
+   * @minLength 6
+   * @maxLength 72
+   */
+  password: string;
+}
+
 export interface LoginDto {
   username: string;
   /** @minLength 1 */
@@ -45,11 +70,29 @@ export const CreateUserDtoRole = {
   CASHIER: 'CASHIER',
   SUPERVISOR: 'SUPERVISOR',
   ADMIN: 'ADMIN',
-  SYSTEM: 'SYSTEM',
 } as const;
 
 export interface CreateUserDto {
+  /**
+   * Staff email address; retained as the username API field.
+   * @maxLength 254
+   */
   username: string;
+  /**
+   * @minLength 1
+   * @maxLength 80
+   */
+  firstName: string;
+  /**
+   * @minLength 1
+   * @maxLength 80
+   */
+  lastName: string;
+  /**
+   * @minLength 7
+   * @maxLength 32
+   */
+  phoneNumber: string;
   /** @minLength 1 */
   password: string;
   role: CreateUserDtoRole;
@@ -1015,6 +1058,470 @@ export type HealthControllerReady503 = {
   success: boolean;
   error: HealthControllerReady503Error;
   meta: HealthControllerReady503Meta;
+};
+
+export type AuthControllerRequestPasswordRecoveryV1200Data = {
+  message: string;
+};
+
+export type AuthControllerRequestPasswordRecoveryV1200Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type AuthControllerRequestPasswordRecoveryV1200 = {
+  success: boolean;
+  data: AuthControllerRequestPasswordRecoveryV1200Data;
+  meta: AuthControllerRequestPasswordRecoveryV1200Meta;
+};
+
+/**
+ * @nullable
+ */
+export type AuthControllerRequestPasswordRecoveryV1400ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type AuthControllerRequestPasswordRecoveryV1400Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: AuthControllerRequestPasswordRecoveryV1400ErrorDetails;
+};
+
+export type AuthControllerRequestPasswordRecoveryV1400Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type AuthControllerRequestPasswordRecoveryV1400 = {
+  success: boolean;
+  error: AuthControllerRequestPasswordRecoveryV1400Error;
+  meta: AuthControllerRequestPasswordRecoveryV1400Meta;
+};
+
+/**
+ * @nullable
+ */
+export type AuthControllerRequestPasswordRecoveryV1401ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type AuthControllerRequestPasswordRecoveryV1401Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: AuthControllerRequestPasswordRecoveryV1401ErrorDetails;
+};
+
+export type AuthControllerRequestPasswordRecoveryV1401Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type AuthControllerRequestPasswordRecoveryV1401 = {
+  success: boolean;
+  error: AuthControllerRequestPasswordRecoveryV1401Error;
+  meta: AuthControllerRequestPasswordRecoveryV1401Meta;
+};
+
+/**
+ * @nullable
+ */
+export type AuthControllerRequestPasswordRecoveryV1403ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type AuthControllerRequestPasswordRecoveryV1403Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: AuthControllerRequestPasswordRecoveryV1403ErrorDetails;
+};
+
+export type AuthControllerRequestPasswordRecoveryV1403Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type AuthControllerRequestPasswordRecoveryV1403 = {
+  success: boolean;
+  error: AuthControllerRequestPasswordRecoveryV1403Error;
+  meta: AuthControllerRequestPasswordRecoveryV1403Meta;
+};
+
+/**
+ * @nullable
+ */
+export type AuthControllerRequestPasswordRecoveryV1404ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type AuthControllerRequestPasswordRecoveryV1404Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: AuthControllerRequestPasswordRecoveryV1404ErrorDetails;
+};
+
+export type AuthControllerRequestPasswordRecoveryV1404Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type AuthControllerRequestPasswordRecoveryV1404 = {
+  success: boolean;
+  error: AuthControllerRequestPasswordRecoveryV1404Error;
+  meta: AuthControllerRequestPasswordRecoveryV1404Meta;
+};
+
+/**
+ * @nullable
+ */
+export type AuthControllerRequestPasswordRecoveryV1409ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type AuthControllerRequestPasswordRecoveryV1409Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: AuthControllerRequestPasswordRecoveryV1409ErrorDetails;
+};
+
+export type AuthControllerRequestPasswordRecoveryV1409Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type AuthControllerRequestPasswordRecoveryV1409 = {
+  success: boolean;
+  error: AuthControllerRequestPasswordRecoveryV1409Error;
+  meta: AuthControllerRequestPasswordRecoveryV1409Meta;
+};
+
+/**
+ * @nullable
+ */
+export type AuthControllerRequestPasswordRecoveryV1422ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type AuthControllerRequestPasswordRecoveryV1422Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: AuthControllerRequestPasswordRecoveryV1422ErrorDetails;
+};
+
+export type AuthControllerRequestPasswordRecoveryV1422Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type AuthControllerRequestPasswordRecoveryV1422 = {
+  success: boolean;
+  error: AuthControllerRequestPasswordRecoveryV1422Error;
+  meta: AuthControllerRequestPasswordRecoveryV1422Meta;
+};
+
+/**
+ * @nullable
+ */
+export type AuthControllerRequestPasswordRecoveryV1429ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type AuthControllerRequestPasswordRecoveryV1429Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: AuthControllerRequestPasswordRecoveryV1429ErrorDetails;
+};
+
+export type AuthControllerRequestPasswordRecoveryV1429Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type AuthControllerRequestPasswordRecoveryV1429 = {
+  success: boolean;
+  error: AuthControllerRequestPasswordRecoveryV1429Error;
+  meta: AuthControllerRequestPasswordRecoveryV1429Meta;
+};
+
+/**
+ * @nullable
+ */
+export type AuthControllerRequestPasswordRecoveryV1503ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type AuthControllerRequestPasswordRecoveryV1503Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: AuthControllerRequestPasswordRecoveryV1503ErrorDetails;
+};
+
+export type AuthControllerRequestPasswordRecoveryV1503Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type AuthControllerRequestPasswordRecoveryV1503 = {
+  success: boolean;
+  error: AuthControllerRequestPasswordRecoveryV1503Error;
+  meta: AuthControllerRequestPasswordRecoveryV1503Meta;
+};
+
+export type AuthControllerCompletePasswordRecoveryV1200Data = {
+  message: string;
+};
+
+export type AuthControllerCompletePasswordRecoveryV1200Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type AuthControllerCompletePasswordRecoveryV1200 = {
+  success: boolean;
+  data: AuthControllerCompletePasswordRecoveryV1200Data;
+  meta: AuthControllerCompletePasswordRecoveryV1200Meta;
+};
+
+/**
+ * @nullable
+ */
+export type AuthControllerCompletePasswordRecoveryV1400ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type AuthControllerCompletePasswordRecoveryV1400Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: AuthControllerCompletePasswordRecoveryV1400ErrorDetails;
+};
+
+export type AuthControllerCompletePasswordRecoveryV1400Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type AuthControllerCompletePasswordRecoveryV1400 = {
+  success: boolean;
+  error: AuthControllerCompletePasswordRecoveryV1400Error;
+  meta: AuthControllerCompletePasswordRecoveryV1400Meta;
+};
+
+/**
+ * @nullable
+ */
+export type AuthControllerCompletePasswordRecoveryV1401ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type AuthControllerCompletePasswordRecoveryV1401Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: AuthControllerCompletePasswordRecoveryV1401ErrorDetails;
+};
+
+export type AuthControllerCompletePasswordRecoveryV1401Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type AuthControllerCompletePasswordRecoveryV1401 = {
+  success: boolean;
+  error: AuthControllerCompletePasswordRecoveryV1401Error;
+  meta: AuthControllerCompletePasswordRecoveryV1401Meta;
+};
+
+/**
+ * @nullable
+ */
+export type AuthControllerCompletePasswordRecoveryV1403ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type AuthControllerCompletePasswordRecoveryV1403Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: AuthControllerCompletePasswordRecoveryV1403ErrorDetails;
+};
+
+export type AuthControllerCompletePasswordRecoveryV1403Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type AuthControllerCompletePasswordRecoveryV1403 = {
+  success: boolean;
+  error: AuthControllerCompletePasswordRecoveryV1403Error;
+  meta: AuthControllerCompletePasswordRecoveryV1403Meta;
+};
+
+/**
+ * @nullable
+ */
+export type AuthControllerCompletePasswordRecoveryV1404ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type AuthControllerCompletePasswordRecoveryV1404Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: AuthControllerCompletePasswordRecoveryV1404ErrorDetails;
+};
+
+export type AuthControllerCompletePasswordRecoveryV1404Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type AuthControllerCompletePasswordRecoveryV1404 = {
+  success: boolean;
+  error: AuthControllerCompletePasswordRecoveryV1404Error;
+  meta: AuthControllerCompletePasswordRecoveryV1404Meta;
+};
+
+/**
+ * @nullable
+ */
+export type AuthControllerCompletePasswordRecoveryV1409ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type AuthControllerCompletePasswordRecoveryV1409Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: AuthControllerCompletePasswordRecoveryV1409ErrorDetails;
+};
+
+export type AuthControllerCompletePasswordRecoveryV1409Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type AuthControllerCompletePasswordRecoveryV1409 = {
+  success: boolean;
+  error: AuthControllerCompletePasswordRecoveryV1409Error;
+  meta: AuthControllerCompletePasswordRecoveryV1409Meta;
+};
+
+/**
+ * @nullable
+ */
+export type AuthControllerCompletePasswordRecoveryV1422ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type AuthControllerCompletePasswordRecoveryV1422Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: AuthControllerCompletePasswordRecoveryV1422ErrorDetails;
+};
+
+export type AuthControllerCompletePasswordRecoveryV1422Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type AuthControllerCompletePasswordRecoveryV1422 = {
+  success: boolean;
+  error: AuthControllerCompletePasswordRecoveryV1422Error;
+  meta: AuthControllerCompletePasswordRecoveryV1422Meta;
+};
+
+/**
+ * @nullable
+ */
+export type AuthControllerCompletePasswordRecoveryV1429ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type AuthControllerCompletePasswordRecoveryV1429Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: AuthControllerCompletePasswordRecoveryV1429ErrorDetails;
+};
+
+export type AuthControllerCompletePasswordRecoveryV1429Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type AuthControllerCompletePasswordRecoveryV1429 = {
+  success: boolean;
+  error: AuthControllerCompletePasswordRecoveryV1429Error;
+  meta: AuthControllerCompletePasswordRecoveryV1429Meta;
+};
+
+/**
+ * @nullable
+ */
+export type AuthControllerCompletePasswordRecoveryV1503ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type AuthControllerCompletePasswordRecoveryV1503Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: AuthControllerCompletePasswordRecoveryV1503ErrorDetails;
+};
+
+export type AuthControllerCompletePasswordRecoveryV1503Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type AuthControllerCompletePasswordRecoveryV1503 = {
+  success: boolean;
+  error: AuthControllerCompletePasswordRecoveryV1503Error;
+  meta: AuthControllerCompletePasswordRecoveryV1503Meta;
 };
 
 export type AuthControllerLoginV1200DataUserRole =
@@ -13104,6 +13611,303 @@ export type LoyaltyControllerGetCustomerLedgerV1503 = {
   meta: LoyaltyControllerGetCustomerLedgerV1503Meta;
 };
 
+export type AdminTransactionsControllerSearchTransactionsV1Params = {
+  receiptNumber?: string;
+  limit?: number;
+  cursor?: string;
+  status?: AdminTransactionsControllerSearchTransactionsV1Status;
+  branchId?: string;
+  staffId?: string;
+  /**
+   * Minimum receipt purchase amount in integer kobo
+   * @pattern ^[0-9]{1,19}$
+   */
+  minReceiptAmountKobo?: string;
+};
+
+export type AdminTransactionsControllerSearchTransactionsV1Status =
+  (typeof AdminTransactionsControllerSearchTransactionsV1Status)[keyof typeof AdminTransactionsControllerSearchTransactionsV1Status];
+
+export const AdminTransactionsControllerSearchTransactionsV1Status = {
+  CONFIRMED: 'CONFIRMED',
+  REVERSED: 'REVERSED',
+} as const;
+
+export type AdminTransactionsControllerSearchTransactionsV1200DataItemsItemOperation =
+  (typeof AdminTransactionsControllerSearchTransactionsV1200DataItemsItemOperation)[keyof typeof AdminTransactionsControllerSearchTransactionsV1200DataItemsItemOperation];
+
+export const AdminTransactionsControllerSearchTransactionsV1200DataItemsItemOperation =
+  {
+    EARN: 'EARN',
+    REDEEM: 'REDEEM',
+  } as const;
+
+export type AdminTransactionsControllerSearchTransactionsV1200DataItemsItemStatus =
+  (typeof AdminTransactionsControllerSearchTransactionsV1200DataItemsItemStatus)[keyof typeof AdminTransactionsControllerSearchTransactionsV1200DataItemsItemStatus];
+
+export const AdminTransactionsControllerSearchTransactionsV1200DataItemsItemStatus =
+  {
+    CONFIRMED: 'CONFIRMED',
+    REVERSED: 'REVERSED',
+  } as const;
+
+export type AdminTransactionsControllerSearchTransactionsV1200DataItemsItem = {
+  transactionId: string;
+  receiptNumber: string;
+  operation: AdminTransactionsControllerSearchTransactionsV1200DataItemsItemOperation;
+  amountKobo: number;
+  /** @nullable */
+  creditKobo: number | null;
+  /** @nullable */
+  customerName: string | null;
+  /** @nullable */
+  purchaseAmountKobo: number | null;
+  status: AdminTransactionsControllerSearchTransactionsV1200DataItemsItemStatus;
+  occurredAt: string;
+};
+
+export type AdminTransactionsControllerSearchTransactionsV1200DataStaffOptionsItem =
+  {
+    id: string;
+    label: string;
+  };
+
+export type AdminTransactionsControllerSearchTransactionsV1200Data = {
+  items: AdminTransactionsControllerSearchTransactionsV1200DataItemsItem[];
+  staffOptions: AdminTransactionsControllerSearchTransactionsV1200DataStaffOptionsItem[];
+  /** @nullable */
+  nextCursor: string | null;
+  hasMore: boolean;
+};
+
+export type AdminTransactionsControllerSearchTransactionsV1200Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type AdminTransactionsControllerSearchTransactionsV1200 = {
+  success: boolean;
+  data: AdminTransactionsControllerSearchTransactionsV1200Data;
+  meta: AdminTransactionsControllerSearchTransactionsV1200Meta;
+};
+
+/**
+ * @nullable
+ */
+export type AdminTransactionsControllerSearchTransactionsV1400ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type AdminTransactionsControllerSearchTransactionsV1400Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: AdminTransactionsControllerSearchTransactionsV1400ErrorDetails;
+};
+
+export type AdminTransactionsControllerSearchTransactionsV1400Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type AdminTransactionsControllerSearchTransactionsV1400 = {
+  success: boolean;
+  error: AdminTransactionsControllerSearchTransactionsV1400Error;
+  meta: AdminTransactionsControllerSearchTransactionsV1400Meta;
+};
+
+/**
+ * @nullable
+ */
+export type AdminTransactionsControllerSearchTransactionsV1401ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type AdminTransactionsControllerSearchTransactionsV1401Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: AdminTransactionsControllerSearchTransactionsV1401ErrorDetails;
+};
+
+export type AdminTransactionsControllerSearchTransactionsV1401Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type AdminTransactionsControllerSearchTransactionsV1401 = {
+  success: boolean;
+  error: AdminTransactionsControllerSearchTransactionsV1401Error;
+  meta: AdminTransactionsControllerSearchTransactionsV1401Meta;
+};
+
+/**
+ * @nullable
+ */
+export type AdminTransactionsControllerSearchTransactionsV1403ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type AdminTransactionsControllerSearchTransactionsV1403Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: AdminTransactionsControllerSearchTransactionsV1403ErrorDetails;
+};
+
+export type AdminTransactionsControllerSearchTransactionsV1403Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type AdminTransactionsControllerSearchTransactionsV1403 = {
+  success: boolean;
+  error: AdminTransactionsControllerSearchTransactionsV1403Error;
+  meta: AdminTransactionsControllerSearchTransactionsV1403Meta;
+};
+
+/**
+ * @nullable
+ */
+export type AdminTransactionsControllerSearchTransactionsV1404ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type AdminTransactionsControllerSearchTransactionsV1404Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: AdminTransactionsControllerSearchTransactionsV1404ErrorDetails;
+};
+
+export type AdminTransactionsControllerSearchTransactionsV1404Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type AdminTransactionsControllerSearchTransactionsV1404 = {
+  success: boolean;
+  error: AdminTransactionsControllerSearchTransactionsV1404Error;
+  meta: AdminTransactionsControllerSearchTransactionsV1404Meta;
+};
+
+/**
+ * @nullable
+ */
+export type AdminTransactionsControllerSearchTransactionsV1409ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type AdminTransactionsControllerSearchTransactionsV1409Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: AdminTransactionsControllerSearchTransactionsV1409ErrorDetails;
+};
+
+export type AdminTransactionsControllerSearchTransactionsV1409Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type AdminTransactionsControllerSearchTransactionsV1409 = {
+  success: boolean;
+  error: AdminTransactionsControllerSearchTransactionsV1409Error;
+  meta: AdminTransactionsControllerSearchTransactionsV1409Meta;
+};
+
+/**
+ * @nullable
+ */
+export type AdminTransactionsControllerSearchTransactionsV1422ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type AdminTransactionsControllerSearchTransactionsV1422Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: AdminTransactionsControllerSearchTransactionsV1422ErrorDetails;
+};
+
+export type AdminTransactionsControllerSearchTransactionsV1422Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type AdminTransactionsControllerSearchTransactionsV1422 = {
+  success: boolean;
+  error: AdminTransactionsControllerSearchTransactionsV1422Error;
+  meta: AdminTransactionsControllerSearchTransactionsV1422Meta;
+};
+
+/**
+ * @nullable
+ */
+export type AdminTransactionsControllerSearchTransactionsV1429ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type AdminTransactionsControllerSearchTransactionsV1429Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: AdminTransactionsControllerSearchTransactionsV1429ErrorDetails;
+};
+
+export type AdminTransactionsControllerSearchTransactionsV1429Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type AdminTransactionsControllerSearchTransactionsV1429 = {
+  success: boolean;
+  error: AdminTransactionsControllerSearchTransactionsV1429Error;
+  meta: AdminTransactionsControllerSearchTransactionsV1429Meta;
+};
+
+/**
+ * @nullable
+ */
+export type AdminTransactionsControllerSearchTransactionsV1503ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type AdminTransactionsControllerSearchTransactionsV1503Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: AdminTransactionsControllerSearchTransactionsV1503ErrorDetails;
+};
+
+export type AdminTransactionsControllerSearchTransactionsV1503Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type AdminTransactionsControllerSearchTransactionsV1503 = {
+  success: boolean;
+  error: AdminTransactionsControllerSearchTransactionsV1503Error;
+  meta: AdminTransactionsControllerSearchTransactionsV1503Meta;
+};
+
 export type RedemptionsControllerRedeemV1201DataState =
   (typeof RedemptionsControllerRedeemV1201DataState)[keyof typeof RedemptionsControllerRedeemV1201DataState];
 
@@ -14968,6 +15772,239 @@ export type FraudControllerDecideFraudFlagV1503 = {
   success: boolean;
   error: FraudControllerDecideFraudFlagV1503Error;
   meta: FraudControllerDecideFraudFlagV1503Meta;
+};
+
+export type ReportsControllerGetAdminOverviewMetricsV1200Data = {
+  /** @minimum 0 */
+  activeVirtualCardCount: number;
+};
+
+export type ReportsControllerGetAdminOverviewMetricsV1200Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type ReportsControllerGetAdminOverviewMetricsV1200 = {
+  success: boolean;
+  data: ReportsControllerGetAdminOverviewMetricsV1200Data;
+  meta: ReportsControllerGetAdminOverviewMetricsV1200Meta;
+};
+
+/**
+ * @nullable
+ */
+export type ReportsControllerGetAdminOverviewMetricsV1400ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type ReportsControllerGetAdminOverviewMetricsV1400Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: ReportsControllerGetAdminOverviewMetricsV1400ErrorDetails;
+};
+
+export type ReportsControllerGetAdminOverviewMetricsV1400Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type ReportsControllerGetAdminOverviewMetricsV1400 = {
+  success: boolean;
+  error: ReportsControllerGetAdminOverviewMetricsV1400Error;
+  meta: ReportsControllerGetAdminOverviewMetricsV1400Meta;
+};
+
+/**
+ * @nullable
+ */
+export type ReportsControllerGetAdminOverviewMetricsV1401ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type ReportsControllerGetAdminOverviewMetricsV1401Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: ReportsControllerGetAdminOverviewMetricsV1401ErrorDetails;
+};
+
+export type ReportsControllerGetAdminOverviewMetricsV1401Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type ReportsControllerGetAdminOverviewMetricsV1401 = {
+  success: boolean;
+  error: ReportsControllerGetAdminOverviewMetricsV1401Error;
+  meta: ReportsControllerGetAdminOverviewMetricsV1401Meta;
+};
+
+/**
+ * @nullable
+ */
+export type ReportsControllerGetAdminOverviewMetricsV1403ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type ReportsControllerGetAdminOverviewMetricsV1403Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: ReportsControllerGetAdminOverviewMetricsV1403ErrorDetails;
+};
+
+export type ReportsControllerGetAdminOverviewMetricsV1403Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type ReportsControllerGetAdminOverviewMetricsV1403 = {
+  success: boolean;
+  error: ReportsControllerGetAdminOverviewMetricsV1403Error;
+  meta: ReportsControllerGetAdminOverviewMetricsV1403Meta;
+};
+
+/**
+ * @nullable
+ */
+export type ReportsControllerGetAdminOverviewMetricsV1404ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type ReportsControllerGetAdminOverviewMetricsV1404Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: ReportsControllerGetAdminOverviewMetricsV1404ErrorDetails;
+};
+
+export type ReportsControllerGetAdminOverviewMetricsV1404Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type ReportsControllerGetAdminOverviewMetricsV1404 = {
+  success: boolean;
+  error: ReportsControllerGetAdminOverviewMetricsV1404Error;
+  meta: ReportsControllerGetAdminOverviewMetricsV1404Meta;
+};
+
+/**
+ * @nullable
+ */
+export type ReportsControllerGetAdminOverviewMetricsV1409ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type ReportsControllerGetAdminOverviewMetricsV1409Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: ReportsControllerGetAdminOverviewMetricsV1409ErrorDetails;
+};
+
+export type ReportsControllerGetAdminOverviewMetricsV1409Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type ReportsControllerGetAdminOverviewMetricsV1409 = {
+  success: boolean;
+  error: ReportsControllerGetAdminOverviewMetricsV1409Error;
+  meta: ReportsControllerGetAdminOverviewMetricsV1409Meta;
+};
+
+/**
+ * @nullable
+ */
+export type ReportsControllerGetAdminOverviewMetricsV1422ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type ReportsControllerGetAdminOverviewMetricsV1422Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: ReportsControllerGetAdminOverviewMetricsV1422ErrorDetails;
+};
+
+export type ReportsControllerGetAdminOverviewMetricsV1422Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type ReportsControllerGetAdminOverviewMetricsV1422 = {
+  success: boolean;
+  error: ReportsControllerGetAdminOverviewMetricsV1422Error;
+  meta: ReportsControllerGetAdminOverviewMetricsV1422Meta;
+};
+
+/**
+ * @nullable
+ */
+export type ReportsControllerGetAdminOverviewMetricsV1429ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type ReportsControllerGetAdminOverviewMetricsV1429Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: ReportsControllerGetAdminOverviewMetricsV1429ErrorDetails;
+};
+
+export type ReportsControllerGetAdminOverviewMetricsV1429Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type ReportsControllerGetAdminOverviewMetricsV1429 = {
+  success: boolean;
+  error: ReportsControllerGetAdminOverviewMetricsV1429Error;
+  meta: ReportsControllerGetAdminOverviewMetricsV1429Meta;
+};
+
+/**
+ * @nullable
+ */
+export type ReportsControllerGetAdminOverviewMetricsV1503ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type ReportsControllerGetAdminOverviewMetricsV1503Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: ReportsControllerGetAdminOverviewMetricsV1503ErrorDetails;
+};
+
+export type ReportsControllerGetAdminOverviewMetricsV1503Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type ReportsControllerGetAdminOverviewMetricsV1503 = {
+  success: boolean;
+  error: ReportsControllerGetAdminOverviewMetricsV1503Error;
+  meta: ReportsControllerGetAdminOverviewMetricsV1503Meta;
 };
 
 export type ReportsControllerListExecutiveSummaryV1Params = {
@@ -17826,6 +18863,315 @@ export type ReportsControllerGetPilotOperationsSummaryV1503 = {
   meta: ReportsControllerGetPilotOperationsSummaryV1503Meta;
 };
 
+export type ReportsControllerGetPilotOperationsHistoryV1Params = {
+  /**
+   * Hourly history window; defaults to 7d
+   */
+  window?: ReportsControllerGetPilotOperationsHistoryV1Window;
+};
+
+export type ReportsControllerGetPilotOperationsHistoryV1Window =
+  (typeof ReportsControllerGetPilotOperationsHistoryV1Window)[keyof typeof ReportsControllerGetPilotOperationsHistoryV1Window];
+
+export const ReportsControllerGetPilotOperationsHistoryV1Window = {
+  '24h': '24h',
+  '7d': '7d',
+  '30d': '30d',
+} as const;
+
+export type ReportsControllerGetPilotOperationsHistoryV1200DataWindow =
+  (typeof ReportsControllerGetPilotOperationsHistoryV1200DataWindow)[keyof typeof ReportsControllerGetPilotOperationsHistoryV1200DataWindow];
+
+export const ReportsControllerGetPilotOperationsHistoryV1200DataWindow = {
+  '24h': '24h',
+  '7d': '7d',
+  '30d': '30d',
+} as const;
+
+export type ReportsControllerGetPilotOperationsHistoryV1200DataItemsItemOutbox =
+  {
+    /** @minimum 0 */
+    backlogCount: number;
+    /** @minimum 0 */
+    staleCount: number;
+  };
+
+export type ReportsControllerGetPilotOperationsHistoryV1200DataItemsItemSms = {
+  /** @minimum 0 */
+  failedCount: number;
+};
+
+export type ReportsControllerGetPilotOperationsHistoryV1200DataItemsItemOfflineSync =
+  {
+    /** @minimum 0 */
+    failureCount: number;
+  };
+
+export type ReportsControllerGetPilotOperationsHistoryV1200DataItemsItemFraud =
+  {
+    /** @minimum 0 */
+    openCount: number;
+  };
+
+export type ReportsControllerGetPilotOperationsHistoryV1200DataItemsItemReports =
+  {
+    /** @minimum 0 */
+    staleCount: number;
+  };
+
+export type ReportsControllerGetPilotOperationsHistoryV1200DataItemsItemReconciliation =
+  {
+    healthy: boolean;
+    /** @minimum 0 */
+    mismatchCount: number;
+  };
+
+export type ReportsControllerGetPilotOperationsHistoryV1200DataItemsItem = {
+  bucketStart: string;
+  capturedAt: string;
+  outbox: ReportsControllerGetPilotOperationsHistoryV1200DataItemsItemOutbox;
+  sms: ReportsControllerGetPilotOperationsHistoryV1200DataItemsItemSms;
+  offlineSync: ReportsControllerGetPilotOperationsHistoryV1200DataItemsItemOfflineSync;
+  fraud: ReportsControllerGetPilotOperationsHistoryV1200DataItemsItemFraud;
+  reports: ReportsControllerGetPilotOperationsHistoryV1200DataItemsItemReports;
+  reconciliation: ReportsControllerGetPilotOperationsHistoryV1200DataItemsItemReconciliation;
+};
+
+export type ReportsControllerGetPilotOperationsHistoryV1200Data = {
+  window: ReportsControllerGetPilotOperationsHistoryV1200DataWindow;
+  generatedAt: string;
+  /** @maxItems 720 */
+  items: ReportsControllerGetPilotOperationsHistoryV1200DataItemsItem[];
+};
+
+export type ReportsControllerGetPilotOperationsHistoryV1200Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type ReportsControllerGetPilotOperationsHistoryV1200 = {
+  success: boolean;
+  data: ReportsControllerGetPilotOperationsHistoryV1200Data;
+  meta: ReportsControllerGetPilotOperationsHistoryV1200Meta;
+};
+
+/**
+ * @nullable
+ */
+export type ReportsControllerGetPilotOperationsHistoryV1400ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type ReportsControllerGetPilotOperationsHistoryV1400Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: ReportsControllerGetPilotOperationsHistoryV1400ErrorDetails;
+};
+
+export type ReportsControllerGetPilotOperationsHistoryV1400Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type ReportsControllerGetPilotOperationsHistoryV1400 = {
+  success: boolean;
+  error: ReportsControllerGetPilotOperationsHistoryV1400Error;
+  meta: ReportsControllerGetPilotOperationsHistoryV1400Meta;
+};
+
+/**
+ * @nullable
+ */
+export type ReportsControllerGetPilotOperationsHistoryV1401ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type ReportsControllerGetPilotOperationsHistoryV1401Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: ReportsControllerGetPilotOperationsHistoryV1401ErrorDetails;
+};
+
+export type ReportsControllerGetPilotOperationsHistoryV1401Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type ReportsControllerGetPilotOperationsHistoryV1401 = {
+  success: boolean;
+  error: ReportsControllerGetPilotOperationsHistoryV1401Error;
+  meta: ReportsControllerGetPilotOperationsHistoryV1401Meta;
+};
+
+/**
+ * @nullable
+ */
+export type ReportsControllerGetPilotOperationsHistoryV1403ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type ReportsControllerGetPilotOperationsHistoryV1403Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: ReportsControllerGetPilotOperationsHistoryV1403ErrorDetails;
+};
+
+export type ReportsControllerGetPilotOperationsHistoryV1403Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type ReportsControllerGetPilotOperationsHistoryV1403 = {
+  success: boolean;
+  error: ReportsControllerGetPilotOperationsHistoryV1403Error;
+  meta: ReportsControllerGetPilotOperationsHistoryV1403Meta;
+};
+
+/**
+ * @nullable
+ */
+export type ReportsControllerGetPilotOperationsHistoryV1404ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type ReportsControllerGetPilotOperationsHistoryV1404Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: ReportsControllerGetPilotOperationsHistoryV1404ErrorDetails;
+};
+
+export type ReportsControllerGetPilotOperationsHistoryV1404Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type ReportsControllerGetPilotOperationsHistoryV1404 = {
+  success: boolean;
+  error: ReportsControllerGetPilotOperationsHistoryV1404Error;
+  meta: ReportsControllerGetPilotOperationsHistoryV1404Meta;
+};
+
+/**
+ * @nullable
+ */
+export type ReportsControllerGetPilotOperationsHistoryV1409ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type ReportsControllerGetPilotOperationsHistoryV1409Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: ReportsControllerGetPilotOperationsHistoryV1409ErrorDetails;
+};
+
+export type ReportsControllerGetPilotOperationsHistoryV1409Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type ReportsControllerGetPilotOperationsHistoryV1409 = {
+  success: boolean;
+  error: ReportsControllerGetPilotOperationsHistoryV1409Error;
+  meta: ReportsControllerGetPilotOperationsHistoryV1409Meta;
+};
+
+/**
+ * @nullable
+ */
+export type ReportsControllerGetPilotOperationsHistoryV1422ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type ReportsControllerGetPilotOperationsHistoryV1422Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: ReportsControllerGetPilotOperationsHistoryV1422ErrorDetails;
+};
+
+export type ReportsControllerGetPilotOperationsHistoryV1422Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type ReportsControllerGetPilotOperationsHistoryV1422 = {
+  success: boolean;
+  error: ReportsControllerGetPilotOperationsHistoryV1422Error;
+  meta: ReportsControllerGetPilotOperationsHistoryV1422Meta;
+};
+
+/**
+ * @nullable
+ */
+export type ReportsControllerGetPilotOperationsHistoryV1429ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type ReportsControllerGetPilotOperationsHistoryV1429Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: ReportsControllerGetPilotOperationsHistoryV1429ErrorDetails;
+};
+
+export type ReportsControllerGetPilotOperationsHistoryV1429Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type ReportsControllerGetPilotOperationsHistoryV1429 = {
+  success: boolean;
+  error: ReportsControllerGetPilotOperationsHistoryV1429Error;
+  meta: ReportsControllerGetPilotOperationsHistoryV1429Meta;
+};
+
+/**
+ * @nullable
+ */
+export type ReportsControllerGetPilotOperationsHistoryV1503ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type ReportsControllerGetPilotOperationsHistoryV1503Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: ReportsControllerGetPilotOperationsHistoryV1503ErrorDetails;
+};
+
+export type ReportsControllerGetPilotOperationsHistoryV1503Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type ReportsControllerGetPilotOperationsHistoryV1503 = {
+  success: boolean;
+  error: ReportsControllerGetPilotOperationsHistoryV1503Error;
+  meta: ReportsControllerGetPilotOperationsHistoryV1503Meta;
+};
+
 export type ReportsControllerListMaterializationStateV1Params = {
   branchId?: string;
   timezone?: string;
@@ -19985,6 +21331,222 @@ export const healthControllerReady = async (
     status: res.status,
     headers: res.headers,
   } as healthControllerReadyResponse;
+};
+
+export type authControllerRequestPasswordRecoveryV1Response200 = {
+  data: AuthControllerRequestPasswordRecoveryV1200;
+  status: 200;
+};
+
+export type authControllerRequestPasswordRecoveryV1Response400 = {
+  data: AuthControllerRequestPasswordRecoveryV1400;
+  status: 400;
+};
+
+export type authControllerRequestPasswordRecoveryV1Response401 = {
+  data: AuthControllerRequestPasswordRecoveryV1401;
+  status: 401;
+};
+
+export type authControllerRequestPasswordRecoveryV1Response403 = {
+  data: AuthControllerRequestPasswordRecoveryV1403;
+  status: 403;
+};
+
+export type authControllerRequestPasswordRecoveryV1Response404 = {
+  data: AuthControllerRequestPasswordRecoveryV1404;
+  status: 404;
+};
+
+export type authControllerRequestPasswordRecoveryV1Response409 = {
+  data: AuthControllerRequestPasswordRecoveryV1409;
+  status: 409;
+};
+
+export type authControllerRequestPasswordRecoveryV1Response422 = {
+  data: AuthControllerRequestPasswordRecoveryV1422;
+  status: 422;
+};
+
+export type authControllerRequestPasswordRecoveryV1Response429 = {
+  data: AuthControllerRequestPasswordRecoveryV1429;
+  status: 429;
+};
+
+export type authControllerRequestPasswordRecoveryV1Response503 = {
+  data: AuthControllerRequestPasswordRecoveryV1503;
+  status: 503;
+};
+
+export type authControllerRequestPasswordRecoveryV1ResponseSuccess =
+  authControllerRequestPasswordRecoveryV1Response200 & {
+    headers: Headers;
+  };
+export type authControllerRequestPasswordRecoveryV1ResponseError = (
+  | authControllerRequestPasswordRecoveryV1Response400
+  | authControllerRequestPasswordRecoveryV1Response401
+  | authControllerRequestPasswordRecoveryV1Response403
+  | authControllerRequestPasswordRecoveryV1Response404
+  | authControllerRequestPasswordRecoveryV1Response409
+  | authControllerRequestPasswordRecoveryV1Response422
+  | authControllerRequestPasswordRecoveryV1Response429
+  | authControllerRequestPasswordRecoveryV1Response503
+) & {
+  headers: Headers;
+};
+
+export type authControllerRequestPasswordRecoveryV1Response =
+  | authControllerRequestPasswordRecoveryV1ResponseSuccess
+  | authControllerRequestPasswordRecoveryV1ResponseError;
+
+export const getAuthControllerRequestPasswordRecoveryV1Url = () => {
+  return `/api/v1/auth/password-reset/request`;
+};
+
+/**
+ * Request a password-recovery email
+ * @summary Request a password-recovery email
+ */
+export const authControllerRequestPasswordRecoveryV1 = async (
+  passwordRecoveryRequestDto: PasswordRecoveryRequestDto,
+  options?: RequestInit,
+): Promise<authControllerRequestPasswordRecoveryV1Response> => {
+  const getHeaders = (
+    h?: NonNullable<RequestInit['headers']>,
+  ): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Array.isArray(h)) return Object.fromEntries(h);
+    return h;
+  };
+  const res = await fetch(getAuthControllerRequestPasswordRecoveryV1Url(), {
+    ...options,
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      ...getHeaders(options?.headers),
+    },
+    body: JSON.stringify(passwordRecoveryRequestDto),
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: authControllerRequestPasswordRecoveryV1Response['data'] = body
+    ? JSON.parse(body)
+    : {};
+  return {
+    data,
+    status: res.status,
+    headers: res.headers,
+  } as authControllerRequestPasswordRecoveryV1Response;
+};
+
+export type authControllerCompletePasswordRecoveryV1Response200 = {
+  data: AuthControllerCompletePasswordRecoveryV1200;
+  status: 200;
+};
+
+export type authControllerCompletePasswordRecoveryV1Response400 = {
+  data: AuthControllerCompletePasswordRecoveryV1400;
+  status: 400;
+};
+
+export type authControllerCompletePasswordRecoveryV1Response401 = {
+  data: AuthControllerCompletePasswordRecoveryV1401;
+  status: 401;
+};
+
+export type authControllerCompletePasswordRecoveryV1Response403 = {
+  data: AuthControllerCompletePasswordRecoveryV1403;
+  status: 403;
+};
+
+export type authControllerCompletePasswordRecoveryV1Response404 = {
+  data: AuthControllerCompletePasswordRecoveryV1404;
+  status: 404;
+};
+
+export type authControllerCompletePasswordRecoveryV1Response409 = {
+  data: AuthControllerCompletePasswordRecoveryV1409;
+  status: 409;
+};
+
+export type authControllerCompletePasswordRecoveryV1Response422 = {
+  data: AuthControllerCompletePasswordRecoveryV1422;
+  status: 422;
+};
+
+export type authControllerCompletePasswordRecoveryV1Response429 = {
+  data: AuthControllerCompletePasswordRecoveryV1429;
+  status: 429;
+};
+
+export type authControllerCompletePasswordRecoveryV1Response503 = {
+  data: AuthControllerCompletePasswordRecoveryV1503;
+  status: 503;
+};
+
+export type authControllerCompletePasswordRecoveryV1ResponseSuccess =
+  authControllerCompletePasswordRecoveryV1Response200 & {
+    headers: Headers;
+  };
+export type authControllerCompletePasswordRecoveryV1ResponseError = (
+  | authControllerCompletePasswordRecoveryV1Response400
+  | authControllerCompletePasswordRecoveryV1Response401
+  | authControllerCompletePasswordRecoveryV1Response403
+  | authControllerCompletePasswordRecoveryV1Response404
+  | authControllerCompletePasswordRecoveryV1Response409
+  | authControllerCompletePasswordRecoveryV1Response422
+  | authControllerCompletePasswordRecoveryV1Response429
+  | authControllerCompletePasswordRecoveryV1Response503
+) & {
+  headers: Headers;
+};
+
+export type authControllerCompletePasswordRecoveryV1Response =
+  | authControllerCompletePasswordRecoveryV1ResponseSuccess
+  | authControllerCompletePasswordRecoveryV1ResponseError;
+
+export const getAuthControllerCompletePasswordRecoveryV1Url = () => {
+  return `/api/v1/auth/password-reset/complete`;
+};
+
+/**
+ * Complete password recovery
+ * @summary Complete password recovery
+ */
+export const authControllerCompletePasswordRecoveryV1 = async (
+  passwordRecoveryCompleteDto: PasswordRecoveryCompleteDto,
+  options?: RequestInit,
+): Promise<authControllerCompletePasswordRecoveryV1Response> => {
+  const getHeaders = (
+    h?: NonNullable<RequestInit['headers']>,
+  ): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Array.isArray(h)) return Object.fromEntries(h);
+    return h;
+  };
+  const res = await fetch(getAuthControllerCompletePasswordRecoveryV1Url(), {
+    ...options,
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      ...getHeaders(options?.headers),
+    },
+    body: JSON.stringify(passwordRecoveryCompleteDto),
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: authControllerCompletePasswordRecoveryV1Response['data'] = body
+    ? JSON.parse(body)
+    : {};
+  return {
+    data,
+    status: res.status,
+    headers: res.headers,
+  } as authControllerCompletePasswordRecoveryV1Response;
 };
 
 export type authControllerLoginV1Response200 = {
@@ -24867,6 +26429,117 @@ export const loyaltyControllerGetCustomerLedgerV1 = async (
   } as loyaltyControllerGetCustomerLedgerV1Response;
 };
 
+export type adminTransactionsControllerSearchTransactionsV1Response200 = {
+  data: AdminTransactionsControllerSearchTransactionsV1200;
+  status: 200;
+};
+
+export type adminTransactionsControllerSearchTransactionsV1Response400 = {
+  data: AdminTransactionsControllerSearchTransactionsV1400;
+  status: 400;
+};
+
+export type adminTransactionsControllerSearchTransactionsV1Response401 = {
+  data: AdminTransactionsControllerSearchTransactionsV1401;
+  status: 401;
+};
+
+export type adminTransactionsControllerSearchTransactionsV1Response403 = {
+  data: AdminTransactionsControllerSearchTransactionsV1403;
+  status: 403;
+};
+
+export type adminTransactionsControllerSearchTransactionsV1Response404 = {
+  data: AdminTransactionsControllerSearchTransactionsV1404;
+  status: 404;
+};
+
+export type adminTransactionsControllerSearchTransactionsV1Response409 = {
+  data: AdminTransactionsControllerSearchTransactionsV1409;
+  status: 409;
+};
+
+export type adminTransactionsControllerSearchTransactionsV1Response422 = {
+  data: AdminTransactionsControllerSearchTransactionsV1422;
+  status: 422;
+};
+
+export type adminTransactionsControllerSearchTransactionsV1Response429 = {
+  data: AdminTransactionsControllerSearchTransactionsV1429;
+  status: 429;
+};
+
+export type adminTransactionsControllerSearchTransactionsV1Response503 = {
+  data: AdminTransactionsControllerSearchTransactionsV1503;
+  status: 503;
+};
+
+export type adminTransactionsControllerSearchTransactionsV1ResponseSuccess =
+  adminTransactionsControllerSearchTransactionsV1Response200 & {
+    headers: Headers;
+  };
+export type adminTransactionsControllerSearchTransactionsV1ResponseError = (
+  | adminTransactionsControllerSearchTransactionsV1Response400
+  | adminTransactionsControllerSearchTransactionsV1Response401
+  | adminTransactionsControllerSearchTransactionsV1Response403
+  | adminTransactionsControllerSearchTransactionsV1Response404
+  | adminTransactionsControllerSearchTransactionsV1Response409
+  | adminTransactionsControllerSearchTransactionsV1Response422
+  | adminTransactionsControllerSearchTransactionsV1Response429
+  | adminTransactionsControllerSearchTransactionsV1Response503
+) & {
+  headers: Headers;
+};
+
+export type adminTransactionsControllerSearchTransactionsV1Response =
+  | adminTransactionsControllerSearchTransactionsV1ResponseSuccess
+  | adminTransactionsControllerSearchTransactionsV1ResponseError;
+
+export const getAdminTransactionsControllerSearchTransactionsV1Url = (
+  params?: AdminTransactionsControllerSearchTransactionsV1Params,
+) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value));
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/v1/admin/transactions?${stringifiedParams}`
+    : `/api/v1/admin/transactions`;
+};
+
+/**
+ * List and filter tenant transactions for Admin
+ * @summary List and filter tenant transactions for Admin
+ */
+export const adminTransactionsControllerSearchTransactionsV1 = async (
+  params?: AdminTransactionsControllerSearchTransactionsV1Params,
+  options?: RequestInit,
+): Promise<adminTransactionsControllerSearchTransactionsV1Response> => {
+  const res = await fetch(
+    getAdminTransactionsControllerSearchTransactionsV1Url(params),
+    {
+      ...options,
+      method: 'GET',
+    },
+  );
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: adminTransactionsControllerSearchTransactionsV1Response['data'] =
+    body ? JSON.parse(body) : {};
+  return {
+    data,
+    status: res.status,
+    headers: res.headers,
+  } as adminTransactionsControllerSearchTransactionsV1Response;
+};
+
 export type redemptionsControllerRedeemV1Response201 = {
   data: RedemptionsControllerRedeemV1201;
   status: 201;
@@ -25634,6 +27307,100 @@ export const fraudControllerDecideFraudFlagV1 = async (
     status: res.status,
     headers: res.headers,
   } as fraudControllerDecideFraudFlagV1Response;
+};
+
+export type reportsControllerGetAdminOverviewMetricsV1Response200 = {
+  data: ReportsControllerGetAdminOverviewMetricsV1200;
+  status: 200;
+};
+
+export type reportsControllerGetAdminOverviewMetricsV1Response400 = {
+  data: ReportsControllerGetAdminOverviewMetricsV1400;
+  status: 400;
+};
+
+export type reportsControllerGetAdminOverviewMetricsV1Response401 = {
+  data: ReportsControllerGetAdminOverviewMetricsV1401;
+  status: 401;
+};
+
+export type reportsControllerGetAdminOverviewMetricsV1Response403 = {
+  data: ReportsControllerGetAdminOverviewMetricsV1403;
+  status: 403;
+};
+
+export type reportsControllerGetAdminOverviewMetricsV1Response404 = {
+  data: ReportsControllerGetAdminOverviewMetricsV1404;
+  status: 404;
+};
+
+export type reportsControllerGetAdminOverviewMetricsV1Response409 = {
+  data: ReportsControllerGetAdminOverviewMetricsV1409;
+  status: 409;
+};
+
+export type reportsControllerGetAdminOverviewMetricsV1Response422 = {
+  data: ReportsControllerGetAdminOverviewMetricsV1422;
+  status: 422;
+};
+
+export type reportsControllerGetAdminOverviewMetricsV1Response429 = {
+  data: ReportsControllerGetAdminOverviewMetricsV1429;
+  status: 429;
+};
+
+export type reportsControllerGetAdminOverviewMetricsV1Response503 = {
+  data: ReportsControllerGetAdminOverviewMetricsV1503;
+  status: 503;
+};
+
+export type reportsControllerGetAdminOverviewMetricsV1ResponseSuccess =
+  reportsControllerGetAdminOverviewMetricsV1Response200 & {
+    headers: Headers;
+  };
+export type reportsControllerGetAdminOverviewMetricsV1ResponseError = (
+  | reportsControllerGetAdminOverviewMetricsV1Response400
+  | reportsControllerGetAdminOverviewMetricsV1Response401
+  | reportsControllerGetAdminOverviewMetricsV1Response403
+  | reportsControllerGetAdminOverviewMetricsV1Response404
+  | reportsControllerGetAdminOverviewMetricsV1Response409
+  | reportsControllerGetAdminOverviewMetricsV1Response422
+  | reportsControllerGetAdminOverviewMetricsV1Response429
+  | reportsControllerGetAdminOverviewMetricsV1Response503
+) & {
+  headers: Headers;
+};
+
+export type reportsControllerGetAdminOverviewMetricsV1Response =
+  | reportsControllerGetAdminOverviewMetricsV1ResponseSuccess
+  | reportsControllerGetAdminOverviewMetricsV1ResponseError;
+
+export const getReportsControllerGetAdminOverviewMetricsV1Url = () => {
+  return `/api/v1/reports/admin-overview-metrics`;
+};
+
+/**
+ * Get current tenant active virtual-card count
+ * @summary Get current tenant active virtual-card count
+ */
+export const reportsControllerGetAdminOverviewMetricsV1 = async (
+  options?: RequestInit,
+): Promise<reportsControllerGetAdminOverviewMetricsV1Response> => {
+  const res = await fetch(getReportsControllerGetAdminOverviewMetricsV1Url(), {
+    ...options,
+    method: 'GET',
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: reportsControllerGetAdminOverviewMetricsV1Response['data'] = body
+    ? JSON.parse(body)
+    : {};
+  return {
+    data,
+    status: res.status,
+    headers: res.headers,
+  } as reportsControllerGetAdminOverviewMetricsV1Response;
 };
 
 export type reportsControllerListExecutiveSummaryV1Response200 = {
@@ -26829,6 +28596,117 @@ export const reportsControllerGetPilotOperationsSummaryV1 = async (
     status: res.status,
     headers: res.headers,
   } as reportsControllerGetPilotOperationsSummaryV1Response;
+};
+
+export type reportsControllerGetPilotOperationsHistoryV1Response200 = {
+  data: ReportsControllerGetPilotOperationsHistoryV1200;
+  status: 200;
+};
+
+export type reportsControllerGetPilotOperationsHistoryV1Response400 = {
+  data: ReportsControllerGetPilotOperationsHistoryV1400;
+  status: 400;
+};
+
+export type reportsControllerGetPilotOperationsHistoryV1Response401 = {
+  data: ReportsControllerGetPilotOperationsHistoryV1401;
+  status: 401;
+};
+
+export type reportsControllerGetPilotOperationsHistoryV1Response403 = {
+  data: ReportsControllerGetPilotOperationsHistoryV1403;
+  status: 403;
+};
+
+export type reportsControllerGetPilotOperationsHistoryV1Response404 = {
+  data: ReportsControllerGetPilotOperationsHistoryV1404;
+  status: 404;
+};
+
+export type reportsControllerGetPilotOperationsHistoryV1Response409 = {
+  data: ReportsControllerGetPilotOperationsHistoryV1409;
+  status: 409;
+};
+
+export type reportsControllerGetPilotOperationsHistoryV1Response422 = {
+  data: ReportsControllerGetPilotOperationsHistoryV1422;
+  status: 422;
+};
+
+export type reportsControllerGetPilotOperationsHistoryV1Response429 = {
+  data: ReportsControllerGetPilotOperationsHistoryV1429;
+  status: 429;
+};
+
+export type reportsControllerGetPilotOperationsHistoryV1Response503 = {
+  data: ReportsControllerGetPilotOperationsHistoryV1503;
+  status: 503;
+};
+
+export type reportsControllerGetPilotOperationsHistoryV1ResponseSuccess =
+  reportsControllerGetPilotOperationsHistoryV1Response200 & {
+    headers: Headers;
+  };
+export type reportsControllerGetPilotOperationsHistoryV1ResponseError = (
+  | reportsControllerGetPilotOperationsHistoryV1Response400
+  | reportsControllerGetPilotOperationsHistoryV1Response401
+  | reportsControllerGetPilotOperationsHistoryV1Response403
+  | reportsControllerGetPilotOperationsHistoryV1Response404
+  | reportsControllerGetPilotOperationsHistoryV1Response409
+  | reportsControllerGetPilotOperationsHistoryV1Response422
+  | reportsControllerGetPilotOperationsHistoryV1Response429
+  | reportsControllerGetPilotOperationsHistoryV1Response503
+) & {
+  headers: Headers;
+};
+
+export type reportsControllerGetPilotOperationsHistoryV1Response =
+  | reportsControllerGetPilotOperationsHistoryV1ResponseSuccess
+  | reportsControllerGetPilotOperationsHistoryV1ResponseError;
+
+export const getReportsControllerGetPilotOperationsHistoryV1Url = (
+  params?: ReportsControllerGetPilotOperationsHistoryV1Params,
+) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value));
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/v1/reports/pilot-operations-history?${stringifiedParams}`
+    : `/api/v1/reports/pilot-operations-history`;
+};
+
+/**
+ * Get pilot operations health history
+ * @summary Get pilot operations health history
+ */
+export const reportsControllerGetPilotOperationsHistoryV1 = async (
+  params?: ReportsControllerGetPilotOperationsHistoryV1Params,
+  options?: RequestInit,
+): Promise<reportsControllerGetPilotOperationsHistoryV1Response> => {
+  const res = await fetch(
+    getReportsControllerGetPilotOperationsHistoryV1Url(params),
+    {
+      ...options,
+      method: 'GET',
+    },
+  );
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: reportsControllerGetPilotOperationsHistoryV1Response['data'] =
+    body ? JSON.parse(body) : {};
+  return {
+    data,
+    status: res.status,
+    headers: res.headers,
+  } as reportsControllerGetPilotOperationsHistoryV1Response;
 };
 
 export type reportsControllerListMaterializationStateV1Response200 = {

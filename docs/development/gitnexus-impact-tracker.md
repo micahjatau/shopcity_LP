@@ -11,6 +11,385 @@ Use this tracker when preparing a spec proposal. Run `npm run proposal:impact --
 
 ## Findings
 
+### 2026-11-13 — Admin mobile table and filter parity
+
+Before extending `admin-supervisor-common-page-style-parity`, GitNexus upstream impacts resolved the planned component owners as LOW/exact: `SupervisorTransactionsDashboard` 5 impacted symbols (3 direct); `AdminTransactionsDashboard` 2; `SupervisorCustomerWorkflows` 4; `SupervisorCardWorkflows` 4; `SupervisorIssuedCardDirectory` 5 (1 direct); `FraudFlagsPanel` 3; and `AdminStaffDirectory`, `AdminBranchDirectory`, and `AdminDeviceDirectory` 2 each. All reported 0 affected processes/modules and no HIGH/CRITICAL findings. The local index is stale at `0d281bc` versus current HEAD `dd70a2c3`, so these graph counts are limited to the indexed surface; source/test review remains required. Planned scope is Admin-only responsive presentation: retain desktop table headers/cells and desktop visual styling on mobile with contained horizontal scrolling where needed, and align responsive filter-control styling. Preserve data, role authorization, filter behavior, pagination, actions, and Supervisor presentation.
+
+```text
+npm run proposal:impact -- --file apps/web/components/workflows/supervisor-transactions-dashboard.tsx AdminTransactionsDashboard
+npm run proposal:impact -- --file apps/web/components/workflows/supervisor-transactions-dashboard.tsx SupervisorTransactionsDashboard
+npm run proposal:impact -- --file apps/web/components/workflows/supervisor-customer-workflows.tsx SupervisorCustomerWorkflows
+npm run proposal:impact -- --file apps/web/components/workflows/supervisor-card-workflows.tsx SupervisorCardWorkflows
+npm run proposal:impact -- --file apps/web/components/workflows/supervisor-issued-card-directory.tsx SupervisorIssuedCardDirectory
+npm run proposal:impact -- --file apps/web/components/workflows/fraud-flags-panel.tsx FraudFlagsPanel
+npm run proposal:impact -- --file apps/web/components/workflows/admin-staff-management.tsx AdminStaffDirectory
+npm run proposal:impact -- --file apps/web/components/workflows/admin-branch-management.tsx AdminBranchDirectory
+npm run proposal:impact -- --file apps/web/components/devices/admin-device-workflows.tsx AdminDeviceDirectory
+```
+
+### 2026-11-12 — Admin device and branch workflow implementation
+
+GitNexus impact was attempted before editing the Admin device and branch surfaces. `DeviceManagement` was reported with 0 impacted symbols/LOW and a corrupted symbol UID, while `AdminBranchesPage` resolved to an unrelated `Folder:prisma/migrations/20260802_financial_guardrail_repair` instead of its source definition. These results cannot establish an implementation blast radius and must not be treated as valid zero-impact assessments. `npm run gitnexus:analyze` could not refresh the index: GitNexus reported an inconsistent `file_fts` index (document offset 2276 missing during delete; drop and recreate the index). No HIGH/CRITICAL result can be substantiated by this broken index. Source/test review confirms `DeviceManagement` serves both Admin and Supervisor routes; the Admin profile changes are confined to an opt-in profile prop, and the existing Supervisor presentation and security flows remain in place. Backend APIs, tenant/branch authorization, and database schemas are unchanged.
+
+```text
+npm run proposal:impact -- --file 'apps/web/app/(shell)/admin/branches/page.tsx' AdminBranchesPage
+npm run proposal:impact -- --file apps/web/components/devices/device-management.tsx DeviceManagement
+node .gitnexus/run.cjs context DeviceManagement --repo shopcity_LP
+npm run gitnexus:analyze
+```
+
+### 2026-11-12 — Admin device and branch workflow proposal
+
+Pre-proposal impacts were attempted for `DeviceManagement` and `AdminBranchesPage`. The stale GitNexus index returned CRITICAL for `DeviceManagement` (145 impacted, 2 direct, 33 processes, 20 modules) and LOW/0 for `AdminBranchesPage`; however, both targets resolved to unrelated `Folder:` nodes rather than the requested source symbols (`openspec/changes/approval-review-queue` and `prisma/migrations/20260802_financial_guardrail_repair`). Treat these counts as unreliable, not as a valid component blast radius. No implementation symbol is being changed in this proposal. Source review confirms the device UI is used on Admin and Supervisor routes and invokes security-sensitive pairing/credential/status flows; the proposal explicitly preserves those flows, backend tenant/branch scope, and existing APIs. No usable symbol-level risk assessment or HIGH/CRITICAL code-change warning can be derived from this index state.
+
+```text
+node .gitnexus/run.cjs impact --repo shopcity_LP --file apps/web/components/devices/device-management.tsx --direction upstream --include-tests DeviceManagement
+node .gitnexus/run.cjs impact --repo shopcity_LP --file 'apps/web/app/(shell)/admin/branches/page.tsx' --direction upstream --include-tests AdminBranchesPage
+```
+
+### 2026-11-12 — Keep Admin Operations Control routes authorized
+
+GitNexus impact for `shellNavigationByRole` is LOW/exact with 0 indexed dependants; `AppShellContent` is LOW/exact with 3 impacted symbols (1 direct), the ShellLayout process, and Components module. No HIGH/CRITICAL risk. The shell uses visible navigation routes as its route allowlist, so removing Control links from the Admin sidebar caused direct Control destinations to fall back to `/admin`. Add the five Controls paths as aliases on the Operations navigation item; this keeps them off the sidebar, authorizes them for Admin only, and makes Operations the active navigation item without changing route implementations.
+
+```text
+npm run proposal:impact -- --file apps/web/components/shell-navigation.ts shellNavigationByRole
+npm run proposal:impact -- --file apps/web/components/app-shell.tsx AppShellContent
+```
+
+### 2026-11-12 — Align Admin Operations and Policies presentation
+
+Before drafting the visual-parity change, GitNexus impacts were LOW/exact: `AdminOperationsPage` affects 0 symbols/processes; `AdminOperationsTabs` has 2 direct dependants, 1 affected AdminOperationsPage process, and the Workflows module; `AdminPoliciesPage` affects 0 symbols/processes. Follow-up impacts for `PilotHealthPanel`, `summarizeOperationalAttention`, `getReleaseMetadata`, and `AdminOperationsHealthTrend` are LOW/exact and affect the AdminOperationsPage process only. No HIGH/CRITICAL risk. Scope is the two Admin page presentations and tab-menu overflow behavior, including Operations-only plain-language health labels; preserve other health-panel callers, routes, tab semantics, policy values, API interactions, authorization, and save behavior.
+
+```text
+npm run proposal:impact -- --file 'apps/web/app/(shell)/admin/operations/page.tsx' AdminOperationsPage
+npm run proposal:impact -- --file apps/web/components/workflows/admin-operations-tabs.tsx AdminOperationsTabs
+npm run proposal:impact -- --file 'apps/web/app/(shell)/admin/policies/page.tsx' AdminPoliciesPage
+npm run proposal:impact -- --file apps/web/components/workflows/pilot-health-panel.tsx PilotHealthPanel
+npm run proposal:impact -- --file apps/web/components/workflows/pilot-health-panel.tsx summarizeOperationalAttention
+npm run proposal:impact -- --file apps/web/components/workflows/pilot-health-panel.tsx getReleaseMetadata
+npm run proposal:impact -- --file apps/web/components/workflows/admin-operations-health-trend.tsx AdminOperationsHealthTrend
+```
+
+### 2026-11-12 — Hide the sidebar scrollbar and restore compact logo size
+
+Before extending `collapsible-sidebar-repair`, fresh GitNexus impact for `AppSidebar` was LOW/exact: 4 impacted symbols (1 direct, 1 at depth 2, 2 at depth 3), affecting ShellLayout and AppShellContent. No HIGH/CRITICAL risk. Scope is CSS/test/spec only: preserve the 100dvh sidebar and overflow accessibility, hide the visible scrollbar track, and verify the collapsed rail restores the existing 52×52 compact brand mark after hover.
+
+```text
+npm run proposal:impact -- --file apps/web/components/app-sidebar.tsx AppSidebar
+```
+
+### 2026-11-12 — Hover-expandable shared shell sidebar
+
+Before extending `collapsible-sidebar-repair`, fresh GitNexus impacts were LOW/exact: `AppSidebar` affects 4 symbols (1 direct, 1 at depth 2, 2 at depth 3) across ShellLayout and AppShellContent; `AppShellContent` affects 3 symbols (1 direct, 2 at depth 2) in the ShellLayout process; `toggleSidebar` has no indexed callers/processes. No HIGH/CRITICAL risk. Scope removes the manual collapse control and saved preference, uses a 76px resting rail with temporary hover/focus expansion over the main column, keeps touch-only tablet navigation expanded, and leaves the mobile drawer and role route authority unchanged.
+
+```text
+npm run proposal:impact -- --file apps/web/components/app-sidebar.tsx AppSidebar
+npm run proposal:impact -- --file apps/web/components/app-shell.tsx AppShellContent
+npm run proposal:impact -- --file apps/web/components/app-shell.tsx toggleSidebar
+```
+
+### 2026-11-12 — Fixed-height shared shell sidebar
+
+Before extending `collapsible-sidebar-repair`, fresh GitNexus impacts were LOW/exact: `AppShellContent` has 3 impacted symbols (1 direct, 2 at depth 2), the ShellLayout process and Components module; `AppSidebar` has 4 impacted symbols (1 direct, 1 at depth 2, 2 at depth 3), the ShellLayout and AppShellContent processes, and Components module. No HIGH/CRITICAL risk. Scope is CSS geometry only: give the sticky desktop/tablet sidebar a viewport-fixed height with internal vertical overflow while the main shell remains natural-height and page content determines document scrolling. Preserve the mobile drawer, state-driven widths, role navigation, and footer actions.
+
+```text
+npm run proposal:impact -- --file apps/web/components/app-shell.tsx AppShellContent
+npm run proposal:impact -- --file apps/web/components/app-sidebar.tsx AppSidebar
+```
+
+### 2026-11-12 — Admin transaction workspace replication
+
+Before drafting `admin-transaction-workspace-parity`, the GitNexus index was refreshed successfully (18,726 nodes, 29,905 edges, 300 flows). Fresh impacts: `AdminTransactionsPage` LOW/exact (0 upstream callers/processes); `SupervisorTransactionsDashboard` LOW/exact (2 direct dependants, its Supervisor page process, Workflows module); controller `searchTransactionsByReceipt` LOW/exact (0 upstream callers/processes); service `searchTransactionsByReceipt` LOW/exact (1 direct dependant, Loyalty module); `LoyaltyController` LOW/exact (6 impacted symbols: 1 direct); `LoyaltyModule` LOW/exact (14 impacted symbols: 4 direct); and `LoyaltyService` MEDIUM/exact (24 impacted symbols: 14 direct, 8 at depth 2, 2 at depth 3, Loyalty module). No HIGH/CRITICAL risk was reported. Source review confirms the existing `GET /api/v1/transactions` list is Supervisor-only and branch-scoped, whereas transaction-detail reads and reversals permit Admin. To contain the MEDIUM service blast radius, add a separate Admin-only tenant-scoped list controller/provider and leave the existing Supervisor endpoint/service untouched. No database/schema migration is planned.
+
+```text
+npm run proposal:impact -- --file 'apps/web/app/(shell)/admin/transactions/page.tsx' AdminTransactionsPage
+npm run proposal:impact -- --file apps/web/components/workflows/supervisor-transactions-dashboard.tsx SupervisorTransactionsDashboard
+npm run proposal:impact -- --file src/modules/loyalty/loyalty.controller.ts searchTransactionsByReceipt
+npm run proposal:impact -- --file src/modules/loyalty/loyalty.service.ts searchTransactionsByReceipt
+```
+
+### 2026-11-11 — Remove Admin overview self-links
+
+GitNexus impact is LOW/exact for the planned Admin route surfaces: `AdminTransactionsPage`, `AdminApprovalsPage`, `AdminFraudPage`, `AdminPoliciesPage`, `AdminAuditPage`, `AdminUsersPage`, `AdminAdjustmentsPage`, and `AdminBranchesPage` each report 0 indexed callers/processes. `SupervisorCardWorkflows` reports 1 direct caller (`SupervisorCardsPage`); `OperationalReportsDashboard` reports 2 direct callers and 1 depth-2 route caller; neither has affected processes. No HIGH/CRITICAL risk. The index is stale at the preceding commit, so coverage is incomplete and counts are lower-bound context. Scope removes only the Admin overview self-links from all Admin shell pages; preserve Admin/Operations navigation, report/card workflows, profile `Back to customers`, and non-Admin behavior.
+
+```text
+npm run proposal:impact -- --file apps/web/components/workflows/supervisor-card-workflows.tsx SupervisorCardWorkflows
+npm run proposal:impact -- --file apps/web/components/workflows/supervisor-operational-reports.tsx OperationalReportsDashboard
+npm run proposal:impact -- --file 'apps/web/app/(shell)/admin/transactions/page.tsx' AdminTransactionsPage
+npm run proposal:impact -- --file 'apps/web/app/(shell)/admin/policies/page.tsx' AdminPoliciesPage
+npm run proposal:impact -- --file 'apps/web/app/(shell)/admin/users/page.tsx' AdminUsersPage
+```
+
+### 2026-11-12 — Admin/Supervisor common-page style parity
+
+`npm run proposal:impact` returned **LOW/exact with 0 impacted symbols and 0 affected processes** for each Admin route entrypoint: `AdminPage`, `AdminTransactionsPage`, `AdminApprovalsPage`, `AdminFraudPage`, `AdminCustomersPage`, `AdminCardsPage`, and `AdminReportsPage`. Follow-up impact for the corrected Admin Customers implementation: `CustomerWorkspace` is LOW/exact with 3 direct callers (Admin Cards, Admin Customers, Cashier Customers); `SupervisorCustomerWorkflows` is LOW/exact with 1 direct caller (Supervisor Customers); `CustomerDirectory` is LOW/exact with 2 affected symbols (direct caller `SupervisorCustomerWorkflows` and its route caller). No affected processes or HIGH/CRITICAL risk. The Admin route will reuse the Supervisor customer directory and profile presentation with Admin-specific registration/profile/card destinations and retain profile editing, status, and card-management actions and authorization. Profile impact: `ManageCustomers` is LOW/exact with 4 impacted symbols (2 direct callers: Supervisor and Cashier profile wrappers; 2 route callers), and `CustomerDetailsDialog` is LOW/exact with 3 impacted symbols (ManageCustomers plus both profile wrappers). `SupervisorCustomerProfile` remains LOW/exact with its existing route caller. The adjacent lint-only event handlers `loadOlderEntries` and `submitProfile` are also LOW/exact with 0 impacted callers/processes. For the follow-up Admin Approvals presentation, `AdminApprovalsPage` is LOW/exact with 0 impacted callers/processes; `ApprovalsPanel` is LOW/exact with 2 direct callers (Admin and Supervisor), and `SupervisorApprovalCenter` is LOW/exact with 1 direct caller and 2 transitive route callers. No affected processes or HIGH/CRITICAL risk. The approval work must decouple presentation from workflow variant so Admin request scope and decision behavior remain unchanged. For the Admin Cards follow-up, `AdminCardsPage` is LOW/exact with 0 impacted callers/processes; `SupervisorIssuedCardDirectory` is LOW/exact with 2 impacted symbols (1 direct caller, `SupervisorCardWorkflows`, plus its route caller); `SupervisorCardWorkflows` was LOW/exact with 1 direct caller (`SupervisorCardsPage`) before adding Admin as a second audience; `SupervisorCustomerWorkflows` is LOW/exact with 1 direct caller; `AdminCustomersPage` is LOW/exact with 0 impacted callers/processes; and `SupervisorCardManagement` is LOW/exact with 2 impacted symbols (1 direct caller in the shared profile dialog). No affected processes or HIGH/CRITICAL risk. The initial Admin-only card-surface adaptation was superseded and its `CustomerWorkspace`/test edits restored to their pre-task clean state. The revised design reuses the issued-card directory and assignment dialog under an Admin audience and routes card links to the Admin customer's Virtual Card profile tab; Admin API scope is session-derived. The `SupervisorCardAssignment` symbol query was ambiguous between the source function and its test, with both candidates LOW risk and the source candidate reporting 2 affected symbols / 1 direct caller.
+
+```text
+npm run proposal:impact -- --file 'apps/web/app/(shell)/admin/page.tsx' AdminPage
+npm run proposal:impact -- --file 'apps/web/app/(shell)/admin/transactions/page.tsx' AdminTransactionsPage
+npm run proposal:impact -- --file 'apps/web/app/(shell)/admin/approvals/page.tsx' AdminApprovalsPage
+npm run proposal:impact -- --file 'apps/web/app/(shell)/admin/fraud/page.tsx' AdminFraudPage
+npm run proposal:impact -- --file 'apps/web/app/(shell)/admin/customers/page.tsx' AdminCustomersPage
+npm run proposal:impact -- --file 'apps/web/app/(shell)/admin/cards/page.tsx' AdminCardsPage
+npm run proposal:impact -- --file 'apps/web/app/(shell)/admin/reports/page.tsx' AdminReportsPage
+node .gitnexus/run.cjs impact --repo shopcity_LP --depth 2 CustomerWorkspace
+node .gitnexus/run.cjs impact --repo shopcity_LP --depth 2 SupervisorCustomerWorkflows
+node .gitnexus/run.cjs impact --repo shopcity_LP --depth 2 CustomerDirectory
+node .gitnexus/run.cjs impact --repo shopcity_LP --depth 2 ManageCustomers
+node .gitnexus/run.cjs impact --repo shopcity_LP --depth 2 CustomerDetailsDialog
+node .gitnexus/run.cjs impact --repo shopcity_LP --depth 2 SupervisorCustomerProfile
+node .gitnexus/run.cjs impact --repo shopcity_LP --depth 2 loadOlderEntries
+node .gitnexus/run.cjs impact --repo shopcity_LP --depth 2 submitProfile
+node .gitnexus/run.cjs impact --repo shopcity_LP --depth 2 AdminApprovalsPage
+node .gitnexus/run.cjs impact --repo shopcity_LP --depth 2 ApprovalsPanel
+node .gitnexus/run.cjs impact --repo shopcity_LP --depth 2 SupervisorApprovalCenter
+node .gitnexus/run.cjs impact --repo shopcity_LP --depth 2 AdminCardsPage
+node .gitnexus/run.cjs impact --repo shopcity_LP --depth 2 CustomerWorkspace
+node .gitnexus/run.cjs impact --repo shopcity_LP --depth 2 SupervisorCardWorkflows
+node .gitnexus/run.cjs impact --repo shopcity_LP --depth 2 SupervisorIssuedCardDirectory
+node .gitnexus/run.cjs impact --repo shopcity_LP --depth 2 SupervisorCardAssignment
+node .gitnexus/run.cjs impact --repo shopcity_LP --depth 2 SupervisorCardManagement
+node .gitnexus/run.cjs impact --repo shopcity_LP --depth 2 SupervisorCustomerWorkflows
+node .gitnexus/run.cjs impact --repo shopcity_LP --depth 2 AdminCustomersPage
+```
+
+### 2026-11-11 — Admin Controls sidebar consolidation
+
+GitNexus reports `shellNavigationByRole` LOW/exact with 0 impacted symbols and 0 affected processes. `getShellNavigationSections` was not indexed; the local index refresh is still blocked by an inconsistent FTS index, so graph coverage is incomplete. Source review and focused tests cover the Admin sidebar configuration and the existing Operations → Controls destinations. The change removes only the Users, Devices, Branches, Audit, and Adjustments sidebar links; their routes and Controls links remain.
+
+```text
+node .gitnexus/run.cjs impact --repo shopcity_LP --depth 2 shellNavigationByRole
+node .gitnexus/run.cjs impact --repo shopcity_LP --depth 2 getShellNavigationSections
+```
+
+### 2026-11-11 — Cashier Find Customer pagination
+
+GitNexus upstream impact is HIGH/exact for both `FindCustomerView` and `useCashierLookupController`: 5 impacted symbols each (1 direct, 4 at depth 2), three affected Cashier route processes (Lookup, Earn, and Redeem), and the Workflows module. No HIGH finding is being hidden; the lookup hook is shared with financial workflow routes. The planned change keeps cursor navigation confined to Find Customer presentation and preserves the existing exact-card verification boundary. The index was refreshed to current commit `799e4f6`.
+
+```text
+npm run proposal:impact -- --file apps/web/components/workflows/cashier-transaction-route.tsx FindCustomerView
+npm run proposal:impact -- --file apps/web/components/workflows/use-cashier-lookup-controller.ts useCashierLookupController
+```
+
+### 2026-11-11 — Automatic sidebar collapse at tablet widths
+
+GitNexus upstream impact was LOW/exact. `AppShellContent` has 3 impacted symbols (1 direct, 2 at depth 2), affecting the `ShellLayout` process (6 affected process count) and Components module. `toggleSidebar` has 0 upstream dependants. `AppSidebar` has 4 impacted symbols (1 direct, 1 at depth 2, 2 at depth 3), affecting `ShellLayout` and `AppShellContent` processes and the Components module. No HIGH/CRITICAL result. The index was refreshed successfully to current commit `db56e95`. Planned change: at the established 621–920px tablet range, set the real collapse state to the same 76px icon rail as the manual control, restore the explicit user preference when leaving that range, and leave the mobile drawer unchanged.
+
+```text
+npm run proposal:impact -- --file apps/web/components/app-shell.tsx AppShellContent
+npm run proposal:impact -- --file apps/web/components/app-shell.tsx toggleSidebar
+npm run proposal:impact -- --file apps/web/components/app-sidebar.tsx AppSidebar
+```
+
+### 2026-11-11 — Supabase password recovery
+
+Before refining the existing `simplify-staff-authentication-and-authorization` OpenSpec task, `npm run proposal:impact` reported `AuthController` LOW/exact (6 impacted symbols; 4 direct; Auth module affected), `AuthService` MEDIUM/exact (11 impacted symbols; 9 direct and 2 at depth 2), and `LoginForm` LOW/exact (1 direct dependant). No HIGH/CRITICAL result was returned. The index is stale at `78339bf` versus current HEAD `db56e95`; a refresh attempt failed because the local GitNexus `file_fts` index is inconsistent (missing document during delete), so these graph counts are lower-bound/context-limited. Source review confirms AuthController delegates login to AuthService, LoginForm owns the existing help action, SupabaseService has server-side public and service-role clients, and the current API's configured Supabase URL is local. The operator confirms SMTP is configured on both local and hosted Supabase projects. The repository's `[auth.email.smtp]` stanza remains commented, so keep the existing SMTP settings out of this code change and inspect the hosted config diff carefully before pushing redirect allowlist changes. Do not send test/recovery email during implementation verification. Expanded impact review adds `proxyRequest` MEDIUM/exact (7 direct HTTP-method callers), `requiresShopcityBffIdentity` LOW/exact (9 impacted, 2 direct and 7 at depth 2), `SupabaseService` MEDIUM/exact (21 impacted, 9 direct), `assertPublicLoginOrigin` LOW/exact (3 direct dependants, 1 process/module), and `RequestThrottleService` LOW/exact (14 impacted, 3 direct), and `AppModule` LOW/exact (10 impacted, 1 direct). No HIGH/CRITICAL result was returned. Planned bounded scope: use Supabase Auth recovery email and one-time recovery verification/password update, keep tokens transient and secrets server-side, preserve ShopCity-owned sessions/RBAC and revoke active ShopCity sessions after a successful password change, generic responses and throttling, and avoid trusting any recovery token as a ShopCity session. BFF-required paths expand only to the two new password-recovery POST routes; all seven proxy HTTP methods must retain current behavior.
+
+```text
+npm run proposal:impact -- --file src/modules/auth/auth.controller.ts AuthController
+npm run proposal:impact -- --file src/modules/auth/auth.service.ts AuthService
+npm run proposal:impact -- --file apps/web/components/auth/login-form.tsx LoginForm
+npm run proposal:impact -- --file apps/web/app/api/v1/[...path]/route.ts proxyRequest
+npm run proposal:impact -- --file apps/web/lib/api-proxy-security.ts requiresShopcityBffIdentity
+npm run proposal:impact -- --file src/supabase/supabase.service.ts SupabaseService
+npm run proposal:impact -- --file src/modules/auth/auth.service.ts assertPublicLoginOrigin
+npm run proposal:impact -- --file src/common/throttle/request-throttle.service.ts RequestThrottleService
+npm run proposal:impact -- --file src/app.module.ts AppModule
+node .gitnexus/run.cjs analyze  # failed: inconsistent file_fts index
+```
+
+### 2026-11-11 — Immediate Supervisor overview refresh
+
+GitNexus upstream impact is LOW/exact for all planned symbols. `SupervisorPage` has 0 impacted symbols/callers; `ReportsController` has 4 impacted symbols (2 direct, 1 at depth 2, 1 at depth 3); its `refreshSupervisorDashboard` method has 1 direct dependant. `ReportExportService.refreshSupervisorDashboard` has 3 impacted symbols (2 direct) and the Reports module; `enqueueRefresh` has 6 impacted symbols (2 direct) and the Reports module. `ReportMaterializerService.materializeBranch` has 2 direct dependants. No indexed execution processes were affected, and no HIGH/CRITICAL risk was reported. Plan: connect the button to the existing Supervisor-only, branch-scoped refresh request, synchronously materialize only the authenticated branch after committing its audit/idempotency/outbox intent, then reload the snapshot/approvals. Preserve the cron-secret boundary and existing five-minute cron/daily fallback.
+
+```text
+npm run proposal:impact -- --file 'apps/web/app/(shell)/supervisor/page.tsx' SupervisorPage
+npm run proposal:impact -- --file src/modules/reports/reports.controller.ts ReportsController
+npm run proposal:impact -- --file src/modules/reports/reports.controller.ts refreshSupervisorDashboard
+npm run proposal:impact -- --file src/modules/reports/report-export.service.ts refreshSupervisorDashboard
+npm run proposal:impact -- --file src/modules/reports/report-export.service.ts enqueueRefresh
+npm run proposal:impact -- --file src/modules/reports/report-materializer.service.ts materializeBranch
+```
+
+### 2026-11-09 — Vercel Cron for report materialization
+
+`ReportsModule` upstream impact is **LOW/exact** with 11 impacted symbols, 1 direct dependant, and no indexed processes/modules. `runReportMaterializationSweep` impact is **LOW/exact** with 6 impacted symbols, 2 direct dependants, and the Jobs module affected. No HIGH/CRITICAL risk was reported. Vercel CLI confirms neither ShopCity production project currently has Cron jobs configured; the API project deploys only `api/index.ts`. Change adds a secret-protected API cron endpoint, a daily Vercel Cron fallback, and an external cron-job.org schedule every five minutes that invokes the existing report sweep. The first external execution returned HTTP 200 and advanced production report state. It does not start BullMQ/outbox/other persistent worker loops in the Vercel function.
+
+```text
+npm run proposal:impact -- --file src/modules/reports/reports.module.ts ReportsModule
+npm run proposal:impact -- --file src/jobs/report-materialization.worker.ts runReportMaterializationSweep
+```
+
+### 2026-11-02 — Operations date presets, controls, and summary columns
+
+Fresh `ReportsWorkspace` upstream impact returned LOW/exact with 6 impacted symbols, 2 direct dependants, and no indexed processes/modules. `AdminOperationsTabs` remains unindexed (UNKNOWN), and prior Operations-route analysis recorded HIGH, so graph coverage is incomplete. The extension remains behind the existing Operations-only `table-dialog` opt-in: add date presets using the selected branch timezone, Supervisor pill controls, and populated report-field columns with pagination/alignment. The Load report gradient and other callers' date/filter behavior remain unchanged; no API/data/role changes.
+
+```text
+npm run proposal:impact -- --file apps/web/components/workflows/reports-workspace.tsx ReportsWorkspace
+```
+
+### 2026-11-02 — Operations report button and filter-copy refinement
+
+A fresh `ReportsWorkspace` upstream query returned LOW/exact with 6 impacted symbols and 2 direct dependants; no indexed processes/modules were affected. `AdminOperationsTabs` remains unindexed (UNKNOWN), and previous analysis recorded HIGH when the Operations route was included, so coverage remains incomplete. Changes remain opt-in: Operations will inherit the existing Supervisor Reports button treatment, keep its standard dropdown control override, and present truthful filter text as subtext in the combined summary surface. No report data, API, or role behavior changes.
+
+```text
+npm run proposal:impact -- --file apps/web/components/workflows/reports-workspace.tsx ReportsWorkspace
+npm run proposal:impact -- --file apps/web/components/workflows/admin-operations-tabs.tsx AdminOperationsTabs
+```
+
+### 2026-11-02 — Operations report summary table/dialog and controls (scope update)
+
+A fresh `ReportsWorkspace` upstream query returned LOW/exact with 6 impacted symbols, 2 direct dependants, and no indexed processes/modules. `AdminOperationsTabs` remains unindexed (UNKNOWN); a previous badge-removal analysis recorded HIGH with the Operations route included, so index coverage remains incomplete. The new result-table/dialog presentation and sidebar/control styling are enabled only through an explicit Operations prop and wrapper class; shared card-based callers and dedicated Admin/Supervisor Reports routes retain their current presentation. No API, data, or role behavior changes are planned.
+
+```text
+npm run proposal:impact -- --file apps/web/components/workflows/reports-workspace.tsx ReportsWorkspace
+npm run proposal:impact -- --file apps/web/components/workflows/admin-operations-tabs.tsx AdminOperationsTabs
+```
+
+### 2026-11-02 — Tenant branch selector for Operations Reports (scope update)
+
+A fresh `ReportsWorkspace` upstream query returned LOW/exact with 6 impacted symbols and 2 direct dependants; deeper indexed results include the dedicated Admin/Supervisor Reports callers. `AdminOperationsTabs` remains unindexed (UNKNOWN). As recorded below, the lower count does not include the Operations caller, so coverage is incomplete. The Operations-only opt-in uses the existing Admin-only `GET /api/v1/branches` endpoint, which scopes results by the authenticated tenant and returns each Branch's persisted timezone. No endpoint, contract, role, database, or migration changes are planned; date filters and default behavior on other Reports callers remain unchanged.
+
+```text
+npm run proposal:impact -- --file apps/web/components/workflows/reports-workspace.tsx ReportsWorkspace
+npm run proposal:impact -- --file apps/web/components/workflows/admin-operations-tabs.tsx AdminOperationsTabs
+```
+
+### 2026-11-02 — Operations Reports typography alignment (scope update)
+
+A fresh `ReportsWorkspace` upstream query returned LOW/exact with 6 impacted symbols, 2 direct dependants, and no indexed processes/modules. The direct indexed dependants are `reports-workspace.spec.tsx` and `OperationalReportsDashboard`; deeper results include the dedicated Admin and Supervisor reports callers. `AdminOperationsTabs` is still not indexed, so its target impact is UNKNOWN. The prior badge-removal finding also recorded a HIGH result with the Operations route included; treat the current lower count as incomplete rather than a reduced real blast radius. The change keeps the existing ReportsWorkspace layout and data/action behavior, adds the established report style wrapper only in Operations, and scopes typography rules to the current report, summary-item, and selected-item cards. Dedicated Admin/Supervisor callers remain unmodified.
+
+```text
+node scripts/gitnexus.cjs impact --repo shopcity_LP --file apps/web/components/workflows/reports-workspace.tsx --direction upstream --include-tests ReportsWorkspace
+npm run proposal:impact -- --file apps/web/components/workflows/admin-operations-tabs.tsx AdminOperationsTabs
+```
+
+### 2026-11-02 — Remove badges from Operations Reports tab (scope update)
+
+`npm run proposal:impact -- --file apps/web/components/workflows/reports-workspace.tsx ReportsWorkspace` returned **HIGH/exact**: 7 impacted symbols, 3 direct dependants, 3 affected route processes (`SupervisorReportsPage`, `AdminReportsPage`, and `AdminOperationsPage`), and 1 module. The Operations caller will opt out via a new prop whose default remains enabled, so the dedicated Admin and Supervisor routes keep their current badges. The `AdminOperationsTabs` target was not present in the index. `node .gitnexus/run.cjs analyze` was attempted, but refresh failed because the local `file_fts` index is inconsistent (`document for node offset 2029 is missing during delete`). Source search confirms `AdminOperationsTabs` is only rendered by `AdminOperationsPage`; treat its GitNexus risk as unknown.
+
+```text
+npm run proposal:impact -- --file apps/web/components/workflows/reports-workspace.tsx ReportsWorkspace
+npm run proposal:impact -- --file apps/web/components/workflows/admin-operations-tabs.tsx AdminOperationsTabs
+node .gitnexus/run.cjs analyze
+```
+
+### 2026-11-01 — Pilot Operations health-history chart (pre-proposal impact)
+
+Before proposing `pilot-operations-health-trends`, GitNexus returned LOW/exact for all existing changed symbols; no HIGH/CRITICAL risk was reported. `ReportsService.getPilotOperationsSummary` has 3 impacted symbols (2 direct dependants and 1 at depth 2), 0 affected processes, and 1 module. `ReportsController` has 4 impacted symbols (2 direct and 2 at deeper levels), with 0 affected processes/modules. Worker `bootstrap` has 2 direct dependants and 0 affected processes/modules. `PilotHealthPanel` has 2 direct callers (`AdminOperationsPage` and `CriticalFlowsPage`); one Admin Operations flow is affected (9 flow hits) in 1 module. The plan adds a separate history API and new worker/model; the current summary contract and non-Operations callers remain unchanged.
+
+```text
+npm run proposal:impact -- --file src/modules/reports/reports.service.ts getPilotOperationsSummary
+npm run proposal:impact -- --file src/modules/reports/reports.controller.ts ReportsController
+npm run proposal:impact -- --file src/worker.ts bootstrap
+npm run proposal:impact -- --file apps/web/components/workflows/pilot-health-panel.tsx PilotHealthPanel
+```
+
+### 2026-11-01 — Admin Operations Overview card surfaces (scope update)
+
+`npm run proposal:impact -- --file apps/web/components/workflows/pilot-health-panel.tsx PilotHealthPanel` returned LOW/exact with 2 direct dependants (`AdminOperationsPage` and `CriticalFlowsPage`), 1 affected process (AdminOperationsPage, 9 flow hits), and 1 affected module. No HIGH/CRITICAL risk was reported. Add an opt-in Admin Overview card-surface variant to `PilotHealthPanel`; only the Operations Overview opts in. `CriticalFlowsPage` keeps the default style. The visual copy matches the existing Admin Overview `.panel`/`.metric` surfaces; no behavior, data, routes, or shared navigation change.
+
+```text
+npm run proposal:impact -- --file apps/web/components/workflows/pilot-health-panel.tsx PilotHealthPanel
+```
+
+### 2026-11-01 — Operations Overview status pills (scope update)
+
+`npm run proposal:impact -- --file apps/web/components/workflows/pilot-health-panel.tsx PilotHealthPanel` returned LOW/exact with 2 direct dependants (`AdminOperationsPage` and `CriticalFlowsPage`), 1 affected process (AdminOperationsPage, 9 flow hits), and 1 affected module. No HIGH/CRITICAL risk was reported. Hide only the header and per-signal `StatusBadge` pills when the Operations Overview card variant is selected; preserve the default presentation and pills at `CriticalFlowsPage`. No API, data, route, or shell changes.
+
+```text
+npm run proposal:impact -- --file apps/web/components/workflows/pilot-health-panel.tsx PilotHealthPanel
+```
+
+### 2026-11-01 — Operations health-card subtext typography (scope update)
+
+`npm run proposal:impact -- --file apps/web/components/workflows/pilot-health-panel.tsx PilotHealthPanel` returned LOW/exact with 2 direct dependants (`AdminOperationsPage` and `CriticalFlowsPage`), 1 affected process (AdminOperationsPage, 9 flow hits), and 1 affected module. No HIGH/CRITICAL risk was reported. Set a readable 12px/1.45 secondary-text style for Operations Overview signal details and its panel subtitle only; the opt-in variant keeps other callers unchanged. No API or data changes.
+
+```text
+npm run proposal:impact -- --file apps/web/components/workflows/pilot-health-panel.tsx PilotHealthPanel
+```
+
+### 2026-11-01 — Operations snapshot attention and metadata (scope update)
+
+`npm run proposal:impact -- --file apps/web/components/workflows/pilot-health-panel.tsx PilotHealthPanel` returned LOW/exact with 2 direct dependants (`AdminOperationsPage` and `CriticalFlowsPage`), 1 affected process (AdminOperationsPage, 9 flow hits), and 1 affected module. No HIGH/CRITICAL risk was reported. Add attention summary, `generatedAt`, and release metadata only to the Admin Overview variant, using the existing point-in-time endpoint response. No new requests or backend/API contract changes. Trend visualization is deferred: the endpoint has no historical observations.
+
+```text
+npm run proposal:impact -- --file apps/web/components/workflows/pilot-health-panel.tsx PilotHealthPanel
+```
+
+### 2026-10-31 — Admin Operations tabs (pre-edit impact)
+
+Before creating `admin-operations-tab-workspace`, `npm run proposal:impact -- --file 'apps/web/app/(shell)/admin/operations/page.tsx' AdminOperationsPage` returned LOW/exact with 0 upstream dependants, processes, or modules. `routeLinks` and `workspaceNotes` in the same page are also LOW/exact with 0 upstream dependants. No HIGH/CRITICAL risk was reported. Planned scope is only the `/admin/operations` body: remove specified static labels/copy; add Overview, Reports, and Controls tabs; keep existing pilot-health data in Overview, use the existing Admin operational reports dashboard in Reports, and link Controls to `/admin/users`, `/admin/devices`, `/admin/branches`, `/admin/audit`, and `/admin/adjustments`. No shell/navigation, route, API, authorization, backend, or financial changes are planned.
+
+```text
+npm run proposal:impact -- --file 'apps/web/app/(shell)/admin/operations/page.tsx' AdminOperationsPage
+node .gitnexus/run.cjs impact --repo shopcity_LP --file 'apps/web/app/(shell)/admin/operations/page.tsx' routeLinks --direction upstream
+node .gitnexus/run.cjs impact --repo shopcity_LP --file 'apps/web/app/(shell)/admin/operations/page.tsx' workspaceNotes --direction upstream
+```
+
+### 2026-10-29 — Admin Overview data/freshness and sidebar transparent corners (scope update)
+
+Before extending the active Admin Overview OpenSpec, upstream impact was rerun on current indexed symbols. `AdminPage` is LOW/exact with 0 impacted symbols/direct dependants/processes. `AppSidebar` is LOW/exact with 3 impacted symbols (direct caller `AppShellContent`, then `AppShell`), 2 affected shell processes (`ShellLayout` and `AppShellContent` flows), and 1 affected module. `AppShellContent` is LOW/exact with 2 impacted symbols (direct caller `AppShell`, then `ShellLayout`) and 1 affected shell process. After an index-only refresh (18,165 nodes, 28,727 edges; 5 changed and 10 added files), `AdminOverview` is LOW/exact with 0 upstream dependants; `ReportLineChart` and `RegistrationChart` are LOW/exact, each with one direct dependant (`AdminOverview`) in the AdminPage flow (5 associated flow hits). No HIGH/CRITICAL risk was returned. No shell component will be modified; the corner correction is constrained to CSS background painting.
+
+Planned extension: add tenant materialization-state data, runtime validation, typed endpoint failures, in-flight request sharing within the mounted hook (no completed-response cache), bounded status-aware retry behavior, source-time/incomplete-state messaging, true date-window chart gaps, accessible keyboard chart tooltips, and focused tests. Read endpoints remain existing report/materialization, approvals, and audit endpoints. The report materialization API exposes `status`, `materializedAt`, and `updatedAt` but no report-specific stale boolean/threshold. Audit OpenAPI/generated client still marks backend-optional `actorId` required; keep existing empty-filter workaround. Active virtual cards and server-supplied period totals remain API gaps. No HIGH/CRITICAL result; no backend/schema/contracts/role/routes/financial calculations will be changed.
+
+```text
+node .gitnexus/run.cjs impact --repo shopcity_LP --file apps/web/components/app-sidebar.tsx AppSidebar --direction upstream
+node .gitnexus/run.cjs impact --repo shopcity_LP --file apps/web/components/app-shell.tsx AppShellContent --direction upstream
+node .gitnexus/run.cjs impact --repo shopcity_LP --file 'apps/web/app/(shell)/admin/page.tsx' AdminPage --direction upstream
+```
+
+### 2026-10-29 — Admin Overview Figma redesign (pre-edit impact)
+
+Before drafting `admin-overview-figma-redesign`, upstream impact for `AdminPage` was LOW/exact with 0 impacted symbols, direct dependants, or affected processes. GitNexus context shows the route calls `ScannerContextScope`, `WorkflowSection`, and `AdminOperationsPanel`, and participates in existing Admin page flows; implementation will remove the current overview-only content while retaining the same route and shell. No HIGH/CRITICAL symbol-level impact was reported. The index was up-to-date at commit `139f0e9`.
+
+```text
+node .gitnexus/run.cjs impact --repo shopcity_LP --file 'apps/web/app/(shell)/admin/page.tsx' AdminPage --direction upstream
+node .gitnexus/run.cjs context AdminPage --repo shopcity_LP --file 'apps/web/app/(shell)/admin/page.tsx'
+```
+
+Planned scope: replace only `/admin` page content, using existing report/approval/audit read endpoints. No backend, API contract, schema, auth, shell, route, or financial calculation changes. Audit and Figma review also identified an unavailable tenant-wide active-card count and a generated audit-client actorId-required mismatch; see `docs/development/admin-overview-figma-implementation.md`.
+
+### 2026-10-28 — Termii transactional SMS provider (pre-draft impact)
+
+`npm run proposal:impact` was attempted for `createSmsProvider` and `envValidationSchema`, but its npm-installed GitNexus path failed because the local LadybugDB native binary (`lbugjs.node`) is missing. The repo-local `node .gitnexus/run.cjs impact` fallback returned the following results. The index is stale at `df42d4d` versus current HEAD `139f0e9`; treat graph coverage as limited. No HIGH/CRITICAL result was reported.
+
+| Symbol                                                | Risk                | Impacted symbols | Direct dependants | Affected processes                                                                       |
+| ----------------------------------------------------- | ------------------- | ---------------: | ----------------: | ---------------------------------------------------------------------------------------- |
+| `SmsProvider`                                         | MEDIUM, lower-bound |               19 |                12 | 0; seven implementations and interface-bound callers are not fully traced                |
+| `createSmsProvider`                                   | LOW, exact          |                3 |                 2 | 0; `bootstrapWorker` and `bootstrap`, plus one depth-2 worker file                       |
+| `envValidationSchema`                                 | LOW, exact          |                0 |                 0 | 0                                                                                        |
+| `OutboxWorkerRuntime.markSmsSubmissionOutcomeUnknown` | LOW, exact          |                4 |                 1 | 0; direct caller `handleJob`, depth-2 `start`, and depth-3 recovery/bootstrap dependants |
+| Provider/config/outbox test files                     | LOW, exact          |                0 |                 0 | 0                                                                                        |
+
+The planned change adds a Termii adapter without changing the `SmsProvider` interface. An implementation-time status-propagation review found that the worker also needs an optional `SmsSendResult.outcomeUnknown` marker to distinguish ambiguous submissions from ordinary terminal rejections. Upstream impact for `SmsSendResult` was MEDIUM (7 impacted symbols: 5 direct dependants and 2 at depth 2; no affected processes); `OutboxWorkerRuntime.handleJob` was LOW (4 impacted symbols: 1 direct caller and 3 at deeper levels; no affected processes). The index remains stale, so these are lower-bound/context-limited findings; no HIGH/CRITICAL result was reported. Existing outbox templates are transactional notifications, so use only Termii's DND route; do not expose the generic promotional, WhatsApp, voice, or bulk routes in this change. Map provider acceptance only to `SENT`, retain the provider message ID if present, do not add unverified DLR support, and avoid automatic replay for ambiguous outcomes. Termii documents no request idempotency field, so use the worker's existing local submission reservation and its `provider-outcome-unknown` path. Production requires a registered sender ID and account-level DND activation; no live send or credential is authorized by this change.
+
+```text
+npm run proposal:impact -- --file src/jobs/sms.provider.factory.ts createSmsProvider
+npm run proposal:impact -- --file src/config/env.validation.ts envValidationSchema
+node .gitnexus/run.cjs impact --repo shopcity_LP --file src/jobs/sms.provider.ts SmsProvider
+node .gitnexus/run.cjs impact --repo shopcity_LP --file src/jobs/outbox-worker.runtime.ts markSmsSubmissionOutcomeUnknown
+```
+
+### 2026-10-28 — Background worker config without API-only KEK (pre-draft impact)
+
+GitNexus CLI impact analysis was run against the stale `df42d4d` index (current HEAD `139f0e9`), so coverage is limited. No HIGH/CRITICAL results were reported.
+
+| Symbol                         | Risk       | Impacted symbols | Direct dependants |                                                          Affected processes |
+| ------------------------------ | ---------- | ---------------: | ----------------: | --------------------------------------------------------------------------: |
+| `envValidationSchema`          | LOW, exact |                0 |                 0 |                                 0; no dependants visible in the stale index |
+| `loadWorkerConfig`             | LOW, exact |                5 |                 4 | 0; direct callers `bootstrapWorker`, `bootstrap`, and two integration specs |
+| `createSmsProvider`            | LOW, exact |                3 |                 2 |                         0; direct callers `bootstrapWorker` and `bootstrap` |
+| `loadCreditExpiryWorkerConfig` | LOW, exact |                2 |                 1 |                                                0; direct caller `bootstrap` |
+
+The planned change adds a worker-scoped environment schema that does not require `DEVICE_ATTESTATION_KEK`, while preserving all existing SMS/provider validation and the API's full `envValidationSchema` requirement. This does not remove the KEK from auth, change device-attestation behavior, or alter the Termii provider contract.
+
+```text
+node .gitnexus/run.cjs impact --repo shopcity_LP --file src/jobs/outbox-worker.runtime.ts loadWorkerConfig --direction upstream
+node .gitnexus/run.cjs impact --repo shopcity_LP --file src/jobs/sms.provider.factory.ts createSmsProvider --direction upstream
+node .gitnexus/run.cjs impact --repo shopcity_LP --file src/jobs/credit-expiry.worker.ts loadCreditExpiryWorkerConfig --direction upstream
+```
+
 ### 2026-10-22 — In-store marketing-consent withdrawal proposal (pre-draft impact)
 
 Ran proposal-time upstream impact after rebuilding the stale/corrupted GitNexus index to current HEAD `25218da`. The first rebuild attempt hit a corrupted FTS index; the generated `.gitnexus` index was safely recreated. GitNexus regenerated `AGENTS.md` and `CLAUDE.md`; their original dirty worktree contents were backed up and restored byte-for-byte. `CustomerConsent` is not indexed as a symbol, so its schema blast radius remains unknown and is covered by direct schema/migration review.
@@ -2023,3 +2402,41 @@ Before drafting `supervisor-transaction-column-hover-demarcators`, `npm run prop
 ### 2026-10-22 — Supervisor issued-card directory page navigation
 
 Before drafting `supervisor-card-directory-page-navigation`, `npm run proposal:impact -- --file apps/web/components/workflows/supervisor-issued-card-directory.tsx SupervisorIssuedCardDirectory` reported LOW risk/exact, 1 direct dependant (`SupervisorCardWorkflows`), 1 affected process (`SupervisorCardsPage`), and the Workflows module. Including tests, GitNexus reported 4 impacted symbols with no HIGH/CRITICAL risk. The new navigation uses existing bounded cursor requests, preserves filters, and does not change API/data/card lifecycle behavior. The index was refreshed at HEAD `83e4229` before analysis.
+
+### 2026-11-12 — Admin staff directory, registration, and profile workflow
+
+Before drafting `admin-staff-directory-profile-workflow`, GitNexus was stale at indexed commit `ee8af12` versus current HEAD `9a3f4ad`; the target user-management source was otherwise unchanged apart from an existing Admin self-link removal. `AdminUsersPage` is LOW/exact with 0 upstream dependants. Its `refresh` function is HIGH/exact with 4 direct dependants across 4 affected flows (initial load plus create, role, and status actions); preserve those refresh behaviors in the new flow. `createUser`, `updateUserRole`, and `updateUserStatus` are each LOW/exact with one direct `AdminUsersPage` process caller. `UsersController` is LOW/exact with 3 impacted symbols (1 direct), and no indexed process/module. `UsersService.listUsers` is LOW/exact with 1 direct dependant in the Users module; `UsersService.createUser` is LOW/exact with 1 direct dependant, no affected process, and the Loyalty module recorded by the stale graph. `CreateUserDto` is LOW/exact with 3 impacted symbols (1 direct). Prisma model `User` is not indexed (UNKNOWN). No other HIGH/CRITICAL result was reported. The planned change keeps Admin-only tenant scope and backend-owned role enforcement, excludes `SYSTEM`, adds nullable profile fields for compatibility, and adds only the requested staff UI/profile flow; no financial or session-authorization behavior changes.
+
+```text
+npm run proposal:impact -- --file 'apps/web/app/(shell)/admin/users/page.tsx' AdminUsersPage
+npm run proposal:impact -- --file 'apps/web/app/(shell)/admin/users/page.tsx' refresh
+npm run proposal:impact -- --file 'apps/web/app/(shell)/admin/users/page.tsx' createUser
+npm run proposal:impact -- --file 'apps/web/app/(shell)/admin/users/page.tsx' updateUserRole
+npm run proposal:impact -- --file 'apps/web/app/(shell)/admin/users/page.tsx' updateUserStatus
+npm run proposal:impact -- --file src/modules/users/users.controller.ts UsersController
+npm run proposal:impact -- --file src/modules/users/users.service.ts listUsers
+npm run proposal:impact -- --file src/modules/users/users.service.ts createUser
+npm run proposal:impact -- --file src/modules/users/users.dto.ts CreateUserDto
+npm run proposal:impact -- --file prisma/schema.prisma User
+```
+
+### 2026-11-12 — Admin navigation icons, overview live metric, and tenant branch filter
+
+Before drafting the follow-up scope, GitNexus impact was attempted for `getShellNavigationSections`, `ShellNavigationIcon`, `SupervisorTransactionsDashboard`, `ReportsService.getExecutiveSnapshot`, and `AdminTransactionSearchService.searchTransactions`. The navigation query returned **HIGH** with 17 direct dependants and no indexed process groups; the dashboard component returned LOW/0 with a corrupted symbol UID; and both backend method queries were unresolved. The index has a documented history of corruption/inconsistent results, so none of these counts is treated as authoritative. The HIGH result was surfaced before edits. Source review confirms navigation is rendered by both `AppSidebar` and `AppShellContent`; the branch filter can remain isolated to the existing Admin search contract and must not alter the Supervisor endpoint. Overview work is an additive Admin-only count of tenant-owned active cards; report materialization semantics and registration snapshot meaning stay unchanged. The selected transaction filter is a branch within the authenticated Admin's tenant, never a tenant selector.
+
+```text
+./node_modules/.bin/gitnexus impact getShellNavigationSections -r shopcity_LP --summary-only --include-tests --file apps/web/components/shell-navigation.ts
+./node_modules/.bin/gitnexus impact ShellNavigationIcon -r shopcity_LP --summary-only --include-tests --file apps/web/components/shell-navigation-icon.tsx
+./node_modules/.bin/gitnexus impact SupervisorTransactionsDashboard -r shopcity_LP --summary-only --include-tests --file apps/web/components/workflows/supervisor-transactions-dashboard.tsx
+./node_modules/.bin/gitnexus impact ReportsService.getExecutiveSnapshot -r shopcity_LP --summary-only --include-tests --file src/modules/reports/reports.service.ts
+./node_modules/.bin/gitnexus impact AdminTransactionSearchService.searchTransactions -r shopcity_LP --summary-only --include-tests --file src/modules/loyalty/admin-transaction-search.service.ts
+```
+
+### 2026-11-12 — Cashier virtual-card preview text and Operations monitoring clarity
+
+Before updating the Cashier preview/Operations presentation specs, `npm run proposal:impact` returned LOW/exact with 0 impacted symbols/processes for `SupervisorVirtualCardPreview` and `getReleaseMetadata`, but both emitted malformed symbol IDs; treat the zero counts as unreliable. Source review found four preview call sites: Capture Purchase, Redeem Credit, and two customer-profile branches. The change is limited to the preview's `confirmation` variant so profile artwork/typography is unaffected. `getReleaseMetadata` is used only by `PilotHealthPanel`; its wording will describe the existing Sentry DSN configuration flag, not assert live issue ingestion. No HIGH/CRITICAL result was returned, and no financial, authorization, API, or health-metric calculations are in scope.
+
+```text
+npm run proposal:impact -- --file apps/web/components/workflows/supervisor-virtual-card-preview.tsx SupervisorVirtualCardPreview
+npm run proposal:impact -- --file apps/web/components/workflows/pilot-health-panel.tsx getReleaseMetadata
+```

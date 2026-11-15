@@ -2,6 +2,7 @@
 
 import Image from 'next/image';
 import Link from 'next/link';
+import { ArrowLeft } from 'lucide-react';
 import { usePathname, useRouter } from 'next/navigation';
 import type { ReactNode } from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -9,6 +10,7 @@ import { BrowserStateBootstrap } from './browser-state-bootstrap';
 import { AppSidebar } from './app-sidebar';
 import { AppTopbar } from './app-topbar';
 import { ShellNavigationIcon } from './shell-navigation-icon';
+import { GlobalShellSearch } from './global-shell-search';
 import {
   SessionBootstrapProvider,
   useSessionBootstrapState,
@@ -73,7 +75,6 @@ function AppShellContent({ children }: Readonly<{ children: ReactNode }>) {
   } = useSessionBootstrapState();
   const [syncQueueCount, setSyncQueueCount] = useState<number | null>(null);
   const [syncQueueError, setSyncQueueError] = useState<string | null>(null);
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [mobileNavigationOpen, setMobileNavigationOpen] = useState(false);
   const shellFrameRef = useRef<HTMLDivElement | null>(null);
   const mobileDrawerRef = useRef<HTMLDivElement | null>(null);
@@ -83,15 +84,6 @@ function AppShellContent({ children }: Readonly<{ children: ReactNode }>) {
 
   useEffect(() => {
     let mounted = true;
-
-    if (typeof window !== 'undefined') {
-      const stored =
-        window.localStorage.getItem('shopcity:shell:sidebar-collapsed') ??
-        window.sessionStorage.getItem('shopcity:shell:sidebar-collapsed');
-      if (stored === 'true' || stored === 'false') {
-        setSidebarCollapsed(stored === 'true');
-      }
-    }
 
     async function refreshSyncQueueCount() {
       try {
@@ -117,21 +109,6 @@ function AppShellContent({ children }: Readonly<{ children: ReactNode }>) {
       mounted = false;
       unsubscribe();
     };
-  }, []);
-
-  const toggleSidebar = useCallback(() => {
-    setSidebarCollapsed((collapsed) => {
-      const next = !collapsed;
-      window.localStorage.setItem(
-        'shopcity:shell:sidebar-collapsed',
-        String(next),
-      );
-      window.sessionStorage.setItem(
-        'shopcity:shell:sidebar-collapsed',
-        String(next),
-      );
-      return next;
-    });
   }, []);
 
   const sections = useMemo(
@@ -318,9 +295,7 @@ function AppShellContent({ children }: Readonly<{ children: ReactNode }>) {
         Skip to content
       </Link>
       <div ref={shellFrameRef} className="shell-frame">
-        <div
-          className={`shell-body${sidebarCollapsed ? ' shell-body--collapsed' : ''}`}
-        >
+        <div className="shell-body shell-body--collapsed">
           <AppSidebar
             role={
               role === 'CASHIER' || role === 'SUPERVISOR' || role === 'ADMIN'
@@ -329,9 +304,6 @@ function AppShellContent({ children }: Readonly<{ children: ReactNode }>) {
             }
             sections={navigationSections}
             pathname={pathname}
-            workspaceLabel={workspaceLabel}
-            isCollapsed={sidebarCollapsed}
-            onToggleCollapse={toggleSidebar}
             onLogout={() => void handleLogout()}
           />
 
@@ -364,6 +336,19 @@ function AppShellContent({ children }: Readonly<{ children: ReactNode }>) {
                 )}
               </div>
               <OfflineIndicator />
+              {showProtectedContent &&
+              role === 'ADMIN' &&
+              isAdminControlRoute(pathname) ? (
+                <div className="admin-control-return">
+                  <Link
+                    className="admin-device-branch-back-link"
+                    href="/admin/operations"
+                  >
+                    <ArrowLeft aria-hidden="true" size={16} />
+                    <span>Back to operations</span>
+                  </Link>
+                </div>
+              ) : null}
               {showProtectedContent ? (
                 children
               ) : (
@@ -423,6 +408,17 @@ function AppShellContent({ children }: Readonly<{ children: ReactNode }>) {
                 Close
               </button>
             </div>
+            <div className="shell-mobile-drawer-search">
+              <GlobalShellSearch
+                userRole={
+                  role === 'CASHIER' ||
+                  role === 'SUPERVISOR' ||
+                  role === 'ADMIN'
+                    ? role
+                    : null
+                }
+              />
+            </div>
             <ShellNavigation
               sections={navigationSections}
               pathname={pathname}
@@ -449,6 +445,20 @@ function AppShellContent({ children }: Readonly<{ children: ReactNode }>) {
         </div>
       ) : null}
     </div>
+  );
+}
+
+function isAdminControlRoute(pathname: string | null) {
+  const controlRoutes = [
+    '/admin/users',
+    '/admin/devices',
+    '/admin/branches',
+    '/admin/audit',
+    '/admin/adjustments',
+  ];
+
+  return controlRoutes.some(
+    (route) => pathname === route || pathname?.startsWith(`${route}/`),
   );
 }
 

@@ -42,7 +42,12 @@
 ## 4. Implement role-neutral staff authentication
 
 - [x] 4.1a Remove login role selection and client-selected role authority; route only from the backend-returned role and reject internal/unknown roles.
-- [ ] 4.1b Confirm the approved Supabase password-reset/invitation flow and update the accessible help action without inventing an unavailable workflow; preserve the existing Admin MFA decision.
+- [ ] 4.1b Implement the approved Supabase Auth password-recovery flow and accessible login help action; preserve the existing Admin MFA decision.
+  - [x] 4.1b.1 Add rate-limited, same-origin BFF API routes to request and complete Supabase recovery; use a fixed redirect built only from the validated browser origin and return a generic non-enumerating request confirmation.
+  - [x] 4.1b.2 Add accessible request/reset pages. Capture Supabase recovery tokens only from the URL fragment, immediately remove the fragment, keep tokens in component memory only, and send them only to the BFF over HTTPS.
+  - [x] 4.1b.3 Validate the recovery session and change password through Supabase Auth using a transient public client; keep service-role credentials and Supabase tokens out of browser storage, ShopCity cookies, logs, analytics, and responses.
+  - [x] 4.1b.4 On successful password change, revoke linked ShopCity active sessions and append an audit event without issuing a ShopCity session or altering ShopCity roles/scope. Add tests for enumeration resistance, invalid/expired/replayed recovery, throttling, audit/revocation, BFF origin and token redaction.
+  - [ ] 4.1b.5 Verify each environment's fixed reset callback is covered by its Supabase Auth redirect allowlist. Preserve hosted site URL, SMTP, confirmation and MFA policy; never push the local config wholesale. Confirm local Auth applies the updated callback allowlist without sending real email.
 - [ ] 4.2 After Supabase credential verification, resolve exactly one active ShopCity user and active tenant/account/branch scope; never issue a ShopCity session for an unlinked, ambiguous, inactive, or out-of-scope identity.
 - [x] 4.3 Return the minimal server-owned role/session context needed by the web app; route to Cashier/Supervisor/Admin workspace from persisted role. Reject or ignore client-supplied role/scope as authority; System is not selectable or assignable to a human.
 - [x] 4.4 Ensure Supervisor/Admin login and session creation do not consult POS cookie, device ID, HMAC, WebAuthn, or cashier pairing state; focused tests cover incidental device IDs.
@@ -68,7 +73,7 @@
 
 ## 7. Verification, rollout, and release evidence
 
-- [ ] 7.1 Run focused auth/controller/BFF/device tests, disposable Testcontainers integration tests, browser/e2e role-login tests, typecheck, lint, build, OpenAPI/client checks if contracts change, strict OpenSpec validation, and applicable security checks.
+- [ ] 7.1 Run focused auth/controller/BFF/device/recovery tests, disposable Testcontainers integration tests, browser/e2e login and recovery-page tests, typecheck, lint, build, regenerate OpenAPI/client artifacts, strict OpenSpec validation, and applicable security checks.
 - [ ] 7.2 Verify no financial behavior, ledger, balance authority, branch approval rules, audit semantics, or SMS delivery behavior changed. No shared database or staging may substitute for disposable test verification.
 - [ ] 7.3 Validate per-environment misconfiguration and secret failures in local/CI; test a newly approved Preview hostname without an application source edit while proving Preview cannot call Staging/Production.
 - [ ] 7.4 Review targeted diff and run GitNexus `detect_changes()` on the deliberate candidate scope; do not stage unrelated work or claim exact-candidate evidence from the combined dirty worktree.

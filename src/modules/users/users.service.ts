@@ -21,7 +21,22 @@ export class UsersService {
   ) {}
 
   listUsers(tenantId: string) {
-    return this.prismaService.user.findMany({ where: { tenantId } });
+    return this.prismaService.user.findMany({
+      where: { tenantId, role: { not: UserRole.SYSTEM } },
+      select: {
+        id: true,
+        firstName: true,
+        lastName: true,
+        username: true,
+        phoneNumber: true,
+        role: true,
+        status: true,
+        branchId: true,
+        lastLoginAt: true,
+        createdAt: true,
+      },
+      orderBy: [{ createdAt: 'desc' }, { id: 'asc' }],
+    });
   }
 
   async listCashiers(tenantId: string, actor: AuthContext, query?: string) {
@@ -63,6 +78,9 @@ export class UsersService {
     actor: AuthContext,
     data: {
       username: string;
+      firstName: string;
+      lastName: string;
+      phoneNumber: string;
       password: string;
       role: UserRole;
       branchId?: string;
@@ -86,9 +104,10 @@ export class UsersService {
       throw new BadRequestException('Branch is required for user creation');
     }
 
+    const username = data.username.trim().toLowerCase();
     const authResult =
       await this.supabaseService.serviceRoleClient.auth.admin.createUser({
-        email: data.username,
+        email: username,
         password: data.password,
         email_confirm: true,
       });
@@ -105,10 +124,24 @@ export class UsersService {
           data: {
             tenantId,
             branchId,
-            username: data.username,
+            username,
+            firstName: data.firstName.trim(),
+            lastName: data.lastName.trim(),
+            phoneNumber: data.phoneNumber.trim(),
             role: data.role,
             status: UserStatus.ACTIVE,
             supabaseAuthId: authResult.data.user.id,
+          },
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            username: true,
+            phoneNumber: true,
+            role: true,
+            status: true,
+            branchId: true,
+            createdAt: true,
           },
         });
 
@@ -118,7 +151,7 @@ export class UsersService {
           action: 'user.create',
           entityType: 'user',
           entityId: user.id,
-          metadata: user,
+          metadata: { role: user.role, branchId: user.branchId },
         });
 
         return user;

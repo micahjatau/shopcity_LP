@@ -841,6 +841,42 @@ describe('SupervisorCustomerWorkflows', () => {
     expect(customersControllerGetCustomerV1).not.toHaveBeenCalled();
   });
 
+  it('uses the same directory for Admin while retaining Admin registration and profile destinations', async () => {
+    jest.mocked(customersControllerListCustomersV1).mockResolvedValue({
+      status: 200,
+      data: {
+        data: {
+          items: [
+            {
+              id: 'admin-customer',
+              fullName: 'Admin Customer',
+              phoneE164: '+234800000093',
+            },
+          ],
+        },
+      },
+    } as never);
+
+    render(<SupervisorCustomerWorkflows audience="admin" />);
+
+    expect(
+      screen.getByRole('heading', { name: 'Customers' }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('region', { name: 'Customer results' }),
+    ).toHaveClass('supervisor-customer-directory');
+    expect(
+      await screen.findByRole('link', {
+        name: 'View profile for Admin Customer',
+      }),
+    ).toHaveAttribute('href', '/admin/customers?id=admin-customer');
+    fireEvent.click(screen.getByRole('button', { name: 'Register customer' }));
+    expect(push).toHaveBeenCalledWith('/admin/customers/new');
+    expect(
+      screen.queryByRole('dialog', { name: 'Register customer' }),
+    ).not.toBeInTheDocument();
+  });
+
   it('shows only the card summary supplied by the directory and links by stable ID', async () => {
     jest.mocked(customersControllerListCustomersV1).mockResolvedValue({
       status: 200,
@@ -882,6 +918,84 @@ describe('SupervisorCustomerWorkflows', () => {
     ).toBeInTheDocument();
     expect(screen.getByText('CARD-SECRET-92')).toBeInTheDocument();
     expect(screen.getAllByText('—')).toHaveLength(3);
+  });
+
+  it('uses the Supervisor profile layout for Admin with Admin status and card routes', async () => {
+    jest.mocked(customersControllerGetCustomerV1).mockResolvedValue({
+      status: 200,
+      data: {
+        data: {
+          id: 'admin-profile',
+          fullName: 'Admin Profile',
+          phoneE164: '+234800000094',
+          status: 'ACTIVE',
+        },
+      },
+    } as never);
+
+    render(
+      <SupervisorCustomerProfile audience="admin" customerId="admin-profile" />,
+    );
+
+    expect(
+      await screen.findByRole('heading', {
+        level: 1,
+        name: 'Admin Profile',
+      }),
+    ).toBeVisible();
+    expect(
+      screen.getByRole('navigation', { name: 'Customer profile sections' }),
+    ).toBeVisible();
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Edit customer details' }),
+    );
+    const editDialog = await screen.findByRole('dialog', {
+      name: 'Edit customer details',
+    });
+    expect(
+      within(editDialog).getByRole('link', { name: 'Manage linked card →' }),
+    ).toHaveAttribute('href', '/admin/cards?id=admin-profile');
+    fireEvent.click(
+      within(editDialog).getByRole('button', { name: 'Change status' }),
+    );
+    expect(
+      await within(editDialog).findByLabelText('Type UPDATE to confirm'),
+    ).toBeVisible();
+  });
+
+  it('opens the Admin profile on Virtual Card when following an Admin card link', async () => {
+    query = new URLSearchParams('id=admin-profile&tab=virtual-card');
+    jest.mocked(customersControllerGetCustomerV1).mockResolvedValue({
+      status: 200,
+      data: {
+        data: {
+          id: 'admin-profile',
+          fullName: 'Admin Profile',
+          phoneE164: '+234800000094',
+          status: 'ACTIVE',
+          activeCardStatus: 'ACTIVE',
+          activeCard: {
+            id: 'admin-card',
+            serialNumber: 'ADMIN-CARD-001',
+            status: 'ACTIVE',
+          },
+        },
+      },
+    } as never);
+
+    render(<SupervisorCustomerWorkflows audience="admin" />);
+
+    expect(
+      await screen.findByRole('heading', {
+        level: 1,
+        name: 'Admin Profile',
+      }),
+    ).toBeVisible();
+    await waitFor(() => {
+      expect(
+        screen.getByRole('button', { name: 'Virtual Card' }),
+      ).toHaveAttribute('aria-current', 'page');
+    });
   });
 
   it('fails closed for an inaccessible stable-ID profile', async () => {

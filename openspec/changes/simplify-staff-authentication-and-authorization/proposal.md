@@ -21,7 +21,7 @@ The reported Supervisor failure must be reproduced and diagnosed during implemen
 
 ## Proposed pilot model
 
-1. **Identity and sessions:** Supabase verifies email/password and owns the approved password-reset flow; the backend never stores raw passwords or returns Supabase tokens to the browser. The backend resolves the Supabase identity to exactly one active ShopCity user. ShopCity remains authoritative for role, tenant, branch, account status, session creation/revocation, CSRF, and business authorization. A Supabase identity without one active linked ShopCity user confers no ShopCity access.
+1. **Identity and sessions:** Supabase verifies email/password and owns the password-recovery flow. Recovery uses a fixed same-origin callback and Supabase Auth's recovery session; the backend never stores raw passwords or returns Supabase tokens in its responses. Recovery tokens remain transient, are not persisted/logged, do not create ShopCity sessions, and successful password changes revoke linked ShopCity sessions. The backend resolves the Supabase identity to exactly one active ShopCity user. ShopCity remains authoritative for role, tenant, branch, account status, session creation/revocation, CSRF, and business authorization. A Supabase identity without one active linked ShopCity user confers no ShopCity access.
 2. **Role-neutral entry:** Remove the Cashier/Supervisor/Admin selector from login. Do not accept a client-selected role as authentication or authorization input. After successful authentication, route according to the server-returned ShopCity role: CASHIER to `/cashier`, SUPERVISOR to `/supervisor`, and ADMIN to `/admin`.
 3. **Supervisor/Admin:** Preserve the normal password/session login path. These roles do not require a POS token, device identifier, WebAuthn assertion, or HMAC device proof. Tenant/branch scope continues to come from backend session context and authorization policy. Keep any already-approved Admin MFA requirement; this change does not waive it.
 4. **Cashier:** Require the valid staff credentials plus the paired POS's `__Host-shopcity_pos_device` HttpOnly cookie. The API hashes/verifies the opaque token, resolves its active `DeviceTokenCredential` and associated device/branch, and derives `session.deviceId` from that persisted relationship. The browser does not submit `x-device-id`, a device ID in the login body, or a persistent localStorage device locator. Pairing/reset remains an authorized, audited Supervisor/Admin operation.
@@ -39,9 +39,18 @@ The reported Supervisor failure must be reproduced and diagnosed during implemen
 - Supabase remains responsible for password reset/invitation verification as currently approved; ShopCity creates no human session for `SYSTEM`.
 
 - Login has no role selector; a role cannot be supplied or changed by the browser.
+- Password recovery uses Supabase Auth email delivery, generic non-enumerating responses, a fixed same-origin callback, transient recovery credentials, ShopCity-session revocation, and append-only audit evidence.
 - A valid active Supervisor/Admin can sign in through the approved Preview/BFF path without any POS state and is routed to the workspace matching the persisted ShopCity role.
 - A Supabase-authenticated identity with no active linked ShopCity user receives no ShopCity session.
 - Tenant/branch permissions and sensitive operations remain enforced by backend guards/policies; direct API tests prove client role/scope values cannot elevate access.
+
+### Supabase password recovery
+
+- The login help action opens an accessible recovery-email form and a fixed reset-password callback page.
+- The BFF/API validate the exact browser origin and use a fixed callback path; callers cannot choose a redirect target. Recovery requests are rate-limited and return a generic confirmation regardless of whether the Supabase email exists.
+- The callback reads Supabase's recovery tokens only from the URL fragment, immediately removes them from the URL, keeps them in memory only, and submits them with the new password through the same-origin BFF over HTTPS. It never stores Supabase tokens in local/session storage or ShopCity cookies.
+- The backend uses a transient Supabase public client to validate the recovery session and change the password; it never returns Supabase tokens or issues a ShopCity session during recovery. After a successful update, revoke the linked user's active ShopCity sessions and append an audit event without changing role/scope or ShopCity identity mapping.
+- Verify the fixed `/reset-password` callback is covered by each environment's Supabase Auth redirect allowlist; add only an exact approved URL if needed. Preserve hosted site URL, SMTP, email-confirmation and MFA policy—do not push the local config wholesale. Keep SMTP credentials in Supabase-managed settings; do not commit or print them. Do not send test/recovery email during implementation verification without separate authorization.
 
 ### BFF, origin, and deployment isolation
 

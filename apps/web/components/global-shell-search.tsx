@@ -6,7 +6,14 @@ import {
   usersControllerListCashiersV1,
 } from '../lib/api/generated-client';
 import { createApiRequest } from '../lib/api/request';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useId,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import type { KeyboardEvent } from 'react';
 
 type SearchRole = 'CASHIER' | 'SUPERVISOR' | 'ADMIN' | null;
@@ -21,6 +28,7 @@ type SearchResult = {
 export function GlobalShellSearch({
   userRole,
 }: Readonly<{ userRole: SearchRole }>) {
+  const idPrefix = `global-shell-search-${useId().replace(/:/g, '')}`;
   const categories = useMemo<SearchCategory[]>(
     () =>
       userRole === 'SUPERVISOR' || userRole === 'ADMIN'
@@ -255,24 +263,20 @@ export function GlobalShellSearch({
     <div className="global-shell-search" ref={rootRef}>
       <div className="global-shell-search__row">
         <div className="global-shell-search__control">
-          <label htmlFor="global-shell-search-input" className="sr-only">
+          <label htmlFor={`${idPrefix}-input`} className="sr-only">
             Search ShopCity
           </label>
           <input
-            id="global-shell-search-input"
+            id={`${idPrefix}-input`}
             ref={inputRef}
             value={query}
             placeholder="Search customers, cards…"
             autoComplete="off"
             role="combobox"
             aria-expanded={showResults}
-            aria-controls={
-              results.length ? 'global-shell-search-results' : undefined
-            }
+            aria-controls={results.length ? `${idPrefix}-results` : undefined}
             aria-activedescendant={
-              activeIndex >= 0
-                ? `global-search-result-${activeIndex}`
-                : undefined
+              activeIndex >= 0 ? `${idPrefix}-result-${activeIndex}` : undefined
             }
             onFocus={() => {
               if (query.trim().length >= 2 || category === 'cards')
@@ -336,14 +340,14 @@ export function GlobalShellSearch({
           {!pending && message ? <p role="status">{message}</p> : null}
           {!pending && results.length > 0 ? (
             <div
-              id="global-shell-search-results"
+              id={`${idPrefix}-results`}
               className="global-shell-search__options"
               role="listbox"
               aria-label={`${category} search results`}
             >
               {results.map((result, index) => (
                 <a
-                  id={`global-search-result-${index}`}
+                  id={`${idPrefix}-result-${index}`}
                   role="option"
                   aria-selected={index === activeIndex}
                   href={result.href}

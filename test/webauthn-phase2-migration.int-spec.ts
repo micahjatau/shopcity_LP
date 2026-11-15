@@ -3,7 +3,7 @@ import { cpSync, mkdtempSync, mkdirSync, readdirSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { execSync } from 'node:child_process';
-import { DeviceAuthBindingMode, PrismaClient, UserRole } from '@prisma/client';
+import { DeviceAuthBindingMode, PrismaClient } from '@prisma/client';
 import { PostgreSqlContainer } from '@testcontainers/postgresql';
 
 const migrationName = '20261005_browser_pos_webauthn_phase_2';
@@ -61,14 +61,17 @@ describe('Browser POS WebAuthn Phase 2 migration (int)', () => {
     const branch = await prisma.branch.create({
       data: { tenantId: tenant.id, name: 'Legacy branch' },
     });
-    const user = await prisma.user.create({
-      data: {
-        tenantId: tenant.id,
-        branchId: branch.id,
-        username: 'migration-admin',
-        role: UserRole.ADMIN,
-      },
-    });
+    const userId = randomUUID();
+    await prisma.$executeRaw`
+      INSERT INTO "User" (
+        "id", "tenantId", "branchId", "username", "role", "status",
+        "createdAt", "updatedAt"
+      ) VALUES (
+        ${userId}, ${tenant.id}, ${branch.id}, 'migration-admin',
+        'ADMIN'::"UserRole", 'ACTIVE'::"UserStatus",
+        CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
+      )
+    `;
     const deviceId = randomUUID();
     const sessionId = randomUUID();
     await prisma.$executeRaw`
@@ -87,7 +90,7 @@ describe('Browser POS WebAuthn Phase 2 migration (int)', () => {
         "id", "userId", "deviceId", "sessionTokenHash", "csrfTokenHash",
         "status", "purpose", "expiresAt", "createdAt", "updatedAt"
       ) VALUES (
-        ${sessionId}, ${user.id}, ${deviceId},
+        ${sessionId}, ${userId}, ${deviceId},
         'legacy-session-token-hash', 'legacy-csrf-token-hash', 'ACTIVE',
         'USER', CURRENT_TIMESTAMP + INTERVAL '1 hour', CURRENT_TIMESTAMP,
         CURRENT_TIMESTAMP

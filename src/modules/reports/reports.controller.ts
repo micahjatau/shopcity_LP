@@ -34,6 +34,7 @@ import {
   ReportExportService,
   type ReportExportName,
 } from './report-export.service';
+import { ReportMaterializerService } from './report-materializer.service';
 import { ReportsService } from './reports.service';
 
 const reportCollectionSchema = {
@@ -174,6 +175,74 @@ const pilotOperationsSummarySchema = {
   },
 } as const;
 
+const pilotOperationsHistoryPointSchema = {
+  type: 'object',
+  required: [
+    'bucketStart',
+    'capturedAt',
+    'outbox',
+    'sms',
+    'offlineSync',
+    'fraud',
+    'reports',
+    'reconciliation',
+  ],
+  properties: {
+    bucketStart: { type: 'string', format: 'date-time' },
+    capturedAt: { type: 'string', format: 'date-time' },
+    outbox: {
+      type: 'object',
+      required: ['backlogCount', 'staleCount'],
+      properties: {
+        backlogCount: { type: 'integer', minimum: 0 },
+        staleCount: { type: 'integer', minimum: 0 },
+      },
+    },
+    sms: {
+      type: 'object',
+      required: ['failedCount'],
+      properties: { failedCount: { type: 'integer', minimum: 0 } },
+    },
+    offlineSync: {
+      type: 'object',
+      required: ['failureCount'],
+      properties: { failureCount: { type: 'integer', minimum: 0 } },
+    },
+    fraud: {
+      type: 'object',
+      required: ['openCount'],
+      properties: { openCount: { type: 'integer', minimum: 0 } },
+    },
+    reports: {
+      type: 'object',
+      required: ['staleCount'],
+      properties: { staleCount: { type: 'integer', minimum: 0 } },
+    },
+    reconciliation: {
+      type: 'object',
+      required: ['healthy', 'mismatchCount'],
+      properties: {
+        healthy: { type: 'boolean' },
+        mismatchCount: { type: 'integer', minimum: 0 },
+      },
+    },
+  },
+} as const;
+
+const pilotOperationsHistorySchema = {
+  type: 'object',
+  required: ['window', 'generatedAt', 'items'],
+  properties: {
+    window: { type: 'string', enum: ['24h', '7d', '30d'] },
+    generatedAt: { type: 'string', format: 'date-time' },
+    items: {
+      type: 'array',
+      maxItems: 720,
+      items: pilotOperationsHistoryPointSchema,
+    },
+  },
+} as const;
+
 @ApiTags('reports')
 @ApiBearerAuth()
 @Controller('reports')
@@ -182,7 +251,30 @@ export class ReportsController {
   constructor(
     private readonly reportsService: ReportsService,
     private readonly reportExportService: ReportExportService,
+    private readonly reportMaterializerService: ReportMaterializerService,
   ) {}
+
+  @Get('admin-overview-metrics')
+  @Version('1')
+  @Roles(UserRole.ADMIN)
+  @apiSuccessEnvelopeResponse({
+    description:
+      'Current Admin Overview counts scoped to the authenticated tenant',
+    dataSchema: {
+      type: 'object',
+      required: ['activeVirtualCardCount'],
+      properties: {
+        activeVirtualCardCount: { type: 'integer', minimum: 0 },
+      },
+    },
+  })
+  @ApiOperation({ summary: 'Get current tenant active virtual-card count' })
+  getAdminOverviewMetrics(@CurrentSession() context: AuthContext) {
+    return this.reportsService.getAdminOverviewMetrics(
+      context.user.tenantId,
+      context,
+    );
+  }
 
   @Get('executive-summary')
   @Version('1')
@@ -521,6 +613,31 @@ export class ReportsController {
     );
   }
 
+  @Get('pilot-operations-history')
+  @Version('1')
+  @Roles(UserRole.ADMIN)
+  @ApiQuery({
+    name: 'window',
+    required: false,
+    enum: ['24h', '7d', '30d'],
+    description: 'Hourly history window; defaults to 7d',
+  })
+  @apiSuccessEnvelopeResponse({
+    description: 'Hourly pilot operations health history',
+    dataSchema: pilotOperationsHistorySchema,
+  })
+  @ApiOperation({ summary: 'Get pilot operations health history' })
+  getPilotOperationsHistory(
+    @CurrentSession() context: AuthContext,
+    @Query('window') window?: string,
+  ) {
+    return this.reportsService.getPilotOperationsHistory(
+      context.user.tenantId,
+      context,
+      window,
+    );
+  }
+
   @Get('materialization-state')
   @Version('1')
   @Roles(UserRole.SUPERVISOR, UserRole.ADMIN)
@@ -681,11 +798,18 @@ export class ReportsController {
     @CurrentSession() context: AuthContext,
     @Headers('idempotency-key') idempotencyKey?: string,
   ) {
-    await this.reportExportService.refreshSupervisorDashboard(
-      context.user.tenantId,
-      context,
-      idempotencyKey,
-    );
+    const isNewRequest =
+      await this.reportExportService.refreshSupervisorDashboard(
+        context.user.tenantId,
+        context,
+        idempotencyKey,
+      );
+    if (isNewRequest && context.user.branchId) {
+      await this.reportMaterializerService.materializeBranch(
+        context.user.tenantId,
+        context.user.branchId,
+      );
+    }
     return { status: 'accepted' };
   }
 }

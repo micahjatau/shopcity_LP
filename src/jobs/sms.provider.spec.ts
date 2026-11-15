@@ -10,6 +10,7 @@ import {
   DeterministicSmsProvider,
   EbulkSmsProvider,
   SandboxSmsProvider,
+  TermiiSmsProvider,
   TwilioSmsProvider,
 } from './sms.provider';
 import { createSmsProvider } from './sms.provider.factory';
@@ -392,6 +393,180 @@ describe('sms provider selection', () => {
       });
     } finally {
       fetchSpy.mockRestore();
+    }
+  });
+
+  it('submits one Termii transactional SMS through DND and retains its message ID', async () => {
+    const fetchSpy = jest.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          code: 'ok',
+          message_id: 'termii-message-1',
+          message_id_str: 'termii-message-1',
+        }),
+        { status: 200, headers: { 'content-type': 'application/json' } },
+      ),
+    );
+    const provider = new TermiiSmsProvider({
+      endpoint: 'https://api.example.test/api/sms/send',
+      apiKey: 'termii-test-key',
+      senderId: 'ShopCity',
+      timeoutMs: 1000,
+    });
+
+    try {
+      await expect(provider.send(smsInput())).resolves.toEqual({
+        status: 'SENT',
+        providerMessageId: 'termii-message-1',
+      });
+
+      const [url, init] = fetchSpy.mock.calls[0] ?? [];
+      expect(url).toBe('https://api.example.test/api/sms/send');
+      expect(init).toMatchObject({
+        method: 'POST',
+        headers: {
+          accept: 'application/json',
+          'content-type': 'application/json',
+        },
+      });
+      const requestBody: unknown = JSON.parse(init?.body as string);
+      expect(requestBody).toEqual({
+        api_key: 'termii-test-key',
+        to: '2348000000000',
+        from: 'ShopCity',
+        sms: 'ShopCity: Your receipt receipt-1 earned NGN 1250.50.',
+        type: 'plain',
+        channel: 'dnd',
+      });
+      expect(provider.requiresLocalSubmissionReservation).toBe(true);
+      expect(provider.submissionReservationWindowMs).toBe(6000);
+      expect('getDeliveryReport' in provider).toBe(false);
+    } finally {
+      fetchSpy.mockRestore();
+    }
+  });
+
+  it('keeps a Termii acceptance as SENT when no message ID is returned', async () => {
+    const fetchSpy = jest
+      .spyOn(globalThis, 'fetch')
+      .mockResolvedValue(
+        new Response(JSON.stringify({ code: 'ok' }), { status: 200 }),
+      );
+    const provider = new TermiiSmsProvider({
+      endpoint: 'https://api.example.test/api/sms/send',
+      apiKey: 'termii-test-key',
+      senderId: 'ShopCity',
+      timeoutMs: 1000,
+    });
+
+    try {
+      await expect(provider.send(smsInput())).resolves.toEqual({
+        status: 'SENT',
+      });
+    } finally {
+      fetchSpy.mockRestore();
+    }
+  });
+
+  it('marks a malformed Termii success response as outcome unknown', async () => {
+    const fetchSpy = jest
+      .spyOn(globalThis, 'fetch')
+      .mockResolvedValue(new Response('not json', { status: 200 }));
+    const provider = new TermiiSmsProvider({
+      endpoint: 'https://api.example.test/api/sms/send',
+      apiKey: 'termii-test-key',
+      senderId: 'ShopCity',
+      timeoutMs: 1000,
+    });
+
+    try {
+      const result = await provider.send(smsInput());
+      expect(result).toMatchObject({
+        status: 'FAILED',
+        failureCategory: 'terminal',
+        outcomeUnknown: true,
+      });
+      expect(result.errorMessage).toContain('verify provider history');
+    } finally {
+      fetchSpy.mockRestore();
+    }
+  });
+
+  it.each([
+    [400, 'terminal', 'Termii request failed with 400'],
+    [429, 'retryable', 'Termii request failed with 429'],
+    [503, 'terminal', 'Termii outcome is unknown (HTTP 503)'],
+  ] as const)(
+    'classifies Termii HTTP %s as %s without automatic ambiguous retries',
+    async (
+      status: number,
+      failureCategory: 'terminal' | 'retryable',
+      message: string,
+    ) => {
+      const fetchSpy = jest
+        .spyOn(globalThis, 'fetch')
+        .mockResolvedValue(new Response('', { status }));
+      const provider = new TermiiSmsProvider({
+        endpoint: 'https://api.example.test/api/sms/send',
+        apiKey: 'termii-test-key',
+        senderId: 'ShopCity',
+        timeoutMs: 1000,
+      });
+
+      try {
+        const result = await provider.send(smsInput());
+        expect(result).toMatchObject({ status: 'FAILED', failureCategory });
+        expect(result.errorMessage).toContain(message);
+        expect(result.outcomeUnknown ?? false).toBe(status >= 500);
+        expect(fetchSpy).toHaveBeenCalledTimes(1);
+      } finally {
+        fetchSpy.mockRestore();
+      }
+    },
+  );
+
+  it('does not expose Termii response bodies or transport errors', async () => {
+    const fetchSpy = jest.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          code: 'invalid_api_key',
+          message: 'sensitive response details',
+        }),
+        { status: 200 },
+      ),
+    );
+    const provider = new TermiiSmsProvider({
+      endpoint: 'https://api.example.test/api/sms/send',
+      apiKey: 'termii-test-key',
+      senderId: 'ShopCity',
+      timeoutMs: 1000,
+    });
+
+    try {
+      const result = await provider.send(smsInput());
+      expect(result).toMatchObject({
+        status: 'FAILED',
+        failureCategory: 'terminal',
+      });
+      expect(result.errorMessage).not.toContain('sensitive response details');
+    } finally {
+      fetchSpy.mockRestore();
+    }
+
+    const transportSpy = jest
+      .spyOn(globalThis, 'fetch')
+      .mockRejectedValue(new TypeError('sensitive transport details'));
+    try {
+      const result = await provider.send(smsInput());
+      expect(result).toMatchObject({
+        status: 'FAILED',
+        failureCategory: 'terminal',
+      });
+      expect(result.errorMessage).toContain('verify provider history');
+      expect(result.errorMessage).not.toContain('sensitive transport details');
+      expect(result.outcomeUnknown).toBe(true);
+    } finally {
+      transportSpy.mockRestore();
     }
   });
 
@@ -1051,6 +1226,23 @@ describe('sms provider selection', () => {
     });
 
     expect(provider).toBeInstanceOf(EbulkSmsProvider);
+  });
+
+  it('selects Termii with explicit transactional configuration and reservation', () => {
+    const provider = createSmsProvider({
+      ...baseEnv(),
+      SMS_PROVIDER_MODE: 'real',
+      SMS_PROVIDER_VENDOR: 'termii',
+      SMS_PROVIDER_TIMEOUT_MS: '1000',
+      TERMII_API_KEY: 'termii-api-key',
+      TERMII_SENDER_ID: 'ShopCity',
+      TERMII_API_URL: 'https://termii.example.test/api/sms/send',
+    });
+
+    expect(provider).toBeInstanceOf(TermiiSmsProvider);
+    expect(provider.requiresLocalSubmissionReservation).toBe(true);
+    expect(provider.submissionReservationWindowMs).toBe(6000);
+    expect('getDeliveryReport' in provider).toBe(false);
   });
 
   it('selects the Arkesel adapter with provider-specific sandbox configuration', () => {

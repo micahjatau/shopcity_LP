@@ -46,7 +46,15 @@ jest.mock('../components/workflows/reports-workspace', () => ({
   ),
 }));
 
-const response = (items: unknown[]) =>
+const response = (
+  items: unknown[],
+  scopeOverrides: {
+    scope?: string;
+    branchId?: string | null;
+    branchName?: string | null;
+    timezone?: string;
+  } = {},
+) =>
   ({
     status: 200,
     data: {
@@ -54,6 +62,7 @@ const response = (items: unknown[]) =>
         scope: 'BRANCH',
         branchId: 'supervisor-branch',
         timezone: 'Africa/Lagos',
+        ...scopeOverrides,
         items,
       },
     },
@@ -142,19 +151,24 @@ describe('SupervisorOperationalReports', () => {
   });
 
   it('queues a branch refresh and reloads after materialization completes', async () => {
+    jest
+      .mocked(reportsControllerListExecutiveSummaryV1)
+      .mockResolvedValueOnce(
+        response([], { branchId: 'report-response-branch' }),
+      );
     const stateResponse = (updatedAt: string) =>
       ({
         status: 200,
         data: {
           data: {
             scope: 'BRANCH',
-            scopeKey: 'supervisor-branch',
-            branchId: 'supervisor-branch',
+            scopeKey: 'report-response-branch',
+            branchId: 'report-response-branch',
             timezone: 'Africa/Lagos',
             items: [
               {
                 scope: 'BRANCH',
-                scopeKey: 'supervisor-branch',
+                scopeKey: 'report-response-branch',
                 status: 'COMPLETED',
                 updatedAt,
               },
@@ -175,6 +189,9 @@ describe('SupervisorOperationalReports', () => {
       name: 'Refresh dashboard data',
     });
     await waitFor(() => expect(refreshButton).toBeEnabled());
+    expect(
+      screen.getByText('· Branch ID report-response-branch', { exact: true }),
+    ).toBeInTheDocument();
     fireEvent.click(refreshButton);
 
     expect(
@@ -190,6 +207,30 @@ describe('SupervisorOperationalReports', () => {
     await waitFor(() =>
       expect(reportsControllerListExecutiveSummaryV1).toHaveBeenCalledTimes(2),
     );
+  });
+
+  it('does not refresh when the report response has no confirmed branch scope', async () => {
+    jest.mocked(reportsControllerListExecutiveSummaryV1).mockResolvedValueOnce({
+      status: 200,
+      data: { data: { scope: 'BRANCH', items: [] } },
+    } as never);
+    render(<SupervisorOperationalReports />);
+
+    const refreshButton = await screen.findByRole('button', {
+      name: 'Refresh dashboard data',
+    });
+    await waitFor(() => expect(refreshButton).toBeEnabled());
+    fireEvent.click(refreshButton);
+
+    expect(
+      await screen.findByText(
+        'Branch scope is unavailable. Reload report data before refreshing.',
+      ),
+    ).toBeInTheDocument();
+    expect(
+      reportsControllerRefreshSupervisorDashboardV1,
+    ).not.toHaveBeenCalled();
+    expect(reportsControllerListMaterializationStateV1).not.toHaveBeenCalled();
   });
 
   it('reanchors the preset range to today when refresh crosses the business-date boundary', async () => {

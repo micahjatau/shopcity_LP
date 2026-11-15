@@ -1,4 +1,7 @@
-import { envValidationSchema } from './env.validation';
+import {
+  envValidationSchema,
+  workerEnvValidationSchema,
+} from './env.validation';
 
 const testTwilioAccountSid = `AC${'a'.repeat(32)}`;
 const testTwilioApiKey = `SK${'b'.repeat(32)}`;
@@ -20,6 +23,46 @@ describe('envValidationSchema', () => {
       }).error,
     ).toBeDefined();
   });
+  it('accepts Termii worker configuration without an explicit device KEK', () => {
+    const environment = {
+      NODE_ENV: 'development',
+      DATABASE_URL: 'postgresql://example',
+      REDIS_URL: 'redis://127.0.0.1:6379',
+      SESSION_SECRET: 'session-secret',
+      CSRF_SECRET: 'csrf-secret',
+      DEFAULT_PUBLIC_TENANT_ID: '00000000-0000-4000-8000-000000000001',
+      DEFAULT_PUBLIC_BRANCH_ID: '00000000-0000-4000-8000-000000000002',
+      CORS_ORIGIN_ALLOWLIST: 'http://localhost:3000',
+      SUPABASE_URL: 'http://127.0.0.1:54321',
+      SUPABASE_ANON_KEY: 'anon',
+      SUPABASE_SERVICE_ROLE_KEY: 'service',
+      SMS_PROVIDER_MODE: 'real',
+      SMS_PROVIDER_VENDOR: 'termii',
+      TERMII_API_KEY: 'termii-test-key',
+      TERMII_SENDER_ID: 'ShopCity',
+      TERMII_API_URL: 'https://v4.api.termii.com/api/sms/send',
+    };
+
+    expect(
+      workerEnvValidationSchema.validate(environment).error,
+    ).toBeUndefined();
+    expect(
+      workerEnvValidationSchema.validate({
+        ...environment,
+        DEVICE_ATTESTATION_KEK: 'too-short',
+      }).error,
+    ).toBeDefined();
+
+    const reusedKey = 'termii-provider-key-material-32-bytes-long';
+    expect(
+      workerEnvValidationSchema.validate({
+        ...environment,
+        TERMII_API_KEY: reusedKey,
+        DEVICE_ATTESTATION_KEK: reusedKey,
+      }).error,
+    ).toBeDefined();
+  });
+
   it('requires explicit BFF, deployment, and device-token policy for deployed runtimes', () => {
     const validPreview = {
       NODE_ENV: 'production',
@@ -202,6 +245,57 @@ describe('envValidationSchema', () => {
         SMS_PROVIDER_MODE: 'real',
         SMS_PROVIDER_VENDOR: 'ebulksms',
         AFRICASTALKING_SANDBOX: true,
+      },
+    ];
+
+    for (const environment of invalidCases) {
+      expect(envValidationSchema.validate(environment).error).toBeDefined();
+    }
+  });
+
+  it('validates Termii DND credentials, sender ID, and HTTPS endpoint', () => {
+    expect(envValidationSchema.validate({}).value).toMatchObject({
+      SMS_PROVIDER_VENDOR: 'ebulksms',
+      TERMII_API_URL: 'https://api.ng.termii.com/api/sms/send',
+    });
+
+    const valid = envValidationSchema.validate({
+      NODE_ENV: 'development',
+      SMS_PROVIDER_MODE: 'real',
+      SMS_PROVIDER_VENDOR: 'termii',
+      TERMII_API_KEY: 'termii-api-key',
+      TERMII_SENDER_ID: 'ShopCity',
+      TERMII_API_URL: 'https://termii.example.test/api/sms/send',
+    });
+    expect(valid.error).toBeUndefined();
+
+    const invalidCases = [
+      {
+        NODE_ENV: 'development',
+        SMS_PROVIDER_MODE: 'real',
+        SMS_PROVIDER_VENDOR: 'termii',
+        TERMII_SENDER_ID: 'ShopCity',
+      },
+      {
+        NODE_ENV: 'development',
+        SMS_PROVIDER_MODE: 'real',
+        SMS_PROVIDER_VENDOR: 'termii',
+        TERMII_API_KEY: 'termii-api-key',
+      },
+      {
+        NODE_ENV: 'development',
+        SMS_PROVIDER_MODE: 'real',
+        SMS_PROVIDER_VENDOR: 'termii',
+        TERMII_API_KEY: 'termii-api-key',
+        TERMII_SENDER_ID: 'AB',
+      },
+      {
+        NODE_ENV: 'development',
+        SMS_PROVIDER_MODE: 'real',
+        SMS_PROVIDER_VENDOR: 'termii',
+        TERMII_API_KEY: 'termii-api-key',
+        TERMII_SENDER_ID: 'ShopCity',
+        TERMII_API_URL: 'http://termii.example.test/api/sms/send',
       },
     ];
 

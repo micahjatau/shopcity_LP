@@ -47,3 +47,4 @@
 - [x] 6.4 Add focused UI/API tests, regenerate OpenAPI/client artifacts, and run strict OpenSpec validation.
 - [x] 6.5 Re-anchor Admin and Supervisor preset periods to the current business date on refresh, preserve custom ranges, and add a date-rollover regression test.
 - [x] 6.6 Test Admin tenant-wide and selected-branch materialization refresh from the reports dashboard.
+- [x] 6.7 Use report-response branch metadata for Supervisor scope display and refresh-state matching; verify response-branch IDs that differ from public configuration and reject refresh polling without confirmed branch scope.

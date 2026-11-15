@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { X } from 'lucide-react';
 import Link from 'next/link';
 import {
   customersControllerGetCustomerProfileProjectionV1,
@@ -778,7 +779,7 @@ function ProfileWalletLedger({ customerId }: { customerId: string }) {
             type="button"
             variant="secondary"
             disabled={loadingMore}
-            onClick={loadOlderEntries}
+            onClick={() => void loadOlderEntries()}
           >
             {loadingMore ? 'Loading older entries…' : 'Load older entries'}
           </Button>
@@ -907,7 +908,7 @@ export function CustomerDetailsDialog({
   onClose: () => void;
   presentation?: 'dialog' | 'page';
   initialTab?: string;
-  profileAudience?: 'supervisor' | 'cashier';
+  profileAudience?: 'supervisor' | 'admin' | 'cashier';
   cashierCardHint?: string;
 }>) {
   const resolvedInitialTab =
@@ -1007,7 +1008,12 @@ export function CustomerDetailsDialog({
       : cardStatus === 'BLOCKED'
         ? 'Blocked card'
         : 'Card status not included';
-  const expectedConfirmation = status === 'BLOCKED' ? 'BLOCK' : 'ACTIVATE';
+  const expectedConfirmation =
+    profileAudience === 'admin'
+      ? 'UPDATE'
+      : status === 'BLOCKED'
+        ? 'BLOCK'
+        : 'ACTIVATE';
   const hasPendingEdits =
     profileDirty || statusEditorOpen || Boolean(confirmation.trim());
 
@@ -1885,7 +1891,7 @@ export function CustomerDetailsDialog({
                       profileTab !== 'Overview' &&
                       !hasPendingEdits
                     }
-                    onSubmit={submitProfile}
+                    onSubmit={(event) => void submitProfile(event)}
                   >
                     {presentation === 'page' && message ? (
                       <p role="status" aria-live="polite" className="text-sm">
@@ -2079,7 +2085,11 @@ export function CustomerDetailsDialog({
                       {customer.id ? (
                         <Link
                           className="sc-customer-details__card-link"
-                          href={`/supervisor/cards?tab=assign&id=${encodeURIComponent(customer.id)}`}
+                          href={
+                            profileAudience === 'admin'
+                              ? `/admin/cards?id=${encodeURIComponent(customer.id)}`
+                              : `/supervisor/cards?tab=assign&id=${encodeURIComponent(customer.id)}`
+                          }
                         >
                           Manage linked card →
                         </Link>
@@ -2153,16 +2163,15 @@ export function CustomerDetailsDialog({
         title="Manage customer card"
         onClose={() => setCardManagementOpen(false)}
       >
-        <div className="space-y-4 p-4 sm:p-6">
-          <div className="flex justify-end">
-            <Button
-              type="button"
-              variant="secondary"
-              onClick={() => setCardManagementOpen(false)}
-            >
-              Close
-            </Button>
-          </div>
+        <div className="sc-card-management-dialog">
+          <button
+            type="button"
+            className="sc-card-management-dialog__close"
+            aria-label="Close manage customer card"
+            onClick={() => setCardManagementOpen(false)}
+          >
+            <X aria-hidden="true" size={18} />
+          </button>
           <SupervisorCardManagement
             initialSerial={
               typeof projection?.card?.identifier === 'string'

@@ -1,5 +1,7 @@
 import type { RefObject } from 'react';
 import { useEffect, useState } from 'react';
+import Image from 'next/image';
+import { Menu } from 'lucide-react';
 import {
   getConnectivityState,
   initializeConnectivityTracking,
@@ -61,9 +63,13 @@ export function AppTopbar({
   return (
     <header className="shell-topbar" data-workspace={workspaceLabel}>
       <div className="shell-brand-row">
-        <span className="shell-mobile-brand" aria-hidden="true">
-          SHOPCITY
-        </span>
+        <Image
+          className="shell-mobile-brand"
+          src="/brand/Frame%202147224881.svg"
+          alt="ShopCity Supermarket"
+          width={124}
+          height={33}
+        />
         <GlobalShellSearch userRole={role} />
 
         <div
@@ -94,8 +100,10 @@ export function AppTopbar({
             ref={mobileMenuButtonRef}
             className="shell-mobile-menu-button"
             onClick={onOpenMobileMenu}
+            aria-label="Open navigation"
+            title="Open navigation"
           >
-            Menu
+            <Menu aria-hidden="true" size={20} strokeWidth={1.8} />
           </button>
         </div>
       </div>

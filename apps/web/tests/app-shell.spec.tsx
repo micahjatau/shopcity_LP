@@ -232,8 +232,10 @@ describe('AppShell', () => {
     expect(container.querySelector('.shell-root--supervisor')).toBeNull();
   });
 
-  it('persists sidebar collapse state across reloads in the session', async () => {
-    sessionStorage.setItem('shopcity:shell:sidebar-collapsed', 'true');
+  it('uses a non-persistent hover rail without a collapse control', async () => {
+    const legacyPreferenceKey = 'shopcity:shell:sidebar-collapsed';
+    localStorage.setItem(legacyPreferenceKey, 'false');
+    sessionStorage.setItem(legacyPreferenceKey, 'false');
     mockBootstrapSession.mockResolvedValueOnce({
       user: {
         id: 'u1',
@@ -244,7 +246,7 @@ describe('AppShell', () => {
       session: { expiresAt: '2030-01-01T00:00:00.000Z' },
     });
 
-    render(
+    const { container } = render(
       <AppShell>
         <p>Protected content</p>
       </AppShell>,
@@ -253,81 +255,34 @@ describe('AppShell', () => {
     await waitFor(() => {
       expect(screen.getByText('Protected content')).toBeInTheDocument();
     });
-    expect(document.querySelector('.shell-body')).toHaveClass(
+
+    expect(container.querySelector('.shell-body')).toHaveClass(
       'shell-body--collapsed',
     );
-    expect(screen.queryByText('Branch and device')).not.toBeInTheDocument();
-  });
-
-  it('toggles and persists the accessible sidebar collapse control', async () => {
-    mockBootstrapSession.mockResolvedValueOnce({
-      user: {
-        id: 'u1',
-        username: 'cashier',
-        role: 'CASHIER',
-        branchId: 'b1',
-      },
-      session: { expiresAt: '2030-01-01T00:00:00.000Z' },
-    });
-
-    render(
-      <AppShell>
-        <p>Protected content</p>
-      </AppShell>,
+    expect(container.querySelector('.shell-sidebar')).toHaveAttribute(
+      'data-sidebar-mode',
+      'hover-rail',
     );
-
-    await waitFor(() => {
-      expect(screen.getByText('Protected content')).toBeInTheDocument();
-    });
-
-    const collapseButton = screen.getByRole('button', {
-      name: 'Collapse sidebar',
-    });
-    expect(collapseButton).toHaveAttribute('aria-expanded', 'true');
-    expect(document.querySelector('.shell-sidebar-brand-logo')).toHaveAttribute(
-      'src',
-      expect.stringContaining('Frame%202147224881.svg'),
-    );
-    fireEvent.click(collapseButton);
     expect(
-      screen.getByRole('button', { name: 'Expand sidebar' }),
-    ).toHaveAttribute('aria-expanded', 'false');
-    expect(localStorage.getItem('shopcity:shell:sidebar-collapsed')).toBe(
-      'true',
-    );
-    expect(document.querySelector('.shell-sidebar-brand-logo')).toHaveAttribute(
+      screen.queryByRole('button', {
+        name: /collapse sidebar|expand sidebar/i,
+      }),
+    ).not.toBeInTheDocument();
+    expect(
+      container.querySelector('.shell-sidebar-brand-logo--compact'),
+    ).toHaveAttribute(
       'src',
       expect.stringContaining('/brand/supervisor/icon.png'),
     );
-    fireEvent.click(screen.getByRole('button', { name: 'Expand sidebar' }));
     expect(
-      screen.getByRole('button', { name: 'Collapse sidebar' }),
-    ).toHaveAttribute('aria-expanded', 'true');
-  });
-
-  it('keeps the expanded layout at tablet width unless the user collapses it', async () => {
-    mockBootstrapSession.mockResolvedValueOnce({
-      user: {
-        id: 'u1',
-        username: 'cashier',
-        role: 'CASHIER',
-        branchId: 'b1',
-      },
-      session: { expiresAt: '2030-01-01T00:00:00.000Z' },
-    });
-
-    render(
-      <AppShell>
-        <p>Protected content</p>
-      </AppShell>,
+      container.querySelector('.shell-sidebar-brand-logo--expanded'),
+    ).toHaveAttribute('src', expect.stringContaining('Frame%202147224881.svg'));
+    expect(screen.getByRole('link', { name: 'Overview' })).toHaveAttribute(
+      'title',
+      'Overview',
     );
-
-    await waitFor(() => {
-      expect(screen.getByText('Protected content')).toBeInTheDocument();
-    });
-    expect(document.querySelector('.shell-body')).not.toHaveClass(
-      'shell-body--collapsed',
-    );
+    expect(localStorage.getItem(legacyPreferenceKey)).toBe('false');
+    expect(sessionStorage.getItem(legacyPreferenceKey)).toBe('false');
   });
 
   it('keeps the drawer focus trapped and the shell inert while open', async () => {
@@ -351,12 +306,25 @@ describe('AppShell', () => {
       expect(screen.getByText('Protected content')).toBeInTheDocument();
     });
 
-    fireEvent.click(screen.getByText('Menu', { selector: 'button' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Open navigation' }));
     const drawer = screen.getByRole('dialog', { name: /primary navigation/i });
     expect((document.querySelector('.shell-frame') as HTMLElement).inert).toBe(
       true,
     );
 
+    expect(
+      within(drawer).getByRole('img', { name: 'ShopCity Supermarket' }),
+    ).toBeInTheDocument();
+    expect(
+      within(drawer).getByRole('combobox', { name: 'Search ShopCity' }),
+    ).toBeInTheDocument();
+    const searchIds = Array.from(
+      document.querySelectorAll('[id^="global-shell-search-"]'),
+    ).map((element) => element.id);
+    expect(new Set(searchIds).size).toBe(searchIds.length);
+    expect(
+      within(drawer).getByRole('link', { name: 'Overview' }),
+    ).toBeInTheDocument();
     expect(
       within(drawer).getByRole('link', { name: /help & training/i }),
     ).toBeInTheDocument();
@@ -457,7 +425,7 @@ describe('AppShell', () => {
       expect(screen.getByText('Protected content')).toBeInTheDocument();
     });
 
-    fireEvent.click(screen.getByText('Menu', { selector: 'button' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Open navigation' }));
     const drawer = screen.getByRole('dialog', {
       name: /primary navigation/i,
     });
@@ -474,7 +442,9 @@ describe('AppShell', () => {
     expect(
       screen.queryByRole('dialog', { name: /primary navigation/i }),
     ).not.toBeInTheDocument();
-    expect(screen.getByText('Menu', { selector: 'button' })).toHaveFocus();
+    expect(
+      screen.getByRole('button', { name: 'Open navigation' }),
+    ).toHaveFocus();
   });
 
   it('closes the mobile drawer with Escape', async () => {
@@ -498,7 +468,7 @@ describe('AppShell', () => {
       expect(screen.getByText('Protected content')).toBeInTheDocument();
     });
 
-    fireEvent.click(screen.getByText('Menu', { selector: 'button' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Open navigation' }));
     expect(
       screen.getByRole('dialog', { name: /primary navigation/i }),
     ).toBeInTheDocument();
@@ -507,7 +477,9 @@ describe('AppShell', () => {
     expect(
       screen.queryByRole('dialog', { name: /primary navigation/i }),
     ).not.toBeInTheDocument();
-    expect(screen.getByText('Menu', { selector: 'button' })).toHaveFocus();
+    expect(
+      screen.getByRole('button', { name: 'Open navigation' }),
+    ).toHaveFocus();
   });
 
   it('shows the protected shell gate when unauthenticated', async () => {

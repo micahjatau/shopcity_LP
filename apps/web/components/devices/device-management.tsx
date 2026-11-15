@@ -2,7 +2,7 @@
 
 import { Check, ChevronDown } from 'lucide-react';
 import { useCallback, useEffect, useId, useRef, useState } from 'react';
-import type { KeyboardEvent as ReactKeyboardEvent } from 'react';
+import type { KeyboardEvent as ReactKeyboardEvent, ReactNode } from 'react';
 import {
   branchesControllerPairDeviceTokenV1,
   branchesControllerResetDeviceTokenV1,
@@ -53,6 +53,8 @@ type Device = {
   pairedAt?: string | null;
   webAuthnCredentials?: DeviceCredential[];
   deviceTokenCredentials?: DeviceTokenCredential[];
+  lastSeenAt?: string | null;
+  createdAt?: string | null;
 };
 
 type Branch = { id: string; name?: string };
@@ -62,7 +64,11 @@ type PairingFeedback = {
   message: string;
   retryable: boolean;
 };
-type Props = { supervisor?: boolean };
+type Props = {
+  supervisor?: boolean;
+  profileDeviceId?: string;
+  backLink?: ReactNode;
+};
 
 const PAIRED_DEVICE_LOCATOR_KEY = 'shopcity:paired-device-id';
 const RFC_UUID_PATTERN =
@@ -225,11 +231,16 @@ function DeviceSelector({
   );
 }
 
-export function DeviceManagement({ supervisor = false }: Props) {
+export function DeviceManagement({
+  supervisor = false,
+  profileDeviceId,
+  backLink,
+}: Props) {
   const [devices, setDevices] = useState<Device[]>([]);
   const [branches, setBranches] = useState<Branch[]>([]);
   const [branchId, setBranchId] = useState('');
   const [name, setName] = useState('');
+  const [editedName, setEditedName] = useState('');
   const [selectedId, setSelectedId] = useState('');
   const selectedIdRef = useRef('');
   const [loading, setLoading] = useState(true);
@@ -323,15 +334,21 @@ export function DeviceManagement({ supervisor = false }: Props) {
       if (response.status !== 200) throw new Error('Device list unavailable');
       const nextDevices = response.data.data as Device[];
       setDevices(nextDevices);
-      const nextSelectedId = nextDevices.some(
-        (device) => device.id === selectedIdRef.current,
-      )
-        ? selectedIdRef.current
-        : (nextDevices[0]?.id ?? '');
+      const nextSelectedId = profileDeviceId
+        ? nextDevices.some((device) => device.id === profileDeviceId)
+          ? profileDeviceId
+          : ''
+        : nextDevices.some((device) => device.id === selectedIdRef.current)
+          ? selectedIdRef.current
+          : (nextDevices[0]?.id ?? '');
       selectedIdRef.current = nextSelectedId;
       setSelectedId(nextSelectedId);
       setDataFresh(true);
-      setMessage('Device data loaded.');
+      setMessage(
+        profileDeviceId && !nextSelectedId
+          ? 'This device is unavailable in your authorized account.'
+          : 'Device data loaded.',
+      );
     } catch {
       if (requestSequence === refreshSequenceRef.current) {
         setMessage(
@@ -341,7 +358,7 @@ export function DeviceManagement({ supervisor = false }: Props) {
     } finally {
       if (requestSequence === refreshSequenceRef.current) setLoading(false);
     }
-  }, [supervisor]);
+  }, [profileDeviceId, supervisor]);
 
   useEffect(() => {
     void refresh();
@@ -352,6 +369,10 @@ export function DeviceManagement({ supervisor = false }: Props) {
     setDeviceLocatorConfirmationFor('');
     setDeviceLocatorBrowserConfirmed(false);
   }, [selectedId]);
+
+  useEffect(() => {
+    setEditedName(selected?.name ?? '');
+  }, [selectedId, selected?.name]);
 
   async function createDevice() {
     if (!dataFresh) {
@@ -659,6 +680,7 @@ export function DeviceManagement({ supervisor = false }: Props) {
   async function updateDevice(
     status?: 'ACTIVE' | 'INACTIVE',
     rotateAttestationSecret = false,
+    updatedName?: string,
   ) {
     if (!dataFresh || !selected) return;
     const targetDeviceId = selected.id;
@@ -672,7 +694,7 @@ export function DeviceManagement({ supervisor = false }: Props) {
     }
 
     const payload = {
-      name: selected.name ?? '',
+      name: updatedName?.trim() ?? selected.name ?? '',
       status: (status ?? selected.status ?? 'ACTIVE') as 'ACTIVE' | 'INACTIVE',
       rotateAttestationSecret,
     };
@@ -730,18 +752,22 @@ export function DeviceManagement({ supervisor = false }: Props) {
 
   return (
     <section
-      className="supervisor-page sc-page device-management-page"
+      className={`supervisor-page sc-page device-management-page${profileDeviceId ? ' device-management-page--profile' : ''}`}
       aria-labelledby="device-management-title"
     >
       <CashierPageHeader
         className="cashier-route-header supervisor-page__header device-management__header"
-        title={<span id="device-management-title">Devices</span>}
-        description={
-          <>
-            Manage device binding and WebAuthn pairing
-            {supervisor ? ' for your assigned branch' : ''}.
-          </>
+        title={
+          <span id="device-management-title">
+            {profileDeviceId ? 'Device profile' : 'Devices'}
+          </span>
         }
+        description={
+          profileDeviceId
+            ? 'Review device status, branch, pairing, and authorized security actions.'
+            : `Manage device binding and WebAuthn pairing${supervisor ? ' for your assigned branch' : ''}.`
+        }
+        actions={backLink}
       />
 
       <p
@@ -753,57 +779,59 @@ export function DeviceManagement({ supervisor = false }: Props) {
         {message}
       </p>
       <div className="device-management__workspace">
-        <ShopCityCard
-          as="section"
-          variant="table"
-          className="device-management__panel device-management__create-panel"
-          aria-label="Create device"
-        >
-          <h2>Create unpaired device</h2>
-          <div className="device-management__create-form">
-            {supervisor ? null : (
+        {!profileDeviceId ? (
+          <ShopCityCard
+            as="section"
+            variant="table"
+            className="device-management__panel device-management__create-panel"
+            aria-label="Create device"
+          >
+            <h2>Create unpaired device</h2>
+            <div className="device-management__create-form">
+              {supervisor ? null : (
+                <label
+                  className="device-management__field"
+                  htmlFor="device-management-branch"
+                >
+                  <span>Branch</span>
+                  <Select
+                    id="device-management-branch"
+                    aria-label="Branch"
+                    value={branchId}
+                    onChange={(event) => setBranchId(event.target.value)}
+                    options={[
+                      { value: '', label: 'Select branch' },
+                      ...branches.map((branch) => ({
+                        value: branch.id,
+                        label: branch.name ?? branch.id,
+                      })),
+                    ]}
+                  />
+                </label>
+              )}
               <label
                 className="device-management__field"
-                htmlFor="device-management-branch"
+                htmlFor="device-management-name"
               >
-                <span>Branch</span>
-                <Select
-                  id="device-management-branch"
-                  aria-label="Branch"
-                  value={branchId}
-                  onChange={(event) => setBranchId(event.target.value)}
-                  options={[
-                    { value: '', label: 'Select branch' },
-                    ...branches.map((branch) => ({
-                      value: branch.id,
-                      label: branch.name ?? branch.id,
-                    })),
-                  ]}
+                <span>Device name</span>
+                <Input
+                  id="device-management-name"
+                  aria-label="Device name"
+                  value={name}
+                  onChange={(event) => setName(event.target.value)}
+                  placeholder="Device name"
                 />
               </label>
-            )}
-            <label
-              className="device-management__field"
-              htmlFor="device-management-name"
-            >
-              <span>Device name</span>
-              <Input
-                id="device-management-name"
-                aria-label="Device name"
-                value={name}
-                onChange={(event) => setName(event.target.value)}
-                placeholder="Device name"
-              />
-            </label>
-            <Button
-              onClick={() => void createDevice()}
-              disabled={busy || loading || !dataFresh || !branchId}
-              loading={busy}
-            >
-              Create device
-            </Button>
-          </div>
-        </ShopCityCard>
+              <Button
+                onClick={() => void createDevice()}
+                disabled={busy || loading || !dataFresh || !branchId}
+                loading={busy}
+              >
+                Create device
+              </Button>
+            </div>
+          </ShopCityCard>
+        ) : null}
 
         <ShopCityCard
           as="section"
@@ -812,7 +840,7 @@ export function DeviceManagement({ supervisor = false }: Props) {
           aria-label="Device list"
         >
           <div className="device-management__list-heading">
-            <h2>Device list</h2>
+            <h2>{profileDeviceId ? 'Device details' : 'Device list'}</h2>
             <Button
               variant="secondary"
               aria-label="Refresh devices"
@@ -823,306 +851,365 @@ export function DeviceManagement({ supervisor = false }: Props) {
               Refresh devices
             </Button>
           </div>
-          {devices.length === 0 ? (
+          {profileDeviceId && dataFresh && !selected ? (
+            <Alert tone="warning" title="Device unavailable">
+              This device could not be found in your authorized account. No
+              other tenant data is exposed.
+            </Alert>
+          ) : null}
+          {!profileDeviceId && devices.length === 0 ? (
             <Alert tone="warning" title="No devices">
               No devices are available in this authorized scope.
             </Alert>
-          ) : (
+          ) : null}
+          {!profileDeviceId && devices.length > 0 ? (
+            <div className="device-management__field device-management__selector">
+              <span>Device</span>
+              <DeviceSelector
+                devices={devices}
+                selectedId={selectedId}
+                disabled={busy || loading || !dataFresh}
+                onSelect={(deviceId) => {
+                  if (busy || loading || !dataFresh) return;
+                  selectedIdRef.current = deviceId;
+                  setSelectedId(deviceId);
+                  setPairingConfirmationFor('');
+                  setTargetBrowserConfirmed(false);
+                  setDeviceLocatorConfirmationFor('');
+                  setDeviceLocatorBrowserConfirmed(false);
+                }}
+              />
+            </div>
+          ) : null}
+          {selected ? (
             <>
-              <div className="device-management__field device-management__selector">
-                <span>Device</span>
-                <DeviceSelector
-                  devices={devices}
-                  selectedId={selectedId}
-                  disabled={busy || loading || !dataFresh}
-                  onSelect={(deviceId) => {
-                    if (busy || loading || !dataFresh) return;
-                    selectedIdRef.current = deviceId;
-                    setSelectedId(deviceId);
-                    setPairingConfirmationFor('');
-                    setTargetBrowserConfirmed(false);
-                    setDeviceLocatorConfirmationFor('');
-                    setDeviceLocatorBrowserConfirmed(false);
-                  }}
-                />
-              </div>
-              {selected ? (
-                <>
-                  {selected.status === 'ACTIVE' &&
-                  selected.authBindingMode === 'UNPAIRED' ? (
-                    <Alert tone="warning" title="Pairing required">
-                      Pair this target POS browser before cashier sign-in can
-                      use this device.
-                    </Alert>
-                  ) : null}
-                  <Table className="device-management__summary-table">
-                    <tbody>
-                      <tr>
-                        <th scope="row">Branch</th>
-                        <td>
-                          {selected.branch?.name ?? selected.branchId ?? '—'}
-                        </td>
-                      </tr>
-                      <tr>
-                        <th scope="row">Status</th>
-                        <td>{selected.status ?? 'Unknown'}</td>
-                      </tr>
-                      <tr>
-                        <th scope="row">Binding mode</th>
-                        <td>{selected.authBindingMode ?? 'Unknown'}</td>
-                      </tr>
-                      <tr>
-                        <th scope="row">Paired state</th>
-                        <td>
-                          {selected.pairedAt
-                            ? `Paired ${new Date(selected.pairedAt).toLocaleString()}`
-                            : 'Pending / unpaired'}
-                        </td>
-                      </tr>
-                    </tbody>
-                  </Table>
+              {selected.status === 'ACTIVE' &&
+              selected.authBindingMode === 'UNPAIRED' ? (
+                <Alert tone="warning" title="Pairing required">
+                  Pair this target POS browser before cashier sign-in can use
+                  this device.
+                </Alert>
+              ) : null}
+              <Table className="device-management__summary-table">
+                <tbody>
+                  <tr>
+                    <th scope="row">Device name</th>
+                    <td>
+                      {profileDeviceId ? (
+                        <div className="device-management__rename">
+                          <Input
+                            aria-label="Device name"
+                            value={editedName}
+                            maxLength={100}
+                            disabled={busy || loading || !dataFresh}
+                            onChange={(event) =>
+                              setEditedName(event.target.value)
+                            }
+                          />
+                          <Button
+                            disabled={
+                              busy ||
+                              loading ||
+                              !dataFresh ||
+                              !editedName.trim() ||
+                              editedName.trim() === (selected.name ?? '')
+                            }
+                            loading={busy}
+                            onClick={() =>
+                              void updateDevice(undefined, false, editedName)
+                            }
+                          >
+                            Save device name
+                          </Button>
+                        </div>
+                      ) : (
+                        (selected.name ?? '—')
+                      )}
+                    </td>
+                  </tr>
+                  <tr>
+                    <th scope="row">Branch</th>
+                    <td>
+                      {selected.branch?.name ??
+                        branches.find(
+                          (branch) => branch.id === selected.branchId,
+                        )?.name ??
+                        selected.branchId ??
+                        '—'}
+                    </td>
+                  </tr>
+                  <tr>
+                    <th scope="row">Status</th>
+                    <td>{selected.status ?? 'Unknown'}</td>
+                  </tr>
+                  <tr>
+                    <th scope="row">Binding mode</th>
+                    <td>{selected.authBindingMode ?? 'Unknown'}</td>
+                  </tr>
+                  <tr>
+                    <th scope="row">Paired state</th>
+                    <td>
+                      {selected.pairedAt
+                        ? `Paired ${new Date(selected.pairedAt).toLocaleString()}`
+                        : 'Pending / unpaired'}
+                    </td>
+                  </tr>
+                  <tr>
+                    <th scope="row">Last seen</th>
+                    <td>
+                      {selected.lastSeenAt
+                        ? new Date(selected.lastSeenAt).toLocaleString()
+                        : 'Not available'}
+                    </td>
+                  </tr>
+                  <tr>
+                    <th scope="row">Account created</th>
+                    <td>
+                      {selected.createdAt
+                        ? new Date(selected.createdAt).toLocaleString()
+                        : 'Not available'}
+                    </td>
+                  </tr>
+                </tbody>
+              </Table>
 
-                  {selected.authBindingMode === 'WEBAUTHN' ? (
+              {selected.authBindingMode === 'WEBAUTHN' ? (
+                <section
+                  className="device-management__credentials"
+                  aria-label="WebAuthn credentials"
+                >
+                  <h3>WebAuthn credentials</h3>
+                  {selected.status === 'ACTIVE' &&
+                  credentials.some(
+                    (credential) => credential.status === 'ACTIVE',
+                  ) ? (
                     <section
-                      className="device-management__credentials"
-                      aria-label="WebAuthn credentials"
+                      className="device-management__locator-flow"
+                      aria-label="Link this browser to the existing device"
                     >
-                      <h3>WebAuthn credentials</h3>
-                      {selected.status === 'ACTIVE' &&
-                      credentials.some(
-                        (credential) => credential.status === 'ACTIVE',
-                      ) ? (
-                        <section
-                          className="device-management__locator-flow"
-                          aria-label="Link this browser to the existing device"
-                        >
-                          <p>
-                            Select this only on the qualified target POS that
-                            holds the active credential. This saves a non-secret
-                            device locator; cashier sign-in still requires a
-                            valid WebAuthn assertion.
-                          </p>
+                      <p>
+                        Select this only on the qualified target POS that holds
+                        the active credential. This saves a non-secret device
+                        locator; cashier sign-in still requires a valid WebAuthn
+                        assertion.
+                      </p>
+                      <Button
+                        variant="secondary"
+                        disabled={busy || loading || !dataFresh}
+                        onClick={requestDeviceLocatorConfirmation}
+                      >
+                        Use existing paired device on this browser
+                      </Button>
+                      {deviceLocatorConfirmationFor === selected.id ? (
+                        <fieldset className="device-management__confirmation">
+                          <legend>Confirm target POS browser</legend>
+                          <label>
+                            <input
+                              type="checkbox"
+                              checked={deviceLocatorBrowserConfirmed}
+                              onChange={(event) =>
+                                setDeviceLocatorBrowserConfirmed(
+                                  event.target.checked,
+                                )
+                              }
+                            />{' '}
+                            I confirm this is the qualified target POS for this
+                            device and may replace this browser&apos;s current
+                            device locator.
+                          </label>
+                          <Button
+                            disabled={
+                              busy ||
+                              loading ||
+                              !dataFresh ||
+                              !deviceLocatorBrowserConfirmed
+                            }
+                            onClick={useExistingCredentialOnThisBrowser}
+                          >
+                            Save device locator
+                          </Button>
                           <Button
                             variant="secondary"
-                            disabled={busy || loading || !dataFresh}
-                            onClick={requestDeviceLocatorConfirmation}
+                            disabled={busy}
+                            onClick={cancelDeviceLocatorConfirmation}
                           >
-                            Use existing paired device on this browser
+                            Cancel
                           </Button>
-                          {deviceLocatorConfirmationFor === selected.id ? (
-                            <fieldset className="device-management__confirmation">
-                              <legend>Confirm target POS browser</legend>
-                              <label>
-                                <input
-                                  type="checkbox"
-                                  checked={deviceLocatorBrowserConfirmed}
-                                  onChange={(event) =>
-                                    setDeviceLocatorBrowserConfirmed(
-                                      event.target.checked,
-                                    )
-                                  }
-                                />{' '}
-                                I confirm this is the qualified target POS for
-                                this device and may replace this browser&apos;s
-                                current device locator.
-                              </label>
-                              <Button
-                                disabled={
-                                  busy ||
-                                  loading ||
-                                  !dataFresh ||
-                                  !deviceLocatorBrowserConfirmed
-                                }
-                                onClick={useExistingCredentialOnThisBrowser}
-                              >
-                                Save device locator
-                              </Button>
-                              <Button
-                                variant="secondary"
-                                disabled={busy}
-                                onClick={cancelDeviceLocatorConfirmation}
-                              >
-                                Cancel
-                              </Button>
-                            </fieldset>
-                          ) : null}
-                        </section>
+                        </fieldset>
                       ) : null}
-                      {credentials.length === 0 ? (
-                        <p>
-                          No credential is currently listed. Re-pair this POS
-                          browser to restore cashier sign-in.
-                        </p>
-                      ) : (
-                        <div className="device-management__credential-scroll">
-                          <Table className="device-management__credential-table">
-                            <thead>
-                              <tr>
-                                <th scope="col">Credential</th>
-                                <th scope="col">Status</th>
-                                <th scope="col">Authenticator</th>
-                                <th scope="col">Paired</th>
-                                <th scope="col">Action</th>
-                              </tr>
-                            </thead>
-                            <tbody>
-                              {credentials.map((credential, index) => (
-                                <tr key={credential.id}>
-                                  <td>Credential {index + 1}</td>
-                                  <td>
-                                    <StatusBadge
-                                      label={credential.status ?? 'UNKNOWN'}
-                                      tone={
-                                        credential.status === 'ACTIVE'
-                                          ? 'success'
-                                          : 'warning'
-                                      }
-                                    />
-                                  </td>
-                                  <td>
-                                    {credential.authenticatorAttachment ??
-                                      'Not reported'}
-                                    {credential.backupEligible
-                                      ? ' · backup eligible'
-                                      : ''}
-                                  </td>
-                                  <td>
-                                    {credential.pairedAt
-                                      ? new Date(
-                                          credential.pairedAt,
-                                        ).toLocaleString()
-                                      : '—'}
-                                  </td>
-                                  <td>
-                                    {credential.status === 'ACTIVE' ? (
-                                      <Button
-                                        variant="danger"
-                                        disabled={busy || loading || !dataFresh}
-                                        onClick={() =>
-                                          void revokeCredential(credential)
-                                        }
-                                      >
-                                        Revoke credential {index + 1}
-                                      </Button>
-                                    ) : (
-                                      'No action'
-                                    )}
-                                  </td>
-                                </tr>
-                              ))}
-                            </tbody>
-                          </Table>
-                        </div>
-                      )}
                     </section>
                   ) : null}
-
-                  {selected.authBindingMode === 'DEVICE_TOKEN' ? (
-                    <section
-                      className="device-management__credentials"
-                      aria-label="POS device token credential"
-                    >
-                      <h3>POS browser credential</h3>
-                      {selected.status !== 'ACTIVE' ? (
-                        <p>Device inactive; cashier sign-in is unavailable.</p>
-                      ) : activeTokenCredential ? (
-                        activeTokenCredential.lastUsedAt ? (
-                          <p>
-                            Last used{' '}
-                            {new Date(
-                              activeTokenCredential.lastUsedAt,
-                            ).toLocaleString()}
-                          </p>
-                        ) : (
-                          <p>
-                            Credential is active; no cashier login has used it
-                            yet.
-                          </p>
-                        )
-                      ) : (
-                        <p>
-                          Pairing required. This device has no active browser
-                          credential; pair this target POS before cashier
-                          sign-in.
-                        </p>
-                      )}
-                      <Button
-                        variant="danger"
-                        disabled={busy || loading || !dataFresh}
-                        onClick={() => void resetDeviceToken()}
-                      >
-                        Reset browser credential
-                      </Button>
-                    </section>
-                  ) : null}
-
-                  <div className="device-management__actions">
-                    <Button
-                      onClick={() => requestPairingConfirmation()}
-                      disabled={
-                        busy ||
-                        loading ||
-                        !dataFresh ||
-                        selected.status !== 'ACTIVE' ||
-                        !['UNPAIRED', 'DEVICE_TOKEN'].includes(
-                          selected.authBindingMode ?? 'UNPAIRED',
-                        )
-                      }
-                    >
-                      {selected.authBindingMode === 'DEVICE_TOKEN' &&
-                      activeTokenCredential
-                        ? 'Replace browser credential'
-                        : 'Pair this target POS browser'}
-                    </Button>
-                    {['HMAC_LEGACY', 'WEBAUTHN'].includes(
-                      selected.authBindingMode ?? '',
-                    ) ? (
-                      <Button
-                        variant="secondary"
-                        onClick={() => requestPairingConfirmation('WEBAUTHN')}
-                        disabled={
-                          busy ||
-                          loading ||
-                          !dataFresh ||
-                          selected.status !== 'ACTIVE'
-                        }
-                      >
-                        {selected.authBindingMode === 'WEBAUTHN'
-                          ? 'Rotate WebAuthn credential'
-                          : 'Migrate legacy device with WebAuthn'}
-                      </Button>
-                    ) : null}
-                    {selected.status === 'ACTIVE' ? (
-                      <Button
-                        variant="danger"
-                        onClick={() => void updateDevice('INACTIVE')}
-                        disabled={busy || loading || !dataFresh}
-                      >
-                        Deactivate device
-                      </Button>
-                    ) : (
-                      <Button
-                        variant="secondary"
-                        onClick={() => void updateDevice('ACTIVE')}
-                        disabled={busy || loading || !dataFresh}
-                      >
-                        Reactivate device
-                      </Button>
-                    )}
-                    {selected.authBindingMode === 'HMAC_LEGACY' ? (
-                      <Button
-                        variant="secondary"
-                        onClick={() => void updateDevice(undefined, true)}
-                        disabled={busy || loading || !dataFresh}
-                      >
-                        Rotate legacy HMAC secret
-                      </Button>
-                    ) : null}
-                  </div>
-                </>
+                  {credentials.length === 0 ? (
+                    <p>
+                      No credential is currently listed. Re-pair this POS
+                      browser to restore cashier sign-in.
+                    </p>
+                  ) : (
+                    <div className="device-management__credential-scroll">
+                      <Table className="device-management__credential-table">
+                        <thead>
+                          <tr>
+                            <th scope="col">Credential</th>
+                            <th scope="col">Status</th>
+                            <th scope="col">Authenticator</th>
+                            <th scope="col">Paired</th>
+                            <th scope="col">Action</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {credentials.map((credential, index) => (
+                            <tr key={credential.id}>
+                              <td>Credential {index + 1}</td>
+                              <td>
+                                <StatusBadge
+                                  label={credential.status ?? 'UNKNOWN'}
+                                  tone={
+                                    credential.status === 'ACTIVE'
+                                      ? 'success'
+                                      : 'warning'
+                                  }
+                                />
+                              </td>
+                              <td>
+                                {credential.authenticatorAttachment ??
+                                  'Not reported'}
+                                {credential.backupEligible
+                                  ? ' · backup eligible'
+                                  : ''}
+                              </td>
+                              <td>
+                                {credential.pairedAt
+                                  ? new Date(
+                                      credential.pairedAt,
+                                    ).toLocaleString()
+                                  : '—'}
+                              </td>
+                              <td>
+                                {credential.status === 'ACTIVE' ? (
+                                  <Button
+                                    variant="danger"
+                                    disabled={busy || loading || !dataFresh}
+                                    onClick={() =>
+                                      void revokeCredential(credential)
+                                    }
+                                  >
+                                    Revoke credential {index + 1}
+                                  </Button>
+                                ) : (
+                                  'No action'
+                                )}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </Table>
+                    </div>
+                  )}
+                </section>
               ) : null}
+
+              {selected.authBindingMode === 'DEVICE_TOKEN' ? (
+                <section
+                  className="device-management__credentials"
+                  aria-label="POS device token credential"
+                >
+                  <h3>POS browser credential</h3>
+                  {selected.status !== 'ACTIVE' ? (
+                    <p>Device inactive; cashier sign-in is unavailable.</p>
+                  ) : activeTokenCredential ? (
+                    activeTokenCredential.lastUsedAt ? (
+                      <p>
+                        Last used{' '}
+                        {new Date(
+                          activeTokenCredential.lastUsedAt,
+                        ).toLocaleString()}
+                      </p>
+                    ) : (
+                      <p>
+                        Credential is active; no cashier login has used it yet.
+                      </p>
+                    )
+                  ) : (
+                    <p>
+                      Pairing required. This device has no active browser
+                      credential; pair this target POS before cashier sign-in.
+                    </p>
+                  )}
+                  <Button
+                    variant="danger"
+                    disabled={busy || loading || !dataFresh}
+                    onClick={() => void resetDeviceToken()}
+                  >
+                    Reset browser credential
+                  </Button>
+                </section>
+              ) : null}
+
+              <div className="device-management__actions">
+                <Button
+                  onClick={() => requestPairingConfirmation()}
+                  disabled={
+                    busy ||
+                    loading ||
+                    !dataFresh ||
+                    selected.status !== 'ACTIVE' ||
+                    !['UNPAIRED', 'DEVICE_TOKEN'].includes(
+                      selected.authBindingMode ?? 'UNPAIRED',
+                    )
+                  }
+                >
+                  {selected.authBindingMode === 'DEVICE_TOKEN' &&
+                  activeTokenCredential
+                    ? 'Replace browser credential'
+                    : 'Pair this target POS browser'}
+                </Button>
+                {['HMAC_LEGACY', 'WEBAUTHN'].includes(
+                  selected.authBindingMode ?? '',
+                ) ? (
+                  <Button
+                    variant="secondary"
+                    onClick={() => requestPairingConfirmation('WEBAUTHN')}
+                    disabled={
+                      busy ||
+                      loading ||
+                      !dataFresh ||
+                      selected.status !== 'ACTIVE'
+                    }
+                  >
+                    {selected.authBindingMode === 'WEBAUTHN'
+                      ? 'Rotate WebAuthn credential'
+                      : 'Migrate legacy device with WebAuthn'}
+                  </Button>
+                ) : null}
+                {selected.status === 'ACTIVE' ? (
+                  <Button
+                    variant="danger"
+                    onClick={() => void updateDevice('INACTIVE')}
+                    disabled={busy || loading || !dataFresh}
+                  >
+                    Deactivate device
+                  </Button>
+                ) : (
+                  <Button
+                    variant="secondary"
+                    onClick={() => void updateDevice('ACTIVE')}
+                    disabled={busy || loading || !dataFresh}
+                  >
+                    Reactivate device
+                  </Button>
+                )}
+                {selected.authBindingMode === 'HMAC_LEGACY' ? (
+                  <Button
+                    variant="secondary"
+                    onClick={() => void updateDevice(undefined, true)}
+                    disabled={busy || loading || !dataFresh}
+                  >
+                    Rotate legacy HMAC secret
+                  </Button>
+                ) : null}
+              </div>
             </>
-          )}
+          ) : null}
         </ShopCityCard>
       </div>
 

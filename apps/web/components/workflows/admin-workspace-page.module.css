@@ -1,0 +1,33 @@
+.page {
+  display: grid;
+  width: min(100%, var(--sc-prototype-contentMaxWidth));
+  min-width: 0;
+  margin-inline: auto;
+  gap: var(--sc-spacing-5);
+  color: var(--sc-color-semantic-textPrimary);
+  font-family: var(--sc-font-family-sans);
+  font-size: var(--sc-font-size-profile-body);
+}
+
+.header {
+  display: grid;
+  min-width: 0;
+  gap: var(--sc-spacing-2);
+}
+
+.title {
+  margin: 0;
+  color: var(--sc-color-semantic-textPrimary);
+  font-family: var(--sc-font-family-sans);
+  font-size: var(--sc-font-size-profile-page-title);
+  font-weight: var(--sc-font-weight-bold);
+  line-height: var(--sc-line-height-profile-heading);
+}
+
+.description {
+  max-width: 64ch;
+  margin: 0;
+  color: var(--sc-color-semantic-textSecondary);
+  font-size: var(--sc-font-size-profile-body);
+  line-height: var(--sc-line-height-profile-body);
+}

@@ -312,7 +312,7 @@ export function SupervisorCardManagement({
     <section
       className={
         compact
-          ? 'min-w-0 space-y-3'
+          ? 'supervisor-card-management--compact min-w-0 space-y-3'
           : 'sc-card sc-card--standard min-w-0 p-4 sm:p-6'
       }
       aria-labelledby={compact ? undefined : 'manage-cards-heading'}
@@ -436,7 +436,7 @@ export function SupervisorCardManagement({
           ) : null}
           {canManage && card.status !== 'REPLACED' ? (
             <div
-              className="flex flex-wrap gap-2"
+              className={`flex flex-wrap gap-2${compact ? ' sc-card-management-dialog__actions' : ''}`}
               role="group"
               aria-label="Card management actions"
             >

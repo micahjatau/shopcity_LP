@@ -11,7 +11,7 @@ export default defineConfig({
   testMatch: /.*\.spec\.ts$/,
   testIgnore: [
     /tests\/smoke\/(roles|scenarios|guardrails|offline)\//,
-    /tests\/(api-proxy-device-cookie|api-proxy-security|customer-card-number|report-errors|supervisor-report-metrics|webauthn-json)\.spec\.ts$/,
+    /tests\/(admin-overview-api|api-proxy-device-cookie|api-proxy-security|customer-card-number|report-errors|supervisor-report-metrics|webauthn-json)\.spec\.ts$/,
   ],
   fullyParallel: false,
   retries: process.env.CI ? 1 : 0,

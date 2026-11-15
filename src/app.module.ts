@@ -63,6 +63,7 @@ import { CreditExpiryModule } from './modules/credit-expiry/credit-expiry.module
             // data in request logs.
             'req.url',
             'req.query',
+            'req.body.email',
             'req.body.password',
             'req.body.currentPassword',
             'req.body.newPassword',

@@ -1,7 +1,13 @@
 import { Branch, Session, Tenant, User } from '@prisma/client';
 import { FastifyRequest } from 'fastify';
 
-export type AuthUser = User & {
+// Keep newly added profile fields optional at the auth-context boundary so
+// existing session fixtures and pre-migration records remain valid. Staff
+// profile reads use an explicit tenant-scoped selection in UsersService.
+export type AuthUser = Omit<User, 'firstName' | 'lastName' | 'phoneNumber'> & {
+  firstName?: User['firstName'];
+  lastName?: User['lastName'];
+  phoneNumber?: User['phoneNumber'];
   tenant?: Pick<Tenant, 'id' | 'status'> | null;
   branch?: Pick<Branch, 'id' | 'status'> | null;
 };

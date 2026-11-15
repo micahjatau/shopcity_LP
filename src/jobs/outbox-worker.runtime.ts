@@ -2,7 +2,7 @@ import { Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { OutboxEventStatus, Prisma } from '@prisma/client';
 import { type Job, type Queue, type Worker } from 'bullmq';
-import { envValidationSchema } from '../config/env.validation';
+import { workerEnvValidationSchema } from '../config/env.validation';
 import { PrismaService } from '../database/prisma.service';
 import { FraudBehaviorRuntime } from './fraud-behavior.runtime';
 import { ReportMaterializerService } from '../modules/reports/report-materializer.service';
@@ -27,7 +27,7 @@ export interface WorkerConfig {
 }
 
 export function loadWorkerConfig(env = process.env): WorkerConfig {
-  const result = envValidationSchema.validate(env, {
+  const result = workerEnvValidationSchema.validate(env, {
     allowUnknown: true,
     abortEarly: false,
   });
@@ -653,6 +653,16 @@ export class OutboxWorkerRuntime {
       });
 
       if (result.status === 'FAILED') {
+        if (reservationClaimed && result.outcomeUnknown) {
+          await this.markSmsSubmissionOutcomeUnknown(
+            resolvedSmsMessage,
+            outboxEvent,
+            now,
+          );
+          job.discard();
+          return;
+        }
+
         const deadLetteredAt =
           result.failureCategory === 'terminal' ||
           resolvedSmsMessage.attempts + 1 >= OUTBOX_RETRY_ATTEMPTS
@@ -771,7 +781,7 @@ export class OutboxWorkerRuntime {
     now: Date,
   ): Promise<void> {
     const diagnostic =
-      'Twilio submission outcome is unknown; verify provider history before manual replay';
+      'SMS provider submission outcome is unknown; verify provider history before manual replay';
     await this.prisma.smsMessage.update({
       where: {
         tenantId_outboxEventId: {

@@ -18,6 +18,37 @@ Supabase Auth SHALL verify staff identity credentials and own the approved passw
 - **THEN** the backend SHALL issue the normal ShopCity session using server-owned user and scope data
 - **AND** the client SHALL route the user to the Supervisor workspace from the persisted role
 
+### Requirement: Supabase Auth password recovery is secure and non-enumerating
+
+The login experience SHALL provide a public password-recovery request and completion flow backed by Supabase Auth. Recovery requests SHALL use the trusted same-origin BFF, validate the browser Origin, rate-limit by client IP and an HMAC of the normalized email keyed with a server-only secret, and always return the same user-safe confirmation for existing and non-existing accounts. The recovery redirect SHALL be a fixed ShopCity reset route built from the validated request origin; caller-supplied redirect targets SHALL NOT be accepted. Supabase recovery tokens SHALL be held only transiently in browser memory, removed from the URL fragment immediately, sent only to the same-origin BFF over HTTPS, and SHALL NOT be written to local/session storage, ShopCity cookies, logs, analytics, or responses. The backend SHALL use Supabase Auth to validate the recovery session and set the new password; it SHALL NOT issue a ShopCity session from recovery or accept recovery tokens as ShopCity authentication. After a successful password change, the backend SHALL revoke all active ShopCity sessions for the linked account and append an audit event without changing the user's role, tenant, branch, or account mapping. Expired/invalid links SHALL receive a generic recovery error. Each local and hosted Supabase redirect allowlist SHALL cover its approved fixed reset callback URL without broadening unrelated redirect access or changing other Auth policy.
+
+#### Scenario: Recovery request does not enumerate accounts
+
+- **WHEN** an unauthenticated user submits an email address through the trusted BFF recovery endpoint
+- **THEN** the user receives the same confirmation message and response status whether or not the Supabase identity exists
+- **AND** the API SHALL NOT expose the email address or account existence in response bodies, headers, logs, or throttle keys
+
+#### Scenario: Valid recovery link updates the Supabase password
+
+- **GIVEN** Supabase issues a valid password-recovery session and redirects to the fixed ShopCity reset page
+- **WHEN** the user submits a policy-compliant new password through the same-origin BFF
+- **THEN** the backend SHALL validate the recovery session and update the password through Supabase Auth
+- **AND** the recovery flow SHALL NOT create a ShopCity session or alter ShopCity authorization data
+- **AND** all active ShopCity sessions for the linked user SHALL be revoked and the password change SHALL be audited
+
+#### Scenario: Recovery token is invalid or expired
+
+- **GIVEN** the supplied Supabase recovery session is invalid, expired, or already consumed
+- **WHEN** the user submits a new password
+- **THEN** the backend SHALL reject the request with a generic recovery-link error
+- **AND** it SHALL NOT change the Supabase password, issue a ShopCity session, or disclose account existence
+
+#### Scenario: Recovery request uses an untrusted origin or redirect
+
+- **GIVEN** the recovery request has an untrusted browser origin or caller-supplied redirect target
+- **WHEN** the request reaches the BFF or API
+- **THEN** it SHALL fail closed without sending a recovery email or disclosing account state
+
 ### Requirement: Login is role-neutral
 
 The login experience SHALL NOT ask the user to select Cashier, Supervisor, Admin, Owner, or System. The backend SHALL determine the authenticated role exclusively from the active ShopCity user record; client-selected roles SHALL NOT affect session authority or workspace routing. `SYSTEM` SHALL remain an internal workload principal and SHALL NOT be assigned to human staff.

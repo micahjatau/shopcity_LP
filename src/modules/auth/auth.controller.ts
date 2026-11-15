@@ -15,12 +15,14 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 import type { FastifyReply } from 'fastify';
-import { createHash } from 'node:crypto';
+import { createHash, createHmac } from 'node:crypto';
 import { AuthService } from './auth.service';
 import { DEVICE_TOKEN_COOKIE_NAME } from '../../common/auth/device-token';
 import {
   CashierLoginCompleteDto,
   LoginDto,
+  PasswordRecoveryCompleteDto,
+  PasswordRecoveryRequestDto,
   LocalCashierTestSessionDto,
   SmokeSessionBootstrapDto,
   authResponseSchema,
@@ -45,6 +47,51 @@ import {
   apiErrorEnvelopeResponses,
   apiSuccessEnvelopeResponse,
 } from '../../common/openapi-envelope';
+
+export function buildPasswordRecoveryRequestThrottleKey(
+  request: AuthenticatedRequest,
+): string[] {
+  const body = request.body;
+  const email =
+    body && typeof body === 'object' && !Array.isArray(body)
+      ? (body as { email?: unknown }).email
+      : undefined;
+  const normalizedEmail =
+    typeof email === 'string' ? email.trim().toLowerCase() : '';
+  const throttleSecret = process.env.SESSION_SECRET;
+  const emailKey = normalizedEmail
+    ? throttleSecret
+      ? createHmac('sha256', throttleSecret)
+          .update(`password-recovery:${normalizedEmail}`)
+          .digest('hex')
+      : 'unavailable-secret'
+    : 'invalid-email';
+  const ip = request.ip || 'unknown';
+  return [`password-recovery:ip:${ip}`, `password-recovery:email:${emailKey}`];
+}
+
+export function buildPasswordRecoveryCompletionThrottleKey(
+  request: AuthenticatedRequest,
+): string {
+  return `password-recovery-complete:ip:${request.ip || 'unknown'}`;
+}
+
+export function buildPasswordRecoveryRedirectUrl(
+  origin: string | undefined,
+  referer: string | undefined,
+): string {
+  const candidate = origin ?? referer;
+  if (!candidate) throw new Error('Missing trusted browser origin');
+  const parsed = new URL(candidate);
+  if (
+    parsed.username ||
+    parsed.password ||
+    (origin !== undefined && parsed.origin !== origin)
+  ) {
+    throw new Error('Invalid browser origin');
+  }
+  return new URL('/reset-password', parsed.origin).toString();
+}
 
 export function buildCashierLoginCompletionThrottleKey(
   request: AuthenticatedRequest,
@@ -88,6 +135,101 @@ export function buildCashierLoginCompletionThrottleKey(
 })
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
+
+  @Post('password-reset/request')
+  @PublicRoute()
+  @Throttle({
+    bucket: 'auth.password_recovery.request',
+    limit: 5,
+    windowMs: 15 * 60 * 1000,
+    keyFactory: buildPasswordRecoveryRequestThrottleKey,
+  })
+  @Version('1')
+  @HttpCode(200)
+  @apiSuccessEnvelopeResponse({
+    description: 'Generic password-recovery request confirmation',
+    dataSchema: {
+      type: 'object',
+      required: ['message'],
+      properties: {
+        message: { type: 'string' },
+      },
+      additionalProperties: false,
+    },
+  })
+  @ApiOperation({ summary: 'Request a password-recovery email' })
+  async requestPasswordRecovery(
+    @Body() dto: PasswordRecoveryRequestDto,
+    @Headers('origin') origin: string | undefined,
+    @Headers('referer') referer: string | undefined,
+    @Headers('x-shopcity-bff-token') bffCredential: string | undefined,
+    @Headers('x-shopcity-deployment-environment')
+    bffDeploymentEnvironment: string | undefined,
+    @Headers('x-request-id') requestId: string | undefined,
+  ) {
+    this.authService.assertPublicLoginOrigin(
+      origin,
+      referer,
+      bffCredential,
+      bffDeploymentEnvironment,
+    );
+    const redirectTo = buildPasswordRecoveryRedirectUrl(origin, referer);
+    await this.authService.requestPasswordRecovery(
+      dto.email,
+      redirectTo,
+      requestId,
+    );
+    return {
+      message:
+        'If an account exists for that email, password-recovery instructions will be sent.',
+    };
+  }
+
+  @Post('password-reset/complete')
+  @PublicRoute()
+  @Throttle({
+    bucket: 'auth.password_recovery.complete',
+    limit: 5,
+    windowMs: 15 * 60 * 1000,
+    keyFactory: buildPasswordRecoveryCompletionThrottleKey,
+  })
+  @Version('1')
+  @HttpCode(200)
+  @apiSuccessEnvelopeResponse({
+    description: 'Password updated through Supabase Auth',
+    dataSchema: {
+      type: 'object',
+      required: ['message'],
+      properties: {
+        message: { type: 'string' },
+      },
+      additionalProperties: false,
+    },
+  })
+  @ApiOperation({ summary: 'Complete password recovery' })
+  async completePasswordRecovery(
+    @Body() dto: PasswordRecoveryCompleteDto,
+    @Headers('origin') origin: string | undefined,
+    @Headers('referer') referer: string | undefined,
+    @Headers('x-shopcity-bff-token') bffCredential: string | undefined,
+    @Headers('x-shopcity-deployment-environment')
+    bffDeploymentEnvironment: string | undefined,
+    @Headers('x-request-id') requestId: string | undefined,
+  ) {
+    this.authService.assertPublicLoginOrigin(
+      origin,
+      referer,
+      bffCredential,
+      bffDeploymentEnvironment,
+    );
+    await this.authService.completePasswordRecovery(
+      dto.accessToken,
+      dto.refreshToken,
+      dto.password,
+      requestId,
+    );
+    return { message: 'Password updated. You can now sign in.' };
+  }
 
   @Post('login')
   @PublicRoute()

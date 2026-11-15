@@ -16,6 +16,8 @@
 - [ ] 3.2 Implement controlled input, directory debounce, explicit card search, stale-response protection, loading/error/empty states, keyboard arrows, Enter, Escape, and focus restoration.
 - [ ] 3.3 Replace inactive topbar search/notification/false online copy with the search, avatar, mobile navigation control, accessible session information, and existing offline indicator.
 - [ ] 3.4 Add role-category, masking, authorization, destination, accessibility, and no-keystroke-card-lookup tests; Supervisor card lookup opens the identified customer's Virtual Card profile tab.
+- [x] 3.5 Replace the mobile text wordmark with the expanded-sidebar logo; use an accessible hamburger trigger and place role-aware search plus authorized sidebar routes in the mobile drawer.
+- [x] 3.6 Add mobile drawer coverage for search, route visibility, logo, keyboard/close behavior, and ensure desktop topbar search remains available without duplicate accessible search controls. AppShell/search unit tests pass (25); focused mobile browser workflow passes and the drawer screenshot baseline reflects visible search/routes.
 
 ## 4. Shared financial lookup
 

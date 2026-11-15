@@ -1993,6 +1993,20 @@
   font-size: 11px;
 }
 
+.find-customer-page-error {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 12px;
+  color: var(--sc-color-semantic-textSecondary);
+  font-size: 12px;
+}
+
+.find-customer-page-error p {
+  margin: 0;
+}
+
 @media (max-width: 700px) {
   .cashier-flow-steps {
     grid-template-columns: 1fr;

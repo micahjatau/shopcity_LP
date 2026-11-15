@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import type { FormEvent } from 'react';
 import { Eye, EyeOff } from 'lucide-react';
@@ -248,18 +249,13 @@ export function LoginForm() {
           </button>
         </div>
       </div>
-      <button
-        type="button"
+      <Link
         className="login-forgot"
-        onClick={() =>
-          setMessage(
-            'Need a password reset? Contact your ShopCity administrator for help.',
-          )
-        }
+        href="/forgot-password"
         data-od-id="forgot-password"
       >
         Forgot password?
-      </button>
+      </Link>
       <Button
         type="submit"
         disabled={status === 'submitting'}

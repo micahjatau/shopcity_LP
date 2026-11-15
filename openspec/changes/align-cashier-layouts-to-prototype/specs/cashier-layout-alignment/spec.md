@@ -221,6 +221,7 @@ Capture Purchase SHALL use an approximately 860px flow-panel variant with a shar
 - **AND** wallet balance uses the verified lookup or matching cashier-safe customer summary's available balance in integer-kobo formatting
 - **AND** while the existing cashier-safe customer-summary request is unresolved, only the optional email value shows an accessible reduced-motion-safe skeleton; no additional request or Proceed gate is added
 - **AND** the existing customer-profile virtual-card artwork is reused alongside the details on desktop and stacked below them at narrow widths, showing the dynamic verified customer name and card serial
+- **AND** the compact 248px Cashier preview uses readable white identity text (15px customer name and 14px card serial), wraps long values within the artwork, and does not clip or overlap either value
 - **AND** card status remains visible outside the artwork, matching the customer-profile presentation; no placeholder barcode or scannable identifier is introduced
 - **AND** Back and Proceed remain approximately 160px by 32px, retain accessible names and visible keyboard focus, and preserve the existing transitions
 - **AND** the layout has no horizontal overflow at 1366, 1280, 1440, 1920, 768, and 390px viewports
@@ -244,6 +245,7 @@ Redeem Credit SHALL use an approximately 720px flow-panel variant that reuses Ca
 - **THEN** lookup, credit summary, basket amount, redemption amount, confirmation, and remaining balance use the intended narrower flow composition
 - **AND** the page does not duplicate the Capture Purchase component appearance owner
 - **AND** the Basket subtotal stage uses the same shared branded virtual-card preview artwork as Capture Purchase, with the verified customer name and authoritative card serial
+- **AND** the compact 248px preview uses the same 15px customer-name and 14px serial typography as Capture Purchase and wraps both values without clipping or overlap
 - **AND** the preview remains compact, displays card status outside the artwork, and introduces no placeholder or barcode content
 - **AND** the shared preview implementation, exact-card verification, financial behavior, and redemption transitions remain unchanged
 

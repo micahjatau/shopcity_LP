@@ -7,6 +7,7 @@ The repaired shell still contains a non-functional search field, while Cashier a
 ## What changes
 
 - Replace the inactive topbar search and notification control with a reusable role-aware global search, account avatar, and mobile navigation control.
+- On mobile, show the expanded-sidebar ShopCity logo in the header and use an accessible hamburger button to open a drawer containing global search and all authorized sidebar routes. Keep desktop search in the topbar.
 - Search Customers and Cards for Cashiers; search Customers, Cards, and authorized Cashiers for Supervisor/Admin users.
 - Use the existing customer directory and exact card lookup contracts with controlled/debounced directory search, explicit card lookup, masked Cashier results, stale-request protection, keyboard navigation, Escape, loading/error/empty states, and selected-record deep links.
 - Route verified Supervisor card results to the matching customer profile's Virtual Card tab when the lookup response identifies the customer; preserve existing role-authorized destinations for Admin and Cashier.
@@ -24,6 +25,7 @@ Out of scope: changing financial calculations, transaction APIs, RBAC semantics,
 ## Acceptance criteria
 
 - Search is functional, role-aware, keyboard accessible, debounced for directories, and explicit for exact card lookup.
+- At mobile widths, the ShopCity expanded-sidebar logo replaces the wordmark, and the hamburger drawer exposes both global search and the role-authorized sidebar routes without duplicate interactive search controls.
 - Cashier sees only Customers and Cards; Supervisor/Admin additionally see authorized Cashiers with branch scope enforced.
 - Selected results navigate to supported customer/card/cashier destinations without fabricating data; verified Supervisor card results open the identified customer's Virtual Card profile tab.
 - Capture Purchase and Redeem share identical lookup geometry and state presentation across idle/loading/error/found/confirmation states.

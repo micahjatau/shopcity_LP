@@ -22,10 +22,12 @@ function requiredEnv(name: string, fallback: string): string {
 export class SupabaseService {
   readonly publicClient: SupabaseClientType;
   readonly serviceRoleClient: SupabaseClientType;
+  private readonly supabaseUrl: string;
+  private readonly anonKey: string;
 
   constructor() {
-    const supabaseUrl = requiredEnv('SUPABASE_URL', TEST_SUPABASE_URL);
-    const anonKey = requiredEnv('SUPABASE_ANON_KEY', TEST_SUPABASE_KEY);
+    this.supabaseUrl = requiredEnv('SUPABASE_URL', TEST_SUPABASE_URL);
+    this.anonKey = requiredEnv('SUPABASE_ANON_KEY', TEST_SUPABASE_KEY);
     const serviceRoleKey = requiredEnv(
       'SUPABASE_SERVICE_ROLE_KEY',
       TEST_SUPABASE_KEY,
@@ -38,11 +40,25 @@ export class SupabaseService {
       },
     };
 
-    this.publicClient = createClient(supabaseUrl, anonKey, authOptions);
+    this.publicClient = createClient(
+      this.supabaseUrl,
+      this.anonKey,
+      authOptions,
+    );
     this.serviceRoleClient = createClient(
-      supabaseUrl,
+      this.supabaseUrl,
       serviceRoleKey,
       authOptions,
     );
+  }
+
+  createTransientPublicClient(): SupabaseClientType {
+    return createClient(this.supabaseUrl, this.anonKey, {
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false,
+        detectSessionInUrl: false,
+      },
+    });
   }
 }

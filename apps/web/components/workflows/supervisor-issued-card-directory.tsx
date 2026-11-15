@@ -207,7 +207,11 @@ function SupervisorIssuedCardStatusFilter({
 
 export function SupervisorIssuedCardDirectory({
   onAssignCard,
-}: Readonly<{ onAssignCard: () => void }>) {
+  audience = 'supervisor',
+}: Readonly<{
+  onAssignCard: () => void;
+  audience?: 'supervisor' | 'admin';
+}>) {
   const [items, setItems] = useState<IssuedCard[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [settledSearchQuery, setSettledSearchQuery] = useState('');
@@ -506,7 +510,11 @@ export function SupervisorIssuedCardDirectory({
                   <td data-label="View card">
                     <Link
                       className="supervisor-customer-table__profile-link"
-                      href={`/supervisor/customers/${encodeURIComponent(item.customer.id)}?tab=virtual-card`}
+                      href={
+                        audience === 'admin'
+                          ? `/admin/customers?id=${encodeURIComponent(item.customer.id)}&tab=virtual-card`
+                          : `/supervisor/customers/${encodeURIComponent(item.customer.id)}?tab=virtual-card`
+                      }
                     >
                       View card
                     </Link>

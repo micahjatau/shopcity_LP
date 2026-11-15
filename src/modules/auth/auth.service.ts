@@ -2,6 +2,7 @@ import {
   BadRequestException,
   HttpStatus,
   Injectable,
+  Logger,
   UnauthorizedException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
@@ -83,6 +84,8 @@ type LoginResult = IssuedSession | CashierAssertionRequired;
 
 @Injectable()
 export class AuthService {
+  private readonly logger = new Logger(AuthService.name);
+
   constructor(
     private readonly prismaService: PrismaService,
     private readonly supabaseService: SupabaseService,
@@ -253,6 +256,108 @@ export class AuthService {
 
       return issued;
     });
+  }
+
+  async requestPasswordRecovery(
+    email: string,
+    redirectTo: string,
+    requestId?: string,
+  ): Promise<void> {
+    try {
+      const { error } = await this.supabaseService
+        .createTransientPublicClient()
+        .auth.resetPasswordForEmail(normalizeUsername(email), { redirectTo });
+      if (error) {
+        this.logger.warn(
+          `Supabase password-recovery request did not complete${requestId ? ` (${requestId})` : ''}`,
+        );
+      }
+    } catch {
+      // Keep the public response identical for known and unknown identities.
+      this.logger.warn(
+        `Supabase password-recovery request did not complete${requestId ? ` (${requestId})` : ''}`,
+      );
+    }
+  }
+
+  async completePasswordRecovery(
+    accessToken: string,
+    refreshToken: string,
+    password: string,
+    requestId?: string,
+  ): Promise<void> {
+    const recoveryClient = this.supabaseService.createTransientPublicClient();
+    let supabaseUserId: string;
+
+    try {
+      const { data, error } = await recoveryClient.auth.setSession({
+        access_token: accessToken,
+        refresh_token: refreshToken,
+      });
+      if (error) {
+        if ((error.status ?? 0) >= 500 || error.status === 429) {
+          throw recoveryUnavailable();
+        }
+        throw recoveryLinkInvalid();
+      }
+      if (!data.user) throw recoveryLinkInvalid();
+
+      const { data: updatedUser, error: updateError } =
+        await recoveryClient.auth.updateUser({ password });
+      if (updateError) {
+        if (updateError.code === 'weak_password') {
+          throw new DomainHttpException(
+            HttpStatus.UNPROCESSABLE_ENTITY,
+            'PASSWORD_POLICY_UNMET',
+            'Choose a password that meets the password requirements.',
+          );
+        }
+        if ((updateError.status ?? 0) >= 500 || updateError.status === 429) {
+          throw recoveryUnavailable();
+        }
+        throw recoveryLinkInvalid();
+      }
+      supabaseUserId = updatedUser.user?.id ?? data.user.id;
+    } catch (error) {
+      if (error instanceof DomainHttpException) throw error;
+      this.logger.warn(
+        `Supabase password-recovery verification failed${requestId ? ` (${requestId})` : ''}`,
+      );
+      throw recoveryUnavailable();
+    }
+
+    try {
+      const shopcityUser = await this.prismaService.user.findUnique({
+        where: { supabaseAuthId: supabaseUserId },
+        select: { id: true, tenantId: true },
+      });
+      if (!shopcityUser) return;
+
+      await this.prismaService.$transaction(async (prisma) => {
+        await prisma.session.updateMany({
+          where: { userId: shopcityUser.id, status: 'ACTIVE' },
+          data: { status: 'REVOKED', revokedAt: new Date() },
+        });
+        await this.auditService.recordWithClient(prisma, {
+          tenantId: shopcityUser.tenantId,
+          actorId: shopcityUser.id,
+          action: 'auth.password_reset.completed',
+          entityType: 'User',
+          entityId: shopcityUser.id,
+          requestId: isRequestId(requestId) ? requestId : undefined,
+          metadata: { source: 'supabase_auth_recovery' },
+        });
+      });
+    } catch {
+      this.logger.error(
+        `Password changed but ShopCity session revocation failed${requestId ? ` (${requestId})` : ''}`,
+      );
+      throw new DomainHttpException(
+        HttpStatus.SERVICE_UNAVAILABLE,
+        'PASSWORD_RECOVERY_FINALIZATION_FAILED',
+        'Password changed, but ShopCity sessions could not be securely reset. Contact an administrator with the request reference.',
+      );
+    }
   }
 
   async completeCashierLogin(
@@ -1301,6 +1406,31 @@ function assertSmokeBootstrapSecret(
 
 function normalizeUsername(username: string): string {
   return username.trim().toLowerCase();
+}
+
+function recoveryLinkInvalid(): DomainHttpException {
+  return new DomainHttpException(
+    HttpStatus.BAD_REQUEST,
+    'PASSWORD_RECOVERY_LINK_INVALID',
+    'This password-recovery link is invalid or expired. Request a new link.',
+  );
+}
+
+function recoveryUnavailable(): DomainHttpException {
+  return new DomainHttpException(
+    HttpStatus.SERVICE_UNAVAILABLE,
+    'PASSWORD_RECOVERY_UNAVAILABLE',
+    'Password recovery is temporarily unavailable. Try again shortly.',
+  );
+}
+
+function isRequestId(value: string | undefined): value is string {
+  return Boolean(
+    value &&
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+      value,
+    ),
+  );
 }
 
 async function recordDeviceAttestation(

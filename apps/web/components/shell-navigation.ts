@@ -160,13 +160,20 @@ export const shellNavigationByRole: Record<
           id: 'admin-operations-panel',
           label: 'Operations',
           href: '/admin/operations',
-          icon: 'operations',
+          icon: 'activity',
+          routeAliases: [
+            '/admin/users',
+            '/admin/devices',
+            '/admin/branches',
+            '/admin/audit',
+            '/admin/adjustments',
+          ],
         },
         {
           id: 'admin-transactions',
           label: 'Transactions',
           href: '/admin/transactions',
-          icon: 'list',
+          icon: 'receipt',
         },
         {
           id: 'admin-approvals',
@@ -198,12 +205,6 @@ export const shellNavigationByRole: Record<
           href: '/admin/cards',
           icon: 'credit-card',
         },
-        {
-          id: 'admin-adjustments',
-          label: 'Adjustments',
-          href: '/admin/adjustments',
-          icon: 'sliders',
-        },
       ],
     },
     {
@@ -216,36 +217,12 @@ export const shellNavigationByRole: Record<
           href: '/admin/reports',
           icon: 'chart',
         },
-        {
-          id: 'admin-audit',
-          label: 'Audit',
-          href: '/admin/audit',
-          icon: 'clipboard',
-        },
       ],
     },
     {
       id: 'admin-access',
       label: 'Access & configuration',
       items: [
-        {
-          id: 'admin-users',
-          label: 'Users',
-          href: '/admin/users',
-          icon: 'user-settings',
-        },
-        {
-          id: 'admin-devices',
-          label: 'Devices',
-          href: '/admin/devices',
-          icon: 'device',
-        },
-        {
-          id: 'admin-branches',
-          label: 'Branches',
-          href: '/admin/branches',
-          icon: 'branch',
-        },
         {
           id: 'admin-policies',
           label: 'Policies',

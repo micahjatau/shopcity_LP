@@ -92,8 +92,10 @@ const reasonOptions: Record<
 
 export function ApprovalsPanel({
   variant = 'admin',
+  presentation = variant === 'supervisor' ? 'supervisor' : 'standard',
 }: {
   variant?: 'admin' | 'supervisor';
+  presentation?: 'standard' | 'supervisor';
 }) {
   const [items, setItems] = useState<ApprovalRecord[]>([]);
   const [loading, setLoading] = useState(true);
@@ -308,9 +310,10 @@ export function ApprovalsPanel({
     }
   }
 
-  if (variant === 'supervisor') {
+  if (presentation === 'supervisor') {
     return (
       <SupervisorApprovalCenter
+        workflowVariant={variant}
         filteredItems={filteredItems}
         activeCategory={activeCategory}
         setActiveCategory={setActiveCategory}
@@ -334,7 +337,9 @@ export function ApprovalsPanel({
         goToPreviousPage={goToPreviousPage}
         isPending={isPending}
         decision={decision}
+        setDecision={setDecision}
         reason={reason}
+        note={note}
         setReason={setReason}
         setNote={setNote}
         handleDecision={handleDecision}
@@ -634,6 +639,7 @@ export function ApprovalsPanel({
 }
 
 type SupervisorApprovalCenterProps = {
+  workflowVariant: 'admin' | 'supervisor';
   filteredItems: ApprovalRecord[];
   activeCategory: ApprovalCategory;
   setActiveCategory: (value: ApprovalCategory) => void;
@@ -657,7 +663,9 @@ type SupervisorApprovalCenterProps = {
   goToPreviousPage: () => Promise<void>;
   isPending: boolean | undefined;
   decision: ApprovalDecisionDtoDecision;
+  setDecision: (value: ApprovalDecisionDtoDecision) => void;
   reason: string;
+  note: string;
   setReason: (value: string) => void;
   setNote: (value: string) => void;
   handleDecision: (decision?: ApprovalDecisionDtoDecision) => Promise<void>;
@@ -853,6 +861,7 @@ function SupervisorFilterDropdown({
 }
 
 function SupervisorApprovalCenter({
+  workflowVariant,
   filteredItems,
   activeCategory,
   setActiveCategory,
@@ -876,11 +885,14 @@ function SupervisorApprovalCenter({
   goToPreviousPage,
   isPending,
   decision,
+  setDecision,
   reason,
+  note,
   setReason,
   setNote,
   handleDecision,
 }: SupervisorApprovalCenterProps) {
+  const isSupervisorWorkflow = workflowVariant === 'supervisor';
   const [decisionReasonError, setDecisionReasonError] = useState('');
   const [customerMetrics, setCustomerMetrics] =
     useState<CustomerMetrics | null>(null);
@@ -902,12 +914,13 @@ function SupervisorApprovalCenter({
     ...category,
     count: categoryCounts?.[category.id],
   }));
-  const visibleItems = filteredItems.filter(
-    (item) => item.category === activeCategory,
-  );
+  const visibleItems = isSupervisorWorkflow
+    ? filteredItems.filter((item) => item.category === activeCategory)
+    : filteredItems;
   const isLateReceiptCategory =
+    isSupervisorWorkflow &&
     activeCategory ===
-    ApprovalsControllerListApprovalsV1Category.LATE_RECEIPT_CLAIM;
+      ApprovalsControllerListApprovalsV1Category.LATE_RECEIPT_CLAIM;
   const selectedAmount = selectedItem
     ? (selectedItem.requestedAmountKobo ??
       selectedItem.receipt?.purchaseAmountKobo ??
@@ -919,7 +932,7 @@ function SupervisorApprovalCenter({
       : selectedItem?.customerId && selectedItem.customerId !== selectedItem.id
         ? selectedItem.customerId
         : undefined;
-  const metricCustomerId = customerRouteId;
+  const metricCustomerId = isSupervisorWorkflow ? customerRouteId : undefined;
 
   useEffect(() => {
     if (!metricCustomerId) {
@@ -1010,48 +1023,53 @@ function SupervisorApprovalCenter({
       className="approval-queue approval-queue--supervisor"
       aria-label="Approval queue"
     >
-      <div
-        className="approval-queue__categories"
-        role="tablist"
-        aria-label="Approval categories"
-      >
-        {categoriesWithCounts.map((category) => (
-          <button
-            key={category.id}
-            type="button"
-            role="tab"
-            aria-selected={activeCategory === category.id}
-            aria-label={`${category.label}, ${category.count === undefined ? 'count unavailable' : `${category.count} matching ${category.count === 1 ? 'request' : 'requests'}`}`}
-            className="approval-queue__category"
-            onClick={() => {
-              setActiveCategory(category.id);
-              setSelectedId(null);
-              setReason('');
-              setNote('');
-              setDecisionReasonError('');
-            }}
-            onKeyDown={(event) => {
-              if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight')
-                return;
-              event.preventDefault();
-              const tabs = Array.from(
-                event.currentTarget.parentElement?.querySelectorAll<HTMLButtonElement>(
-                  '[role="tab"]',
-                ) ?? [],
-              );
-              const index = tabs.indexOf(event.currentTarget);
-              const step = event.key === 'ArrowRight' ? 1 : -1;
-              tabs[(index + step + tabs.length) % tabs.length]?.click();
-              tabs[(index + step + tabs.length) % tabs.length]?.focus();
-            }}
-          >
-            <span>{category.label}</span>
-            <span className="approval-queue__category-count" aria-hidden="true">
-              {category.count ?? '—'}
-            </span>
-          </button>
-        ))}
-      </div>
+      {isSupervisorWorkflow ? (
+        <div
+          className="approval-queue__categories"
+          role="tablist"
+          aria-label="Approval categories"
+        >
+          {categoriesWithCounts.map((category) => (
+            <button
+              key={category.id}
+              type="button"
+              role="tab"
+              aria-selected={activeCategory === category.id}
+              aria-label={`${category.label}, ${category.count === undefined ? 'count unavailable' : `${category.count} matching ${category.count === 1 ? 'request' : 'requests'}`}`}
+              className="approval-queue__category"
+              onClick={() => {
+                setActiveCategory(category.id);
+                setSelectedId(null);
+                setReason('');
+                setNote('');
+                setDecisionReasonError('');
+              }}
+              onKeyDown={(event) => {
+                if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight')
+                  return;
+                event.preventDefault();
+                const tabs = Array.from(
+                  event.currentTarget.parentElement?.querySelectorAll<HTMLButtonElement>(
+                    '[role="tab"]',
+                  ) ?? [],
+                );
+                const index = tabs.indexOf(event.currentTarget);
+                const step = event.key === 'ArrowRight' ? 1 : -1;
+                tabs[(index + step + tabs.length) % tabs.length]?.click();
+                tabs[(index + step + tabs.length) % tabs.length]?.focus();
+              }}
+            >
+              <span>{category.label}</span>
+              <span
+                className="approval-queue__category-count"
+                aria-hidden="true"
+              >
+                {category.count ?? '—'}
+              </span>
+            </button>
+          ))}
+        </div>
+      ) : null}
       {message ? (
         <p
           className="approval-queue__feedback"
@@ -1069,8 +1087,16 @@ function SupervisorApprovalCenter({
         >
           <header className="approval-queue__panel-header approval-queue__list-header">
             <div className="approval-queue__heading">
-              <h2>Recent customers</h2>
-              <p>Customers served most recently at this branch.</p>
+              <h2>
+                {isSupervisorWorkflow
+                  ? 'Recent customers'
+                  : 'Approval requests'}
+              </h2>
+              <p>
+                {isSupervisorWorkflow
+                  ? 'Customers served most recently at this branch.'
+                  : 'Review pending transactions and recent decisions.'}
+              </p>
             </div>
             <div className="supervisor-filter-row approval-queue__controls">
               <SupervisorFilterDropdown
@@ -1083,7 +1109,12 @@ function SupervisorApprovalCenter({
                   { value: 'APPROVED', label: 'Approved' },
                   { value: 'REJECTED', label: 'Rejected' },
                   { value: 'EXPIRED', label: 'Expired' },
-                  { value: 'ALL', label: 'Decided / all' },
+                  {
+                    value: 'ALL',
+                    label: isSupervisorWorkflow
+                      ? 'Decided / all'
+                      : 'All approvals',
+                  },
                 ]}
                 onChange={(value) => setStatusFilter(value as StatusFilter)}
                 showFilterIcon
@@ -1145,16 +1176,24 @@ function SupervisorApprovalCenter({
             <table
               className="approval-queue__recent-table"
               aria-label={
-                isLateReceiptCategory
-                  ? 'Late receipt claim approvals'
-                  : 'High-value transaction approvals'
+                isSupervisorWorkflow
+                  ? isLateReceiptCategory
+                    ? 'Late receipt claim approvals'
+                    : 'High-value transaction approvals'
+                  : 'Approval requests'
               }
             >
               <thead>
                 <tr>
-                  <th scope="col">Name</th>
                   <th scope="col">
-                    {isLateReceiptCategory ? 'Receipt Age' : 'Amount'}
+                    {isSupervisorWorkflow ? 'Name' : 'Customer / reference'}
+                  </th>
+                  <th scope="col">
+                    {isLateReceiptCategory
+                      ? 'Receipt Age'
+                      : isSupervisorWorkflow
+                        ? 'Amount'
+                        : 'Amount / status'}
                   </th>
                 </tr>
               </thead>
@@ -1165,7 +1204,9 @@ function SupervisorApprovalCenter({
                       <div className="approval-queue__list-empty">
                         {loading
                           ? 'Loading approvals…'
-                          : 'No requests in this category on the loaded page.'}
+                          : isSupervisorWorkflow
+                            ? 'No requests in this category on the loaded page.'
+                            : 'No approvals found. Try another status or refresh the list.'}
                       </div>
                     </td>
                   </tr>
@@ -1176,6 +1217,7 @@ function SupervisorApprovalCenter({
                     const itemId = item.id ?? '';
                     const selectRow = () => {
                       setSelectedId(itemId || null);
+                      if (!isSupervisorWorkflow) setDecision('APPROVED');
                       setReason('');
                       setNote('');
                       setDecisionReasonError('');
@@ -1191,23 +1233,44 @@ function SupervisorApprovalCenter({
                           <button
                             type="button"
                             className="approval-queue__row-select"
+                            aria-label={`Review approval for ${customerName}`}
                             aria-pressed={selectedId === itemId}
                             onClick={(event) => {
                               event.stopPropagation();
                               selectRow();
                             }}
                           >
-                            {customerName}
+                            {isSupervisorWorkflow ? (
+                              customerName
+                            ) : (
+                              <span className="approval-queue__admin-reference">
+                                <span>{customerName}</span>
+                                <span>
+                                  {item.receipt?.posReceiptNumber ??
+                                    item.posReceiptNumber ??
+                                    item.referenceNumber ??
+                                    item.id ??
+                                    '—'}
+                                </span>
+                              </span>
+                            )}
                           </button>
                         </td>
                         <td className="approval-queue__row-value">
-                          {isLateReceiptCategory
-                            ? formatReceiptAge(item)
-                            : formatKobo(
-                                item.requestedAmountKobo ??
-                                  item.receipt?.purchaseAmountKobo ??
-                                  item.amountKobo,
-                              )}
+                          <span>
+                            {isLateReceiptCategory
+                              ? formatReceiptAge(item)
+                              : formatKobo(
+                                  item.requestedAmountKobo ??
+                                    item.receipt?.purchaseAmountKobo ??
+                                    item.amountKobo,
+                                )}
+                          </span>
+                          {!isSupervisorWorkflow ? (
+                            <span className="approval-queue__admin-status">
+                              {statusLabel(item.status)}
+                            </span>
+                          ) : null}
                         </td>
                       </tr>
                     );
@@ -1255,147 +1318,299 @@ function SupervisorApprovalCenter({
           </header>
           {selectedItem ? (
             <div className="approval-queue__decision-content">
-              <dl className="approval-queue__evidence">
-                <div>
-                  <dt>Customer</dt>
-                  <dd
-                    className={
-                      selectedItem.customer?.fullName ? '' : 'is-missing'
-                    }
-                  >
-                    {selectedItem.customer?.fullName ?? 'Not provided'}
-                  </dd>
-                </div>
-                <div>
-                  <dt>Amount</dt>
-                  <dd
-                    className={
-                      typeof selectedAmount === 'number'
-                        ? 'approval-queue__evidence-amount'
-                        : 'is-missing'
-                    }
-                  >
-                    {formatKoboOrMissing(selectedAmount)}
-                  </dd>
-                </div>
-                <div>
-                  <dt>Wallet Balance</dt>
-                  <dd
-                    className={
-                      walletBalanceMetric.isMissing ? 'is-missing' : ''
-                    }
-                  >
-                    {walletBalanceMetric.value}
-                  </dd>
-                </div>
-                <div>
-                  <dt>Lifetime Earned</dt>
-                  <dd
-                    className={
-                      lifetimeEarnedMetric.isMissing ? 'is-missing' : ''
-                    }
-                  >
-                    {lifetimeEarnedMetric.value}
-                  </dd>
-                </div>
-                <div>
-                  <dt>Date &amp; Time</dt>
-                  <dd className={selectedItem.requestedAt ? '' : 'is-missing'}>
-                    {selectedItem.requestedAt
-                      ? formatApprovalDate(selectedItem.requestedAt)
-                      : 'Not provided'}
-                  </dd>
-                </div>
-                <div>
-                  <dt>Submitted by</dt>
-                  <dd
-                    className={
-                      selectedItem.requester?.username ? '' : 'is-missing'
-                    }
-                  >
-                    {selectedItem.requester?.username ?? 'Not provided'}
-                  </dd>
-                </div>
-              </dl>
+              {isSupervisorWorkflow ? (
+                <dl className="approval-queue__evidence">
+                  <div>
+                    <dt>Customer</dt>
+                    <dd
+                      className={
+                        selectedItem.customer?.fullName ? '' : 'is-missing'
+                      }
+                    >
+                      {selectedItem.customer?.fullName ?? 'Not provided'}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt>Amount</dt>
+                    <dd
+                      className={
+                        typeof selectedAmount === 'number'
+                          ? 'approval-queue__evidence-amount'
+                          : 'is-missing'
+                      }
+                    >
+                      {formatKoboOrMissing(selectedAmount)}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt>Wallet Balance</dt>
+                    <dd
+                      className={
+                        walletBalanceMetric.isMissing ? 'is-missing' : ''
+                      }
+                    >
+                      {walletBalanceMetric.value}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt>Lifetime Earned</dt>
+                    <dd
+                      className={
+                        lifetimeEarnedMetric.isMissing ? 'is-missing' : ''
+                      }
+                    >
+                      {lifetimeEarnedMetric.value}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt>Date &amp; Time</dt>
+                    <dd
+                      className={selectedItem.requestedAt ? '' : 'is-missing'}
+                    >
+                      {selectedItem.requestedAt
+                        ? formatApprovalDate(selectedItem.requestedAt)
+                        : 'Not provided'}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt>Submitted by</dt>
+                    <dd
+                      className={
+                        selectedItem.requester?.username ? '' : 'is-missing'
+                      }
+                    >
+                      {selectedItem.requester?.username ?? 'Not provided'}
+                    </dd>
+                  </div>
+                </dl>
+              ) : (
+                <dl className="approval-queue__evidence">
+                  <div>
+                    <dt>Customer</dt>
+                    <dd
+                      className={
+                        selectedItem.customer?.fullName ? '' : 'is-missing'
+                      }
+                    >
+                      {selectedItem.customer?.fullName ??
+                        selectedItem.customerId ??
+                        'Not provided'}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt>Type</dt>
+                    <dd>
+                      {selectedItem.targetType === 'REDEEM'
+                        ? 'Redemption'
+                        : selectedItem.targetType === 'EARN'
+                          ? 'Purchase'
+                          : (selectedItem.targetType ?? 'Not provided')}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt>Reference</dt>
+                    <dd>
+                      {selectedItem.receipt?.posReceiptNumber ??
+                        selectedItem.posReceiptNumber ??
+                        selectedItem.referenceNumber ??
+                        selectedItem.id ??
+                        'Not provided'}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt>Amount</dt>
+                    <dd
+                      className={
+                        typeof selectedAmount === 'number'
+                          ? 'approval-queue__evidence-amount'
+                          : 'is-missing'
+                      }
+                    >
+                      {formatKoboOrMissing(selectedAmount)}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt>Requested</dt>
+                    <dd
+                      className={selectedItem.requestedAt ? '' : 'is-missing'}
+                    >
+                      {selectedItem.requestedAt
+                        ? formatApprovalDate(selectedItem.requestedAt)
+                        : 'Not provided'}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt>Status</dt>
+                    <dd>{statusLabel(selectedItem.status)}</dd>
+                  </div>
+                  {selectedItem.decidedAt ? (
+                    <div>
+                      <dt>Decided</dt>
+                      <dd>{formatApprovalDate(selectedItem.decidedAt)}</dd>
+                    </div>
+                  ) : null}
+                  {selectedItem.executedAt ? (
+                    <div>
+                      <dt>Completed</dt>
+                      <dd>{formatApprovalDate(selectedItem.executedAt)}</dd>
+                    </div>
+                  ) : null}
+                  <div>
+                    <dt>Submitted by</dt>
+                    <dd
+                      className={
+                        selectedItem.requester?.username ? '' : 'is-missing'
+                      }
+                    >
+                      {selectedItem.requester?.username ?? 'Not provided'}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt>Approval reason</dt>
+                    <dd>
+                      {selectedItem.reasonCode ??
+                        selectedItem.ruleCode ??
+                        'Not provided'}
+                    </dd>
+                  </div>
+                </dl>
+              )}
 
-              <aside className="approval-queue__submitted-reason">
-                <div className="approval-queue__submitted-reason-title">
-                  <CircleAlert size={18} aria-hidden="true" />
-                  <h3>Reason submitted</h3>
-                </div>
-                <p className="is-missing">Not provided</p>
-              </aside>
+              {isSupervisorWorkflow ? (
+                <aside className="approval-queue__submitted-reason">
+                  <div className="approval-queue__submitted-reason-title">
+                    <CircleAlert size={18} aria-hidden="true" />
+                    <h3>Reason submitted</h3>
+                  </div>
+                  <p className="is-missing">Not provided</p>
+                </aside>
+              ) : null}
 
               {isPending ? (
-                <div className="approval-queue__decision-form">
-                  <label htmlFor="approval-decision-reason">
-                    Decision reason (required)
-                  </label>
-                  <textarea
-                    id="approval-decision-reason"
-                    className="approval-queue__decision-textarea"
-                    aria-invalid={Boolean(decisionReasonError)}
-                    aria-describedby={
-                      decisionReasonError
-                        ? 'approval-decision-reason-error'
-                        : undefined
-                    }
-                    required
-                    rows={3}
-                    placeholder="Enter reason"
-                    value={reason}
-                    onChange={(event) => {
-                      setReason(event.target.value);
-                      if (event.target.value.trim()) {
-                        setDecisionReasonError('');
-                      }
-                    }}
-                  />
-                  {decisionReasonError ? (
-                    <p
-                      id="approval-decision-reason-error"
-                      className="approval-queue__decision-error"
-                      role="alert"
-                    >
-                      {decisionReasonError}
-                    </p>
-                  ) : null}
-                  <div className="approval-queue__decision-actions">
-                    <Button
-                      className="approval-queue__approve"
-                      loading={submitting && decision === 'APPROVED'}
-                      disabled={submitting}
-                      onClick={() => submitDecision('APPROVED')}
-                    >
-                      Approve
-                    </Button>
-                    <Button
-                      variant="secondary"
-                      className="approval-queue__reject"
-                      loading={submitting && decision === 'REJECTED'}
-                      disabled={submitting}
-                      onClick={() => submitDecision('REJECTED')}
-                    >
-                      Reject
-                    </Button>
-                    {customerRouteId ? (
-                      <Link
-                        className="approval-queue__view-customer sc-button sc-button--secondary sc-button--standard"
-                        href={`/supervisor/customers/${encodeURIComponent(customerRouteId)}`}
-                      >
-                        View Customer
-                      </Link>
-                    ) : (
-                      <Button
-                        variant="secondary"
-                        className="approval-queue__view-customer"
-                        disabled
-                      >
-                        View Customer
-                      </Button>
-                    )}
-                  </div>
-                </div>
+                <>
+                  {isSupervisorWorkflow ? (
+                    <div className="approval-queue__decision-form">
+                      <label htmlFor="approval-decision-reason">
+                        Decision reason (required)
+                      </label>
+                      <textarea
+                        id="approval-decision-reason"
+                        className="approval-queue__decision-textarea"
+                        aria-invalid={Boolean(decisionReasonError)}
+                        aria-describedby={
+                          decisionReasonError
+                            ? 'approval-decision-reason-error'
+                            : undefined
+                        }
+                        required
+                        rows={3}
+                        placeholder="Enter reason"
+                        value={reason}
+                        onChange={(event) => {
+                          setReason(event.target.value);
+                          if (event.target.value.trim()) {
+                            setDecisionReasonError('');
+                          }
+                        }}
+                      />
+                      {decisionReasonError ? (
+                        <p
+                          id="approval-decision-reason-error"
+                          className="approval-queue__decision-error"
+                          role="alert"
+                        >
+                          {decisionReasonError}
+                        </p>
+                      ) : null}
+                      <div className="approval-queue__decision-actions">
+                        <Button
+                          className="approval-queue__approve"
+                          loading={submitting && decision === 'APPROVED'}
+                          disabled={submitting}
+                          onClick={() => submitDecision('APPROVED')}
+                        >
+                          Approve
+                        </Button>
+                        <Button
+                          variant="secondary"
+                          className="approval-queue__reject"
+                          loading={submitting && decision === 'REJECTED'}
+                          disabled={submitting}
+                          onClick={() => submitDecision('REJECTED')}
+                        >
+                          Reject
+                        </Button>
+                        {customerRouteId ? (
+                          <Link
+                            className="approval-queue__view-customer sc-button sc-button--secondary sc-button--standard"
+                            href={`/supervisor/customers/${encodeURIComponent(customerRouteId)}`}
+                          >
+                            View Customer
+                          </Link>
+                        ) : (
+                          <Button
+                            variant="secondary"
+                            className="approval-queue__view-customer"
+                            disabled
+                          >
+                            View Customer
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="approval-queue__decision-form">
+                      <RadioGroup
+                        name="approval-decision"
+                        legend="Decision"
+                        options={[
+                          { value: 'APPROVED', label: 'Approve' },
+                          { value: 'REJECTED', label: 'Reject' },
+                        ]}
+                        value={decision}
+                        onValueChange={(value) => {
+                          setDecision(value as ApprovalDecisionDtoDecision);
+                          setReason('');
+                        }}
+                      />
+                      <Select
+                        aria-label="Decision reason"
+                        value={reason}
+                        placeholder="Select a reason"
+                        options={reasonOptions[decision]}
+                        onChange={(event) => setReason(event.target.value)}
+                      />
+                      <Input
+                        aria-label="Additional decision note"
+                        placeholder="Additional detail (optional)"
+                        value={note}
+                        onChange={(event) => setNote(event.target.value)}
+                      />
+                      <div className="approval-queue__decision-actions">
+                        <Button
+                          variant="secondary"
+                          onClick={() => {
+                            setSelectedId(null);
+                            setReason('');
+                            setNote('');
+                          }}
+                          disabled={submitting}
+                        >
+                          Cancel
+                        </Button>
+                        <Button
+                          className="approval-queue__approve"
+                          loading={submitting}
+                          disabled={!reason || submitting}
+                          onClick={() => void handleDecision()}
+                        >
+                          Submit{' '}
+                          {decision === 'APPROVED' ? 'approval' : 'rejection'}
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+                </>
               ) : (
                 <Alert tone="info" title="Decision already recorded">
                   This approval is read-only because its status is{' '}

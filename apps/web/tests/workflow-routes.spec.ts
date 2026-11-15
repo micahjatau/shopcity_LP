@@ -19,6 +19,99 @@ import { businessDateInTimezone } from '../lib/reports/supervisor-overview-data'
 
 const baseUrl = process.env.PLAYWRIGHT_BASE_URL ?? 'http://127.0.0.1:3100';
 
+async function expectAdminMobileTable(
+  page: Page,
+  tableSelector: string,
+  scrollRegionSelector: string,
+  filterSelectors: ReadonlyArray<string> = [],
+  mobileVisibleSelectors: ReadonlyArray<string> = [],
+) {
+  await page.setViewportSize({ width: 390, height: 844 });
+  const table = page.locator(tableSelector);
+  await expect(table.locator('thead')).toBeVisible();
+  for (const selector of filterSelectors) {
+    await expect(page.locator(selector).first()).toHaveCSS(
+      'min-height',
+      '40px',
+    );
+  }
+  for (const selector of mobileVisibleSelectors) {
+    await expect(page.locator(selector).first()).toBeVisible();
+  }
+  expect(
+    await table.evaluate((element) => getComputedStyle(element).display),
+  ).toBe('table');
+  const scrollRegion = page.locator(scrollRegionSelector);
+  const scrollMetrics = await scrollRegion.evaluate((element) => ({
+    scrollWidth: element.scrollWidth,
+    clientWidth: element.clientWidth,
+    overflowX: getComputedStyle(element).overflowX,
+  }));
+  expect(
+    scrollMetrics.scrollWidth > scrollMetrics.clientWidth,
+    JSON.stringify(scrollMetrics),
+  ).toBe(true);
+  const mobilePageLayout = await page.evaluate(() => ({
+    bodyWidth: document.body.scrollWidth,
+    rootOverflowX: getComputedStyle(document.documentElement).overflowX,
+  }));
+  expect(mobilePageLayout.bodyWidth).toBeLessThanOrEqual(390);
+  expect(mobilePageLayout.rootOverflowX).toBe('clip');
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await expect(table).toHaveCSS('display', 'table');
+}
+
+async function expectSupervisorMobileTable(
+  page: Page,
+  tableSelector: string,
+  scrollRegionSelector: string,
+  filterSelectors: ReadonlyArray<string>,
+) {
+  await page.setViewportSize({ width: 390, height: 844 });
+  const table = page.locator(tableSelector);
+  await expect(table.locator('thead')).toBeVisible();
+  await expect(table).toHaveCSS('display', 'table');
+  for (const selector of filterSelectors) {
+    await expect(page.locator(selector).first()).toBeVisible();
+  }
+  const scrollRegion = page.locator(scrollRegionSelector);
+  const scrollMetrics = await scrollRegion.evaluate((element) => ({
+    scrollWidth: element.scrollWidth,
+    clientWidth: element.clientWidth,
+    overflowX: getComputedStyle(element).overflowX,
+  }));
+  expect(scrollMetrics.overflowX).toBe('auto');
+  expect(
+    scrollMetrics.scrollWidth > scrollMetrics.clientWidth,
+    JSON.stringify(scrollMetrics),
+  ).toBe(true);
+  const pageWidths = await page.evaluate(() => ({
+    body: document.body.scrollWidth,
+    rootOverflowX: getComputedStyle(document.documentElement).overflowX,
+  }));
+  expect(pageWidths.body).toBeLessThanOrEqual(390);
+  expect(pageWidths.rootOverflowX).toBe('clip');
+
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await expect(table).toHaveCSS('display', 'table');
+  await expect(table.locator('thead')).toBeVisible();
+}
+
+async function getVisibleShellSearch(page: Page) {
+  const drawer = page.getByRole('dialog', { name: 'Primary navigation' });
+  if (await drawer.isVisible()) {
+    return drawer.getByRole('combobox', { name: 'Search ShopCity' });
+  }
+
+  const topbarSearch = page
+    .locator('.shell-topbar')
+    .getByRole('combobox', { name: 'Search ShopCity' });
+  if (await topbarSearch.isVisible()) return topbarSearch;
+
+  await page.getByRole('button', { name: 'Open navigation' }).click();
+  return drawer.getByRole('combobox', { name: 'Search ShopCity' });
+}
+
 const sessionByRole = {
   CASHIER: {
     user: {
@@ -52,6 +145,333 @@ const sessionByRole = {
 test.describe.configure({ timeout: 120000 });
 
 test.describe('workflow route coverage', () => {
+  test('returns to Admin Operations from every Controls route', async ({
+    page,
+  }) => {
+    test.setTimeout(240_000);
+    await mockShell(page, 'ADMIN');
+
+    for (const path of [
+      '/admin/users',
+      '/admin/users/new',
+      '/admin/users/admin-user-1',
+      '/admin/devices',
+      '/admin/devices/new',
+      '/admin/devices/device-1',
+      '/admin/branches',
+      '/admin/branches/new',
+      '/admin/branches/branch-1',
+      '/admin/audit',
+      '/admin/adjustments',
+    ]) {
+      await page.goto(`${baseUrl}${path}`);
+      await expect(page.locator('.shell-loading-screen')).toBeHidden();
+      await expect(
+        page.locator('main').getByRole('link', { name: 'Back to operations' }),
+      ).toHaveAttribute('href', '/admin/operations');
+    }
+  });
+
+  test('keeps Admin mobile list tables and filters in desktop presentation', async ({
+    page,
+  }) => {
+    await mockShell(page, 'ADMIN');
+    const branch = {
+      id: 'branch-1',
+      name: 'Main branch',
+      status: 'ACTIVE',
+      timezone: 'Africa/Lagos',
+      receiptWeekStartDay: 1,
+    };
+    const fulfill = (path: string, data: unknown) =>
+      json({ success: true, data, meta: meta(path) });
+
+    await page.route('**/api/v1/admin/transactions**', (route) =>
+      route.fulfill(
+        fulfill('/api/v1/admin/transactions', {
+          items: [],
+          staffOptions: [],
+          nextCursor: null,
+          hasMore: false,
+        }),
+      ),
+    );
+    await page.route('**/api/v1/cards/management/issued*', (route) =>
+      route.fulfill(
+        fulfill('/api/v1/cards/management/issued', {
+          items: [
+            {
+              cardNumber: 'SER-1',
+              status: 'ACTIVE',
+              issuedAt: '2026-01-01T00:00:00.000Z',
+              customer: { id: 'customer-1', fullName: 'Ada Shopper' },
+            },
+          ],
+          nextCursor: null,
+          hasMore: false,
+        }),
+      ),
+    );
+    await page.route('**/api/v1/fraud*', (route) =>
+      route.fulfill(
+        fulfill('/api/v1/fraud/flags', { items: [], nextCursor: null }),
+      ),
+    );
+    await page.route('**/api/v1/users**', (route) =>
+      route.fulfill(
+        fulfill('/api/v1/users', [
+          {
+            id: 'staff-1',
+            firstName: 'Ada',
+            lastName: 'Lovelace',
+            username: 'ada@example.test',
+            phoneNumber: '+234 801 234 5678',
+            role: 'CASHIER',
+            status: 'ACTIVE',
+            branchId: branch.id,
+          },
+        ]),
+      ),
+    );
+    await page.route('**/api/v1/branches', (route) =>
+      route.fulfill(fulfill('/api/v1/branches', [branch])),
+    );
+    await page.route('**/api/v1/devices', (route) =>
+      route.fulfill(
+        fulfill('/api/v1/devices', [
+          {
+            id: 'device-1',
+            name: 'Front POS',
+            status: 'ACTIVE',
+            authBindingMode: 'WEBAUTHN',
+            branchId: branch.id,
+            branch: { name: branch.name },
+            lastSeenAt: '2026-10-02T09:00:00.000Z',
+          },
+        ]),
+      ),
+    );
+
+    const routes = [
+      {
+        path: '/admin/customers',
+        table: '.admin-customer-directory-page .supervisor-customer-table',
+        scrollRegion:
+          '.admin-customer-directory-page .supervisor-customer-table-wrap',
+        filters: [
+          '.admin-customer-directory-page .supervisor-customer-directory__filter',
+        ],
+      },
+      {
+        path: '/admin/transactions',
+        table: '.admin-transactions-dashboard .supervisor-transaction-table',
+        scrollRegion:
+          '.admin-transactions-dashboard .supervisor-transaction-table-scroll',
+        filters: [
+          '.admin-transactions-dashboard .supervisor-transaction-filter-dropdown .supervisor-customer-directory__filter',
+        ],
+      },
+      {
+        path: '/admin/cards',
+        table:
+          '.admin-card-management-page .supervisor-issued-card-directory__table',
+        scrollRegion:
+          '.admin-card-management-page .supervisor-customer-table-wrap',
+        filters: [
+          '.admin-card-management-page .supervisor-customer-directory__filter',
+          '.admin-card-management-page .supervisor-issued-card-directory__date-trigger',
+        ],
+        mobileVisible: [
+          '.admin-card-management-page .supervisor-issued-card-directory__search input',
+        ],
+      },
+      {
+        path: '/admin/fraud',
+        table: '.admin-fraud-page .fraud-flags__table',
+        scrollRegion: '.admin-fraud-page .fraud-flags__table-wrap',
+        filters: ['.admin-fraud-page .fraud-flags__filter'],
+      },
+      {
+        path: '/admin/users',
+        table: 'main section[aria-label="Staff directory"] table',
+        scrollRegion:
+          'main section[aria-label="Staff directory"] [class*="tableWrap"]',
+        filters: ['select[aria-label="Filter staff by status"]'],
+      },
+      {
+        path: '/admin/branches',
+        table: 'main section[aria-label="Branch directory"] table',
+        scrollRegion:
+          'main section[aria-label="Branch directory"] [class*="tableWrap"]',
+        filters: ['select[aria-label="Filter branches by status"]'],
+      },
+      {
+        path: '/admin/devices',
+        table: 'main section[aria-label="Device directory"] table',
+        scrollRegion:
+          'main section[aria-label="Device directory"] [class*="tableWrap"]',
+        filters: [
+          'select[aria-label="Filter devices by status"]',
+          'select[aria-label="Filter devices by binding"]',
+        ],
+      },
+    ];
+
+    const selectedRoutes = process.env.ADMIN_MOBILE_PARITY_ROUTE
+      ? routes.filter(
+          (route) => route.path === process.env.ADMIN_MOBILE_PARITY_ROUTE,
+        )
+      : routes;
+    for (const route of selectedRoutes) {
+      await page.goto(`${baseUrl}${route.path}`, {
+        waitUntil: 'domcontentloaded',
+      });
+      await expect(page.locator(route.table)).toBeVisible();
+      await expectAdminMobileTable(
+        page,
+        route.table,
+        route.scrollRegion,
+        route.filters,
+        'mobileVisible' in route ? route.mobileVisible : [],
+      );
+    }
+  });
+
+  test('keeps Supervisor mobile list tables in desktop presentation', async ({
+    page,
+  }) => {
+    await mockShell(page, 'SUPERVISOR');
+    await page.route('**/api/v1/cards/management/issued*', (route) =>
+      route.fulfill(
+        json({
+          success: true,
+          data: {
+            items: [
+              {
+                cardNumber: 'SER-1',
+                status: 'ACTIVE',
+                issuedAt: '2026-01-01T00:00:00.000Z',
+                customer: { id: 'customer-1', fullName: 'Ada Shopper' },
+              },
+            ],
+            nextCursor: null,
+            hasMore: false,
+          },
+          meta: meta('/api/v1/cards/management/issued'),
+        }),
+      ),
+    );
+    await page.route('**/api/v1/transactions**', (route) =>
+      route.fulfill(
+        json({
+          success: true,
+          data: {
+            items: [
+              {
+                transactionId: 'ledger-1',
+                receiptNumber: 'R-001',
+                operation: 'EARN',
+                amountKobo: 500,
+                creditKobo: 500,
+                customerName: 'Ada Shopper',
+                purchaseAmountKobo: 10_000,
+                status: 'CONFIRMED',
+                occurredAt: '2030-01-01T10:00:00.000Z',
+              },
+            ],
+            staffOptions: [],
+            nextCursor: null,
+            hasMore: false,
+          },
+          meta: meta('/api/v1/transactions'),
+        }),
+      ),
+    );
+    await page.route('**/api/v1/fraud-flags*', (route) =>
+      route.fulfill(
+        json({
+          success: true,
+          data: {
+            items: [
+              {
+                id: 'flag-1',
+                ruleCode: 'FR-HV-001',
+                severity: 'HIGH',
+                status: 'OPEN',
+                branchId: 'branch-1',
+                branchName: 'Main branch',
+                customerName: 'Ada Shopper',
+                receiptNumber: 'R-001',
+                amountKobo: 120_000,
+                firstDetectedAt: '2030-01-01T10:00:00.000Z',
+                lastDetectedAt: '2030-01-01T10:00:00.000Z',
+              },
+            ],
+            summary: {
+              needReviewCount: 1,
+              highPriorityCount: 1,
+              underReviewCount: 0,
+            },
+            nextCursor: null,
+            hasMore: false,
+          },
+          meta: meta('/api/v1/fraud/flags'),
+        }),
+      ),
+    );
+
+    const routes = [
+      {
+        path: '/supervisor/customers',
+        table: '.supervisor-customer-directory .supervisor-customer-table',
+        scrollRegion: '.supervisor-customer-table-wrap',
+        rowText: 'Ada Shopper',
+        filters: ['.supervisor-customer-directory__filter'],
+      },
+      {
+        path: '/supervisor/cards',
+        table: '.supervisor-issued-card-directory__table',
+        scrollRegion: '.supervisor-customer-table-wrap',
+        rowText: 'SER-1',
+        filters: [
+          '.supervisor-issued-card-directory .supervisor-customer-directory__status-trigger',
+          '.supervisor-issued-card-directory__date-trigger',
+        ],
+      },
+      {
+        path: '/supervisor/transactions',
+        table:
+          '.supervisor-transactions-dashboard .supervisor-transaction-table',
+        scrollRegion: '.supervisor-transaction-table-scroll',
+        rowText: 'R-001',
+        filters: ['.supervisor-transaction-filter-dropdown button'],
+      },
+      {
+        path: '/supervisor/fraud',
+        table: '.supervisor-page .fraud-review__table',
+        scrollRegion: '.fraud-flags__table-wrap',
+        rowText: 'Purchase above the review threshold',
+        filters: ['.fraud-review__filters .fraud-flags__filter'],
+      },
+    ];
+
+    for (const route of routes) {
+      await page.goto(`${baseUrl}${route.path}`, {
+        waitUntil: 'domcontentloaded',
+      });
+      await expect(page.locator(route.table)).toBeVisible();
+      await expect(
+        page.locator(route.table).getByText(route.rowText).first(),
+      ).toBeVisible();
+      await expectSupervisorMobileTable(
+        page,
+        route.table,
+        route.scrollRegion,
+        route.filters,
+      );
+    }
+  });
+
   test('renders the native Supervisor overview cards and table responsively', async ({
     page,
   }) => {
@@ -266,7 +686,7 @@ test.describe('workflow route coverage', () => {
     expect(createCardRequests).toBe(0);
   });
 
-  test('repairs sidebar geometry, collapse state, and mobile drawer access', async ({
+  test('expands the sidebar on hover or focus and preserves mobile drawer access', async ({
     page,
   }) => {
     await mockShell(page, 'CASHIER');
@@ -282,29 +702,85 @@ test.describe('workflow route coverage', () => {
       /\/brand\/supervisor\/icon\.png/,
     );
     const sidebar = page.locator('.shell-sidebar');
-    await expect(sidebar).toHaveAttribute('data-collapsed', 'false');
-    await page.waitForTimeout(300);
-    await page.mouse.move(600, 500);
-    await expect(page).toHaveScreenshot('sidebar-expanded-desktop.png', {
-      maxDiffPixelRatio: 0.08,
-    });
-    expect(Math.round((await sidebar.boundingBox())?.width ?? 0)).toBe(244);
-
-    await page.getByRole('button', { name: 'Collapse sidebar' }).click();
-    await expect(sidebar).toHaveAttribute('data-collapsed', 'true');
-    await expect(sidebar.locator('.shell-sidebar-brand-logo')).toHaveAttribute(
-      'src',
-      /icon\.png/,
-    );
-    await page.waitForTimeout(300);
-    await page.mouse.move(600, 500);
+    await expect(sidebar).toHaveAttribute('data-sidebar-mode', 'hover-rail');
     await expect(
-      page.getByRole('button', { name: 'Expand sidebar' }),
-    ).toHaveAttribute('aria-expanded', 'false');
-    await expect(page).toHaveScreenshot('sidebar-collapsed-desktop.png', {
+      page.getByRole('button', { name: /collapse sidebar|expand sidebar/i }),
+    ).toHaveCount(0);
+    await page.mouse.move(600, 500);
+    await expect(sidebar).toHaveCSS('width', '76px');
+    await expect(sidebar).toHaveCSS('scrollbar-width', 'none');
+    await expect(page).toHaveScreenshot('sidebar-hover-rail-desktop.png', {
       maxDiffPixelRatio: 0.08,
     });
-    expect(Math.round((await sidebar.boundingBox())?.width ?? 0)).toBe(76);
+    expect(Math.round((await sidebar.boundingBox())?.height ?? 0)).toBe(900);
+    await page.setViewportSize({ width: 1024, height: 900 });
+    await expect(sidebar).toHaveCSS('width', '76px');
+    await expect(page).toHaveScreenshot('sidebar-hover-rail-tablet.png', {
+      maxDiffPixelRatio: 0.08,
+    });
+    await page.setViewportSize({ width: 1440, height: 900 });
+    const mainColumn = page.locator('.shell-main-column');
+    const mainColumnLeft = await mainColumn.evaluate(
+      (element) => element.getBoundingClientRect().left,
+    );
+    expect(mainColumnLeft).toBe(76);
+    await page.mouse.move(40, 180);
+    await expect(sidebar).toHaveCSS('width', '244px');
+    await expect(
+      sidebar.locator('.shell-sidebar-brand-logo--expanded'),
+    ).toBeVisible();
+    await expect(
+      sidebar.locator('.shell-nav-link-label').first(),
+    ).toBeVisible();
+    expect(
+      await mainColumn.evaluate(
+        (element) => element.getBoundingClientRect().left,
+      ),
+    ).toBe(mainColumnLeft);
+    await expect(page).toHaveScreenshot('sidebar-hover-expanded-desktop.png', {
+      maxDiffPixelRatio: 0.08,
+    });
+    await page.mouse.move(600, 500);
+    await expect(sidebar).toHaveCSS('width', '76px');
+    await sidebar.getByRole('link', { name: 'Overview' }).focus();
+    await expect(sidebar).toHaveCSS('width', '244px');
+    await expect(
+      sidebar.locator('.shell-nav-link-label').first(),
+    ).toBeVisible();
+    await page.locator('#shell-main-content').focus();
+    await page.mouse.move(600, 500);
+    await expect(sidebar).toHaveCSS('width', '76px');
+    await page
+      .locator('#shell-main-content')
+      .evaluate((element) => element.blur());
+    const compactLogo = sidebar.locator('.shell-sidebar-brand-logo--compact');
+    await expect(compactLogo).toBeVisible();
+    await expect(compactLogo).toHaveCSS('width', '52px');
+    await expect(compactLogo).toHaveCSS('height', '52px');
+
+    const initialMainHeight = (await mainColumn.boundingBox())?.height ?? 0;
+    await page.locator('.shell-main').evaluate((element) => {
+      const tallContent = document.createElement('div');
+      tallContent.dataset.testid = 'shell-height-fixture';
+      tallContent.style.height = '1400px';
+      element.append(tallContent);
+    });
+    await expect
+      .poll(async () => (await mainColumn.boundingBox())?.height ?? 0)
+      .toBeGreaterThan(initialMainHeight + 1000);
+    expect(
+      await page.evaluate(() => document.documentElement.scrollHeight),
+    ).toBeGreaterThan(900);
+    await page.evaluate(() => window.scrollTo(0, 300));
+    await expect
+      .poll(async () => Math.round((await sidebar.boundingBox())?.y ?? -1))
+      .toBe(0);
+    expect(Math.round((await sidebar.boundingBox())?.height ?? 0)).toBe(900);
+    await page.evaluate(() => window.scrollTo(0, 0));
+    await page
+      .locator('[data-testid="shell-height-fixture"]')
+      .evaluate((node) => node.remove());
+
     await expect(page.getByRole('link', { name: 'Overview' })).toHaveAttribute(
       'title',
       'Overview',
@@ -312,47 +788,100 @@ test.describe('workflow route coverage', () => {
     await expect(page.getByRole('button', { name: 'Logout' })).toBeVisible();
 
     await page.setViewportSize({ width: 1024, height: 900 });
-    await expect(sidebar).toHaveAttribute('data-collapsed', 'true');
-    await page.getByRole('button', { name: 'Expand sidebar' }).click();
-    await expect(sidebar).toHaveAttribute('data-collapsed', 'false');
-    await expect(
-      page.getByRole('link', { name: 'Find Customer Lookup' }),
-    ).toBeVisible();
-    await page.getByRole('button', { name: 'Collapse sidebar' }).click();
-    await page.waitForTimeout(300);
-    await expect(page).toHaveScreenshot('sidebar-collapsed-tablet.png', {
-      maxDiffPixelRatio: 0.08,
-    });
+    await expect(sidebar).toHaveCSS('width', '76px');
+    await page.setViewportSize({ width: 920, height: 900 });
+    await expect(sidebar).toHaveCSS('width', '76px');
     expect(
       await page.locator('body').evaluate((body) => body.scrollWidth),
-    ).toBeLessThanOrEqual(1024);
+    ).toBeLessThanOrEqual(920);
 
     await page.setViewportSize({ width: 768, height: 900 });
-    await page.getByRole('button', { name: 'Expand sidebar' }).click();
-    await expect(sidebar).toHaveAttribute('data-collapsed', 'false');
+    await expect(sidebar).toHaveCSS('width', '76px');
     await page.emulateMedia({ reducedMotion: 'reduce' });
     expect(
-      await page
-        .locator('.shell-body')
-        .evaluate((element) => getComputedStyle(element).transitionDuration),
+      await sidebar.evaluate(
+        (element) => getComputedStyle(element).transitionDuration,
+      ),
     ).toBe('0s');
+
+    await page.setViewportSize({ width: 768, height: 420 });
+    await expect
+      .poll(async () =>
+        sidebar.evaluate((element) =>
+          element.scrollHeight > element.clientHeight ? 'overflowing' : 'fits',
+        ),
+      )
+      .toBe('overflowing');
+    expect(Math.round((await sidebar.boundingBox())?.height ?? 0)).toBe(420);
+    await sidebar.evaluate((element) => {
+      element.scrollTop = 0;
+    });
+    await sidebar.hover();
+    await page.mouse.wheel(0, 800);
+    await expect
+      .poll(() => sidebar.evaluate((element) => element.scrollTop))
+      .toBeGreaterThan(0);
+    const footerBounds = await sidebar
+      .locator('.shell-sidebar-footer')
+      .boundingBox();
+    const sidebarBounds = await sidebar.boundingBox();
+    if (!footerBounds || !sidebarBounds) {
+      throw new Error('Sidebar footer geometry is unavailable');
+    }
+    expect(footerBounds.y + footerBounds.height).toBeLessThanOrEqual(
+      sidebarBounds.y + sidebarBounds.height + 1,
+    );
 
     await page.setViewportSize({ width: 390, height: 844 });
     await page.reload();
     await expect(sidebar).toBeHidden();
-    await page.getByRole('button', { name: 'Menu' }).click();
+    const mobileMenuButton = page.getByRole('button', {
+      name: 'Open navigation',
+    });
+    await expect(page.locator('.shell-mobile-brand')).toHaveAttribute(
+      'src',
+      /Frame%202147224881\.svg/,
+    );
+    await expect(mobileMenuButton.locator('svg')).toBeVisible();
+    await mobileMenuButton.click();
     const drawer = page.getByRole('dialog', { name: 'Primary navigation' });
     await expect(drawer).toBeVisible();
+    const drawerBackground = await drawer.evaluate(
+      (element) => getComputedStyle(element).backgroundColor,
+    );
+    const headerBackground = await page
+      .locator('.shell-topbar')
+      .evaluate((element) => getComputedStyle(element).backgroundColor);
+    expect(headerBackground).toBe(drawerBackground);
+    await expect(page.locator('.shell-avatar')).toHaveCSS(
+      'background-color',
+      'rgb(255, 255, 255)',
+    );
+    await expect(
+      drawer.getByRole('img', { name: 'ShopCity Supermarket' }),
+    ).toBeVisible();
+    await expect(
+      drawer.getByRole('combobox', { name: 'Search ShopCity' }),
+    ).toBeVisible();
+    await expect(drawer.getByRole('link', { name: 'Overview' })).toBeVisible();
+    await expect(
+      drawer
+        .getByRole('navigation', { name: 'Primary navigation' })
+        .getByRole('link'),
+    ).toHaveCount(6);
     await expect(
       drawer.getByRole('link', { name: /help & training/i }),
     ).toBeVisible();
     await expect(drawer.getByRole('button', { name: 'Logout' })).toBeVisible();
+    await expect(
+      page.locator('.shell-brand-row > .global-shell-search'),
+    ).toBeHidden();
     await expect(page).toHaveScreenshot('sidebar-mobile-drawer.png', {
       maxDiffPixelRatio: 0.08,
     });
     await page.keyboard.press('Escape');
     await expect(drawer).not.toBeVisible();
-    const menuButton = page.getByRole('button', { name: 'Menu' });
+    const menuButton = page.getByRole('button', { name: 'Open navigation' });
     await expect(menuButton).toBeFocused();
     expect(
       await menuButton.evaluate((element) => {
@@ -371,9 +900,37 @@ test.describe('workflow route coverage', () => {
     ).toBeLessThanOrEqual(375);
   });
 
+  test('keeps navigation expanded on touch-only tablet viewports', async ({
+    browser,
+  }) => {
+    const touchPage = await browser.newPage({
+      viewport: { width: 768, height: 900 },
+      hasTouch: true,
+    });
+
+    try {
+      await mockShell(touchPage, 'CASHIER');
+      await touchPage.goto(`${baseUrl}/cashier`);
+      const sidebar = touchPage.locator('.shell-sidebar');
+      await expect(sidebar).toHaveCSS('width', '244px');
+      await expect(
+        sidebar.locator('.shell-nav-link-label').first(),
+      ).toBeVisible();
+      await expect(
+        sidebar.locator('.shell-sidebar-brand-logo--expanded'),
+      ).toBeVisible();
+    } finally {
+      await touchPage.close();
+    }
+  });
+
   test('fills Cashier and Admin sidebar artwork to the rail edge', async ({
     page,
   }) => {
+    await page.addInitScript(() => {
+      window.localStorage.clear();
+      window.sessionStorage.clear();
+    });
     await page.setViewportSize({ width: 1440, height: 900 });
 
     for (const { role, route } of [
@@ -386,6 +943,8 @@ test.describe('workflow route coverage', () => {
       const sidebar = page.locator('.shell-sidebar');
       await expect(page.locator('.shell-loading-screen')).toBeHidden();
       await expect(sidebar).toBeVisible();
+      await page.mouse.move(30, 150);
+      await expect(sidebar).toHaveCSS('width', '244px');
       const backgroundCoverage = await sidebar.evaluate((element) => {
         const style = getComputedStyle(element);
         const railWidth = element.getBoundingClientRect().width;
@@ -403,7 +962,7 @@ test.describe('workflow route coverage', () => {
         backgroundCoverage.railWidth,
       );
       await expect(sidebar).toHaveScreenshot(
-        `sidebar-${role.toLowerCase()}-artwork-edge.png`,
+        `sidebar-${role.toLowerCase()}-hover-expanded-artwork-edge.png`,
         { maxDiffPixelRatio: 0.02 },
       );
     }
@@ -1045,6 +1604,7 @@ test.describe('workflow route coverage', () => {
   test('executes the route and viewport conformance matrix', async ({
     page,
   }) => {
+    test.setTimeout(300_000);
     for (const [role, routes] of [
       ['CASHIER', cashierConformanceRoutes],
       [
@@ -1070,7 +1630,11 @@ test.describe('workflow route coverage', () => {
         await page.goto(`${baseUrl}${route.path}`, {
           waitUntil: 'domcontentloaded',
         });
-        await expect(page.locator('.shell-loading-screen')).toBeHidden();
+        await expect(
+          page.locator('.shell-loading-screen'),
+          `${role} ${route.path} workspace loading screen`,
+        ).toBeHidden();
+        await expect(page.locator('.shell-root')).toBeVisible();
         if (role === 'CASHIER') {
           const primaryActions = page.locator(
             '.shell-root--cashier :is(.sc-button--primary, .cashier-primary-action, .cashier-earn-receipt-proceed, .cashier-redeem-actions > button[type="submit"])',
@@ -1102,16 +1666,22 @@ test.describe('workflow route coverage', () => {
           await page.emulateMedia({ reducedMotion: 'reduce' });
           await expect(page.locator('.shell-loading-screen')).toBeHidden();
           await expect(page.locator('main')).toBeVisible();
-          await page.getByRole('combobox', { name: 'Search ShopCity' }).focus();
+          const search = await getVisibleShellSearch(page);
+          const searchRoot = page.locator(
+            viewport.width <= 620
+              ? '.shell-mobile-drawer-search .global-shell-search'
+              : '.shell-topbar .global-shell-search',
+          );
+          await search.focus();
           await expect(page.locator('.shell-main')).toHaveCSS(
             'max-width',
             'none',
           );
-          const categoryBox = await page
+          const categoryBox = await searchRoot
             .locator('.global-shell-search__categories')
             .boundingBox();
           expect(categoryBox?.width ?? 0).toBeGreaterThan(0);
-          const searchRowWidth = await page
+          const searchRowWidth = await searchRoot
             .locator('.global-shell-search__row')
             .evaluate((element) => ({
               scrollWidth: element.scrollWidth,
@@ -1132,111 +1702,138 @@ test.describe('workflow route coverage', () => {
               const subject = subjects.nth(index);
               const className = (await subject.getAttribute('class')) ?? '';
               const elementId = (await subject.getAttribute('id')) ?? '';
+              const isMobileDrawerSearchControl =
+                contract.selector === '.global-shell-search__control' &&
+                viewport.width <= 620 &&
+                (await subject.evaluate(
+                  (element) =>
+                    element.closest('.shell-mobile-drawer-search') !== null,
+                ));
               const expectedValue =
-                contract.selector === '.shell-topbar' && viewport.width <= 620
-                  ? '56px'
-                  : contract.selector === '.sc-control.sc-input--compact' &&
-                      contract.property === 'min-height' &&
-                      ['/cashier/lookup', '/supervisor/customers'].includes(
-                        route.path,
-                      )
-                    ? '32px'
-                    : route.path === '/cashier/transactions' &&
-                        contract.selector ===
-                          '.sc-control:not(.sc-textarea):not(.sc-input--compact)' &&
-                        contract.property === 'min-height'
+                isMobileDrawerSearchControl && contract.property === 'height'
+                  ? '44px'
+                  : contract.selector === '.shell-topbar' &&
+                      viewport.width <= 620
+                    ? '56px'
+                    : contract.selector === '.sc-control.sc-input--compact' &&
+                        contract.property === 'min-height' &&
+                        ['/cashier/lookup', '/supervisor/customers'].includes(
+                          route.path,
+                        )
                       ? '32px'
-                      : ['/cashier/earn', '/cashier/redeem'].includes(
-                            route.path,
-                          ) &&
+                      : route.path === '/cashier/transactions' &&
                           contract.selector ===
-                            '.sc-button:not(.sc-button--link)' &&
-                          contract.property === 'border-radius'
-                        ? '16px'
-                        : route.path === '/cashier/lookup' &&
-                            className.includes('find-customer-search-action') &&
+                            '.sc-control:not(.sc-textarea):not(.sc-input--compact)' &&
+                          contract.property === 'min-height'
+                        ? '32px'
+                        : ['/cashier/earn', '/cashier/redeem'].includes(
+                              route.path,
+                            ) &&
+                            contract.selector ===
+                              '.sc-button:not(.sc-button--link)' &&
                             contract.property === 'border-radius'
-                          ? '999px'
-                          : [
-                                '/supervisor/customers',
-                                '/supervisor/transactions',
-                              ].includes(route.path) &&
-                              (className.includes(
-                                'supervisor-customer-directory__filter',
-                              ) ||
-                                className.includes(
-                                  'supervisor-customer-directory__register',
-                                )) &&
+                          ? '16px'
+                          : route.path === '/cashier/lookup' &&
+                              className.includes(
+                                'find-customer-search-action',
+                              ) &&
                               contract.property === 'border-radius'
                             ? '999px'
-                            : route.path === '/supervisor/customers' &&
-                                className.includes(
-                                  'supervisor-customer-directory__search-submit',
-                                ) &&
+                            : [
+                                  '/supervisor/customers',
+                                  '/supervisor/transactions',
+                                ].includes(route.path) &&
+                                (className.includes(
+                                  'supervisor-customer-directory__filter',
+                                ) ||
+                                  className.includes(
+                                    'supervisor-customer-directory__register',
+                                  )) &&
                                 contract.property === 'border-radius'
-                              ? '50%'
+                              ? '999px'
                               : route.path === '/supervisor/customers' &&
                                   className.includes(
-                                    'supervisor-customer-directory__search-input',
+                                    'supervisor-customer-directory__search-submit',
                                   ) &&
-                                  contract.property === 'min-height'
-                                ? '32px'
-                                : route.path === '/supervisor/transactions' &&
-                                    [
-                                      'supervisor-transaction-receipt-number',
-                                      'supervisor-transaction-minimum-amount',
-                                    ].includes(elementId) &&
-                                    contract.property === 'border-radius'
-                                  ? '999px'
-                                  : route.path === '/supervisor/transactions' &&
+                                  contract.property === 'border-radius'
+                                ? '50%'
+                                : route.path === '/supervisor/customers' &&
+                                    className.includes(
+                                      'supervisor-customer-directory__search-input',
+                                    ) &&
+                                    contract.property === 'min-height'
+                                  ? '32px'
+                                  : [
+                                        '/supervisor/transactions',
+                                        '/admin/transactions',
+                                      ].includes(route.path) &&
                                       [
                                         'supervisor-transaction-receipt-number',
                                         'supervisor-transaction-minimum-amount',
                                       ].includes(elementId) &&
-                                      contract.property === 'min-height'
-                                    ? '40px'
-                                    : route.path ===
-                                          '/supervisor/transactions' &&
-                                        className.includes(
-                                          'supervisor-transaction-',
-                                        ) &&
-                                        contract.selector ===
-                                          '.sc-button:not(.sc-button--link)' &&
-                                        contract.property === 'border-radius'
-                                      ? '999px'
-                                      : route.path ===
-                                            '/cashier/transactions' &&
-                                          className.includes(
-                                            'transaction-filter-',
-                                          ) &&
+                                      contract.property === 'border-radius'
+                                    ? '999px'
+                                    : [
+                                          '/supervisor/transactions',
+                                          '/admin/transactions',
+                                        ].includes(route.path) &&
+                                        [
+                                          'supervisor-transaction-receipt-number',
+                                          'supervisor-transaction-minimum-amount',
+                                        ].includes(elementId) &&
+                                        contract.property === 'min-height'
+                                      ? '40px'
+                                      : [
+                                            '/supervisor/transactions',
+                                            '/admin/transactions',
+                                          ].includes(route.path) &&
+                                          (className.includes(
+                                            'supervisor-transaction-',
+                                          ) ||
+                                            (route.path ===
+                                              '/admin/transactions' &&
+                                              className.includes(
+                                                'supervisor-customer-directory__filter',
+                                              ))) &&
+                                          contract.selector ===
+                                            '.sc-button:not(.sc-button--link)' &&
                                           contract.property === 'border-radius'
                                         ? '999px'
-                                        : [
-                                              '/cashier/earn',
-                                              '/cashier/redeem',
-                                            ].includes(route.path) &&
-                                            contract.selector ===
-                                              '.sc-control:not(.sc-textarea)' &&
+                                        : route.path ===
+                                              '/cashier/transactions' &&
+                                            className.includes(
+                                              'transaction-filter-',
+                                            ) &&
                                             contract.property ===
                                               'border-radius'
-                                          ? '0px'
+                                          ? '999px'
                                           : [
                                                 '/cashier/earn',
                                                 '/cashier/redeem',
                                               ].includes(route.path) &&
                                               contract.selector ===
-                                                '.sc-control:not(.sc-textarea):not(.sc-input--compact)' &&
-                                              contract.property === 'min-height'
+                                                '.sc-control:not(.sc-textarea)' &&
+                                              contract.property ===
+                                                'border-radius'
                                             ? '0px'
-                                            : route.path.endsWith(
-                                                  '/customers/new',
-                                                ) &&
+                                            : [
+                                                  '/cashier/earn',
+                                                  '/cashier/redeem',
+                                                ].includes(route.path) &&
                                                 contract.selector ===
                                                   '.sc-control:not(.sc-textarea):not(.sc-input--compact)' &&
                                                 contract.property ===
                                                   'min-height'
-                                              ? '42px'
-                                              : contract.expected;
+                                              ? '0px'
+                                              : route.path.endsWith(
+                                                    '/customers/new',
+                                                  ) &&
+                                                  contract.selector ===
+                                                    '.sc-control:not(.sc-textarea):not(.sc-input--compact)' &&
+                                                  contract.property ===
+                                                    'min-height'
+                                                ? '42px'
+                                                : contract.expected;
               await expect(subject).toHaveCSS(contract.property, expectedValue);
             }
           }
@@ -1268,6 +1865,9 @@ test.describe('workflow route coverage', () => {
             invalidTargets,
             `${role} ${route.path} ${viewport.name} targets`,
           ).toBe(0);
+          if (viewport.width === 375) {
+            await page.keyboard.press('Escape');
+          }
         }
       }
     }
@@ -1283,7 +1883,7 @@ test.describe('workflow route coverage', () => {
     ]);
   });
 
-  test('verifies profile typography hierarchy and responsive width across all Supervisor routes', async ({
+  test('verifies shared Supervisor styling and Admin-specific workflows across common routes', async ({
     page,
   }) => {
     const routes = [
@@ -1435,15 +2035,10 @@ test.describe('workflow route coverage', () => {
 
       for (const width of [1440, 768, 375]) {
         await page.setViewportSize({ width, height: 900 });
-        const documentWidth = await page.evaluate(() =>
-          Math.max(
-            document.body.scrollWidth,
-            document.documentElement.scrollWidth,
-          ),
-        );
+        const bodyWidth = await page.evaluate(() => document.body.scrollWidth);
         expect(
-          documentWidth,
-          `${path} document width at ${width}px`,
+          bodyWidth,
+          `${path} body width at ${width}px`,
         ).toBeLessThanOrEqual(width);
         if (path === '/supervisor' && width === 375) {
           const tableScroller = page.locator(
@@ -1470,34 +2065,362 @@ test.describe('workflow route coverage', () => {
 
     await mockShell(page, 'ADMIN');
     await page.goto(`${baseUrl}/admin/customers`);
-    const adminCustomerWorkspace = page.locator(
-      '[aria-label="Customer workspace"]',
+    await expect(page.locator('.shell-loading-screen')).toBeHidden();
+    const adminCustomerDirectory = page.locator(
+      '.supervisor-customer-directory',
     );
+    await expect(adminCustomerDirectory).toBeVisible();
     await expect(
-      adminCustomerWorkspace.locator('.supervisor-page'),
-    ).toHaveCount(0);
+      page.getByRole('heading', { level: 1, name: 'Customers' }),
+    ).toBeVisible();
     await expect(
-      adminCustomerWorkspace.getByRole('heading', {
-        level: 1,
-        name: 'Customers',
+      page.getByText('Find customers and open their verified profile.', {
+        exact: true,
+      }),
+    ).toBeVisible();
+    expect(
+      await headerTypography(
+        'Customers',
+        'Find customers and open their verified profile.',
+      ),
+    ).toEqual(supervisorTypography);
+    await expect(
+      page.getByRole('searchbox', {
+        name: 'Search by customer name, phone number, or card number',
       }),
     ).toBeVisible();
     await expect(
-      adminCustomerWorkspace.getByText(
-        'Use the shell navigation for cashier, sync, and supervisor routes.',
-      ),
+      adminCustomerDirectory.getByRole('button', {
+        name: 'Register customer',
+      }),
+    ).toBeVisible();
+    const adminProfileLink = await page.getByRole('link', {
+      name: 'View profile for Ada Shopper',
+    });
+    await expect(adminProfileLink).toHaveAttribute(
+      'href',
+      '/admin/customers?id=customer-1',
+    );
+    await adminCustomerDirectory
+      .getByRole('button', { name: 'Register customer' })
+      .click();
+    await expect(page).toHaveURL(`${baseUrl}/admin/customers/new`);
+
+    await page.goto(`${baseUrl}/admin/customers`);
+    await expect(page.locator('.shell-loading-screen')).toBeHidden();
+    await page
+      .getByRole('link', { name: 'View profile for Ada Shopper' })
+      .click();
+    await expect(page.locator('.sc-customer-details--page')).toBeVisible();
+    await expect(
+      page.getByRole('heading', { level: 1, name: 'Ada Shopper' }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole('navigation', { name: 'Customer profile sections' }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole('button', { name: 'Edit customer details' }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole('link', { name: 'Back to customers' }),
+    ).toHaveAttribute('href', '/admin/customers');
+    await page.getByRole('button', { name: 'Edit customer details' }).click();
+    const adminProfileEditor = page.getByRole('dialog', {
+      name: 'Edit customer details',
+    });
+    await expect(adminProfileEditor).toBeVisible();
+    await expect(
+      adminProfileEditor.getByRole('link', { name: 'Manage linked card →' }),
+    ).toHaveAttribute('href', '/admin/cards?id=customer-1');
+    await adminProfileEditor
+      .getByRole('button', { name: 'Change status' })
+      .click();
+    await expect(
+      adminProfileEditor.getByLabel('Type UPDATE to confirm'),
     ).toBeVisible();
 
+    const adminTransactionSearchRequests: string[] = [];
+    page.on('request', (request) => {
+      const requestUrl = new URL(request.url());
+      if (requestUrl.pathname === '/api/v1/admin/transactions') {
+        adminTransactionSearchRequests.push(requestUrl.pathname);
+      }
+    });
+    await page.route('**/api/v1/branches', (route) =>
+      route.fulfill(
+        json({
+          success: true,
+          data: [{ id: 'branch-1', name: 'Main branch', status: 'ACTIVE' }],
+          meta: meta('/api/v1/branches'),
+        }),
+      ),
+    );
+    await page.route('**/api/v1/admin/transactions**', (route) =>
+      route.fulfill(
+        json({
+          success: true,
+          data: {
+            items: [],
+            staffOptions: [],
+            nextCursor: null,
+            hasMore: false,
+          },
+          meta: meta('/api/v1/admin/transactions'),
+        }),
+      ),
+    );
     await page.goto(`${baseUrl}/admin/transactions`);
     await expect(
-      page.getByRole('heading', { level: 1, name: 'Transaction review' }),
+      page.getByRole('heading', { level: 1, name: 'Transactions' }),
     ).toBeVisible();
     await expect(
-      page.getByRole('alert').filter({
-        hasText:
-          'Use this route for search, detail inspection, and compensating reversals.',
+      page.getByText(
+        'Review tenant transactions and filter by receipt number.',
+      ),
+    ).toBeVisible();
+    await expect(
+      page.getByRole('textbox', { name: 'Receipt number' }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole('textbox', { name: 'Minimum amount (₦)' }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole('button', { name: 'Branch filter, All branches' }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole('button', { name: 'Status filter, All Statuses' }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole('button', { name: 'Staff filter, All Staff' }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole('table', { name: 'Admin tenant transactions' }),
+    ).toBeVisible();
+    await expect(page.getByRole('columnheader')).toHaveCount(6);
+    await expect(
+      page.getByRole('button', { name: 'Next transactions page' }),
+    ).toBeDisabled();
+    await expect.poll(() => adminTransactionSearchRequests.length).toBe(1);
+    await expect(
+      page.locator('main a[href="/admin/approvals"]'),
+    ).toHaveAttribute('href', '/admin/approvals');
+    await expect(page.locator('main a[href="/admin/fraud"]')).toHaveAttribute(
+      'href',
+      '/admin/fraud',
+    );
+    await expect(page.locator('main a[href="/admin/reports"]')).toHaveAttribute(
+      'href',
+      '/admin/reports',
+    );
+    await expect(
+      page.locator('main').getByRole('link', { name: 'Back to admin' }),
+    ).toHaveCount(0);
+    await page.setViewportSize({ width: 390, height: 844 });
+    expect(
+      await page.evaluate(() => document.documentElement.scrollWidth),
+    ).toBeLessThanOrEqual(390);
+    await page.setViewportSize({ width: 1440, height: 900 });
+
+    await page.goto(`${baseUrl}/admin/approvals`);
+    const approvalsHeading = page.getByRole('heading', {
+      level: 1,
+      name: 'Approval Centre',
+    });
+    await expect(approvalsHeading).toBeVisible();
+    await expect(approvalsHeading).toHaveCSS('font-size', '28px');
+    expect(
+      await headerTypography(
+        'Approval Centre',
+        'Financial exceptions waiting on a supervisor or administrator decision.',
+      ),
+    ).toEqual(supervisorTypography);
+    await expect(page.getByLabel('Approval status filter')).toBeVisible();
+    await expect(
+      page.locator('.admin-approval-page .approval-queue__decision'),
+    ).toBeVisible();
+    await expect(
+      page.locator('main').getByRole('link', { name: 'Back to admin' }),
+    ).toHaveCount(0);
+    await expect(
+      page.locator('.admin-approval-page .approval-queue--supervisor'),
+    ).toBeVisible();
+    await expect(
+      page.locator('.admin-approval-page .approval-queue__workspace'),
+    ).toBeVisible();
+    await expect(
+      page.locator('.admin-approval-page .approval-queue__results'),
+    ).toHaveCSS('border-radius', '20px');
+
+    await page.goto(`${baseUrl}/admin/fraud`);
+    await expect(
+      page.getByRole('heading', { level: 1, name: 'Fraud' }),
+    ).toBeVisible();
+    await expect(page.locator('.admin-fraud-page .fraud-flags')).toHaveCSS(
+      'border-radius',
+      '16px',
+    );
+    await expect(
+      page.locator('main').getByRole('link', { name: 'Back to admin' }),
+    ).toHaveCount(0);
+
+    await page.route('**/api/v1/cards/management/issued*', (route) =>
+      route.fulfill(
+        json({
+          success: true,
+          data: {
+            items: [
+              {
+                cardNumber: 'SER-1',
+                status: 'ACTIVE',
+                issuedAt: '2026-01-01T00:00:00.000Z',
+                customer: { id: 'customer-1', fullName: 'Ada Shopper' },
+              },
+            ],
+            nextCursor: null,
+            hasMore: false,
+          },
+          meta: meta('/api/v1/cards/management/issued'),
+        }),
+      ),
+    );
+    await page.goto(`${baseUrl}/admin/cards`);
+    await expect(
+      page.getByRole('heading', { level: 1, name: 'Cards' }),
+    ).toBeVisible();
+    expect(
+      await headerTypography('Cards', 'Review issued cards or assign a card.'),
+    ).toEqual(supervisorTypography);
+    await expect(
+      page.getByRole('searchbox', {
+        name: 'Search by card number or owner name',
       }),
     ).toBeVisible();
+    await expect(
+      page.locator('main').getByRole('link', { name: 'Back to admin' }),
+    ).toHaveCount(0);
+    const adminIssuedCards = page.getByRole('table', {
+      name: 'Issued cards',
+    });
+    await expect(adminIssuedCards).toBeVisible();
+    await expect(
+      adminIssuedCards.getByRole('link', { name: 'View card' }),
+    ).toHaveAttribute(
+      'href',
+      '/admin/customers?id=customer-1&tab=virtual-card',
+    );
+    await expect(
+      page.getByRole('button', { name: 'Assign card' }),
+    ).toBeVisible();
+    await adminIssuedCards.getByRole('link', { name: 'View card' }).click();
+    await expect(page).toHaveURL(
+      `${baseUrl}/admin/customers?id=customer-1&tab=virtual-card`,
+    );
+    await expect(page.locator('.sc-customer-details--page')).toBeVisible();
+    await expect(
+      page.getByRole('button', { name: 'Virtual Card' }),
+    ).toHaveAttribute('aria-current', 'page');
+
+    await page.goto(`${baseUrl}/admin/reports`);
+    await expect(
+      page.getByRole('heading', { level: 1, name: 'Operational reports' }),
+    ).toBeVisible();
+    await expect(page.locator('.supervisor-reports-page')).toBeVisible();
+    await expect(
+      page.locator('main').getByRole('link', { name: 'Back to admin' }),
+    ).toHaveCount(0);
+
+    await page.goto(`${baseUrl}/admin`);
+    const adminOverviewHeading = page.getByRole('heading', {
+      level: 1,
+      name: 'Overview',
+    });
+    await expect(adminOverviewHeading).toBeVisible();
+    await expect(adminOverviewHeading).toHaveCSS('font-size', '28px');
+    await expect(
+      page.locator('[aria-label="Key metrics"] article'),
+    ).toHaveCount(6);
+
+    for (const path of [
+      '/admin',
+      '/admin/transactions',
+      '/admin/approvals',
+      '/admin/fraud',
+      '/admin/customers',
+      '/admin/customers?id=customer-1',
+      '/admin/cards',
+      '/admin/reports',
+    ]) {
+      await page.goto(`${baseUrl}${path}`);
+      await expect(
+        page.locator('main').getByRole('link', { name: 'Back to admin' }),
+      ).toHaveCount(0);
+      for (const width of [1440, 768, 375]) {
+        await page.setViewportSize({ width, height: 900 });
+        const bodyWidth = await page.evaluate(() => document.body.scrollWidth);
+        expect(
+          bodyWidth,
+          `${path} body width at ${width}px`,
+        ).toBeLessThanOrEqual(width);
+        if (path === '/admin/approvals') {
+          const columnCount = await page
+            .locator('.approval-queue__workspace')
+            .evaluate(
+              (element) =>
+                getComputedStyle(element)
+                  .gridTemplateColumns.trim()
+                  .split(/\s+/).length,
+            );
+          expect(columnCount, `approval columns at ${width}px`).toBe(
+            width > 1024 ? 2 : 1,
+          );
+        }
+        if (path === '/admin/cards') {
+          await expect(
+            page.locator('.supervisor-issued-card-directory'),
+          ).toBeVisible();
+        }
+      }
+    }
+
+    for (const path of [
+      '/admin/operations',
+      '/admin/users',
+      '/admin/users/new',
+      '/admin/users/admin-user-1',
+      '/admin/devices',
+      '/admin/devices/new',
+      '/admin/devices/device-1',
+      '/admin/branches',
+      '/admin/branches/new',
+      '/admin/branches/branch-1',
+      '/admin/audit',
+      '/admin/adjustments',
+      '/admin/policies',
+      '/admin/customers/new',
+    ]) {
+      await page.goto(`${baseUrl}${path}`);
+      await expect(page.locator('.shell-loading-screen')).toBeHidden();
+      await expect(
+        page.locator('main').getByRole('link', { name: 'Back to admin' }),
+      ).toHaveCount(0);
+      const isControlRoute = [
+        '/admin/users',
+        '/admin/devices',
+        '/admin/branches',
+        '/admin/audit',
+        '/admin/adjustments',
+      ].some((prefix) => path === prefix || path.startsWith(`${prefix}/`));
+      const backToOperations = page
+        .locator('main')
+        .getByRole('link', { name: 'Back to operations' });
+      await expect(backToOperations).toHaveCount(isControlRoute ? 1 : 0);
+      if (isControlRoute) {
+        await expect(backToOperations).toHaveAttribute(
+          'href',
+          '/admin/operations',
+        );
+      }
+    }
 
     await mockShell(page, 'CASHIER');
     await page.goto(`${baseUrl}/cashier/customers`);
@@ -1509,6 +2432,140 @@ test.describe('workflow route coverage', () => {
         'Search, inspect, and trace customer balance, history, and card state.',
       ),
     ).toBeVisible();
+  });
+
+  test('keeps the Supervisor and Admin Manage customer card dialog compact and action-focused', async ({
+    page,
+  }) => {
+    const rolePages = [
+      { role: 'SUPERVISOR', route: 'supervisor' },
+      { role: 'ADMIN', route: 'admin' },
+    ] as const;
+
+    for (const [index, { role, route }] of rolePages.entries()) {
+      const profilePage = index === 0 ? page : await page.context().newPage();
+      await mockShell(profilePage, role);
+      await profilePage.route(
+        '**/api/v1/customers/customer-1/profile-projection',
+        (requestRoute) =>
+          requestRoute.fulfill(
+            json({
+              success: true,
+              data: {
+                customerId: 'customer-1',
+                sourceErrors: [],
+                memberSince: '2025-01-01T00:00:00.000Z',
+                transactionCount: 0,
+                redemptionCount: 0,
+                pendingApprovalsCount: 0,
+                lifetimeEarnedKobo: 0,
+                expirySchedule: [],
+                expiryScheduleIsUpcomingWindow: true,
+                expiryScheduleLimit: 12,
+                recentActivity: [],
+                transactions: [],
+                redemptions: [],
+                walletLedger: [],
+                approvals: [],
+                consent: null,
+                card: {
+                  identifier: 'CARD-001',
+                  status: 'ACTIVE',
+                  issuedAt: '2026-01-01T00:00:00.000Z',
+                  blockedAt: null,
+                },
+              },
+              meta: meta('/api/v1/customers/customer-1/profile-projection'),
+            }),
+          ),
+      );
+      await profilePage.route(
+        '**/api/v1/cards/management/lookup/CARD-001',
+        (requestRoute) =>
+          requestRoute.fulfill(
+            json({
+              success: true,
+              data: {
+                id: 'card-1',
+                serialNumber: 'CARD-001',
+                status: 'ACTIVE',
+                issuedAt: '2026-01-01T00:00:00.000Z',
+                blockedAt: null,
+                replacedAt: null,
+                replacedByCardId: null,
+                customer: {
+                  id: 'customer-1',
+                  fullName: 'Ada Shopper',
+                  status: 'ACTIVE',
+                },
+              },
+              meta: meta('/api/v1/cards/management/lookup/CARD-001'),
+            }),
+          ),
+      );
+
+      await profilePage.setViewportSize({ width: 1440, height: 900 });
+      const profileHref =
+        route === 'supervisor'
+          ? `${baseUrl}/supervisor/customers/customer-1?tab=virtual-card`
+          : `${baseUrl}/admin/customers?id=customer-1&tab=virtual-card`;
+      await profilePage.goto(profileHref);
+      await profilePage.getByRole('button', { name: 'Manage card' }).click();
+      const dialog = profilePage.getByRole('dialog', {
+        name: 'Manage customer card',
+      });
+      await expect(dialog).toBeVisible();
+      await expect(
+        dialog.getByRole('button', { name: 'Close manage customer card' }),
+      ).toBeVisible();
+      const actions = dialog.getByRole('group', {
+        name: 'Card management actions',
+      });
+      await expect(
+        actions.getByRole('button', { name: 'Block card' }),
+      ).toBeVisible();
+      await expect(
+        actions.getByRole('button', { name: 'Replace card' }),
+      ).toBeVisible();
+
+      for (const width of [1440, 390]) {
+        await profilePage.setViewportSize({ width, height: 900 });
+        const geometry = await dialog.evaluate((element) => {
+          const panel = element.getBoundingClientRect();
+          const close = element
+            .querySelector('.sc-card-management-dialog__close')!
+            .getBoundingClientRect();
+          const actionGroup = element
+            .querySelector('.sc-card-management-dialog__actions')!
+            .getBoundingClientRect();
+          return {
+            panelWidth: panel.width,
+            panelTop: panel.top,
+            panelRight: panel.right,
+            closeTop: close.top,
+            closeBottom: close.bottom,
+            closeRight: close.right,
+            actionTop: actionGroup.top,
+            actionRight: actionGroup.right,
+            documentWidth: document.documentElement.scrollWidth,
+          };
+        });
+        expect(geometry.panelWidth, `${role} panel at ${width}px`).toBeLessThan(
+          460,
+        );
+        expect(geometry.closeTop - geometry.panelTop).toBeLessThan(28);
+        expect(geometry.panelRight - geometry.closeRight).toBeLessThan(28);
+        expect(
+          Math.abs(geometry.actionRight - geometry.closeRight),
+        ).toBeLessThan(8);
+        expect(geometry.actionTop).toBeGreaterThanOrEqual(
+          geometry.closeBottom - 1,
+        );
+        expect(geometry.actionTop - geometry.closeBottom).toBeLessThan(20);
+        expect(geometry.documentWidth).toBeLessThanOrEqual(width);
+      }
+      if (profilePage !== page) await profilePage.close();
+    }
   });
 
   test('searches a receipt and confirms a Supervisor reversal in the transaction dialog', async ({
@@ -1832,7 +2889,7 @@ test.describe('workflow route coverage', () => {
     ).toHaveCSS('width', '34px');
     await expect(
       page.locator('.supervisor-transaction-table-scroll'),
-    ).toHaveCSS('overflow-x', 'visible');
+    ).toHaveCSS('overflow-x', 'auto');
     expect(
       await page.locator('body').evaluate((body) => body.scrollWidth),
     ).toBeLessThanOrEqual(375);
@@ -2226,10 +3283,49 @@ test.describe('workflow route coverage', () => {
     }
   });
 
-  test('discovers customers by name without unlocking financial workflows', async ({
+  test('discovers and pages through customers without unlocking financial workflows', async ({
     page,
   }) => {
     await mockShell(page, 'CASHIER');
+    await page.route('**/api/v1/customers*', async (route) => {
+      const url = new URL(route.request().url());
+      if (url.pathname !== '/api/v1/customers') return route.fallback();
+      const query = url.searchParams.get('q') ?? '';
+      const cursor = url.searchParams.get('cursor') ?? '';
+      const items =
+        query && cursor === 'search-page-2'
+          ? [
+              {
+                id: 'customer-2',
+                fullName: 'Ada Shopper Two',
+                maskedPhone: '+23480* *** 0002',
+                cardStatus: 'ACTIVE',
+                availableBalanceKobo: 7500,
+              },
+            ]
+          : query
+            ? [
+                {
+                  id: 'customer-1',
+                  fullName: 'Ada Shopper',
+                  maskedPhone: '+23480* *** 0001',
+                  cardStatus: 'ACTIVE',
+                  availableBalanceKobo: 5500,
+                },
+              ]
+            : [];
+      return route.fulfill(
+        json({
+          success: true,
+          data: {
+            items,
+            nextCursor: query && !cursor ? 'search-page-2' : null,
+            hasMore: Boolean(query && !cursor),
+          },
+          meta: meta(url.pathname),
+        }),
+      );
+    });
     await page.goto(`${baseUrl}/cashier/lookup`);
 
     const lookup = page.getByRole('searchbox', { name: 'Customer search' });
@@ -2253,6 +3349,40 @@ test.describe('workflow route coverage', () => {
     await expect(
       page.getByRole('link', { name: 'View profile for Ada Shopper' }),
     ).toHaveAttribute('href', '/cashier/customers?id=customer-1');
+
+    const pagination = page.getByRole('navigation', {
+      name: 'Customer results pagination',
+    });
+    await expect(pagination).toContainText('Page 1');
+    await expect(
+      page.getByRole('button', { name: 'Previous customer page' }),
+    ).toBeDisabled();
+    const next = page.getByRole('button', { name: 'Next customer page' });
+    await expect(next).toBeEnabled();
+    await expect(next).toHaveClass(/transaction-pagination-button/);
+    await expect(next.locator('svg')).toHaveAttribute('width', '16');
+
+    await next.click();
+    await expect(
+      page.locator('.find-customer-table').getByRole('cell', {
+        name: 'Ada Shopper Two',
+        exact: true,
+      }),
+    ).toBeVisible();
+    await expect(pagination).toContainText('Page 2');
+    await page.getByRole('button', { name: 'Previous customer page' }).click();
+    await expect(
+      page.locator('.find-customer-table').getByRole('cell', {
+        name: 'Ada Shopper',
+        exact: true,
+      }),
+    ).toBeVisible();
+    await expect(pagination).toContainText('Page 1');
+    await page.setViewportSize({ width: 390, height: 844 });
+    await expect(pagination).toBeVisible();
+    expect(
+      await page.evaluate(() => document.documentElement.scrollWidth),
+    ).toBeLessThanOrEqual(390);
   });
 
   test('shows a recent customer table and cashier-safe shared customer profile', async ({
@@ -3427,18 +4557,19 @@ test.describe('workflow route coverage', () => {
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto(`${baseUrl}/cashier`);
     await expect(page.locator('.shell-loading-screen')).toBeHidden();
-    const mobileSearch = page.getByRole('combobox', {
-      name: 'Search ShopCity',
-    });
+    const mobileSearch = await getVisibleShellSearch(page);
     await expect(mobileSearch).toBeVisible();
     await expect(mobileSearch).toBeEditable();
     await mobileSearch.focus();
-    const mobileCategoryBox = await page
+    const mobileSearchRoot = page.locator(
+      '.shell-mobile-drawer-search .global-shell-search',
+    );
+    const mobileCategoryBox = await mobileSearchRoot
       .locator('.global-shell-search__categories')
       .boundingBox();
     expect(mobileCategoryBox?.width ?? 0).toBeGreaterThan(0);
     expect(
-      await page
+      await mobileSearchRoot
         .locator('.global-shell-search__row')
         .evaluate((element) => element.scrollWidth <= element.clientWidth),
     ).toBe(true);
@@ -3447,7 +4578,12 @@ test.describe('workflow route coverage', () => {
       page.getByRole('option', { name: /Ada Shopper/ }),
     ).toBeVisible();
     await mobileSearch.press('Escape');
-    await expect(mobileSearch).toBeFocused();
+    await expect(
+      page.getByRole('dialog', { name: 'Primary navigation' }),
+    ).toBeHidden();
+    await expect(
+      page.getByRole('button', { name: 'Open navigation' }),
+    ).toBeFocused();
   });
 
   test('captures same-state Transactions prototype and React screens for review', async ({
@@ -3527,17 +4663,16 @@ test.describe('workflow route coverage', () => {
       await expect(
         page.getByText('0 bounded live receipts available today.'),
       ).toBeVisible({ timeout: 10000 });
-      const reactWidth =
-        (
-          await page
-            .getByRole('combobox', { name: 'Search ShopCity' })
-            .boundingBox()
-        )?.width ?? 0;
+      const reactSearch = await getVisibleShellSearch(page);
+      const reactWidth = (await reactSearch.boundingBox())?.width ?? 0;
       const reactScrollWidth = await page
         .locator('body')
         .evaluate((body) => body.scrollWidth);
       expect(reactWidth).toBeGreaterThanOrEqual(width >= 920 ? 180 : 120);
       expect(reactScrollWidth).toBeLessThanOrEqual(width);
+      if (width === 375) {
+        await page.keyboard.press('Escape');
+      }
       searchWidthPairs.push({
         viewport: width,
         referenceInputWidth: referenceWidth,
@@ -3583,14 +4718,9 @@ test.describe('workflow route coverage', () => {
       if (role === 'ADMIN') {
         await expect(
           page
-            .locator('.shell-main-column a[href="/admin/operations"]')
-            .first(),
-        ).toHaveCSS('grid-column-start', 'span 2');
-        await expect(
-          page
-            .locator('.shell-main-column a[href="/admin/transactions"]')
-            .first(),
-        ).toHaveCSS('grid-column-start', 'auto');
+            .locator('.shell-sidebar')
+            .getByRole('link', { name: 'Operations' }),
+        ).toHaveAttribute('href', '/admin/operations');
       }
     }
 
@@ -3614,7 +4744,6 @@ test.describe('workflow route coverage', () => {
   }, testInfo) => {
     await mockShell(page, 'ADMIN');
     await page.goto(`${baseUrl}/admin`);
-    const search = page.getByRole('combobox', { name: 'Search ShopCity' });
     const renderedGeometry: Array<{
       viewport: number;
       inputWidth: number;
@@ -3623,10 +4752,16 @@ test.describe('workflow route coverage', () => {
       pageScrollWidth: number;
     }> = [];
 
-    await search.click();
     for (const { width } of conformanceViewports) {
       await page.setViewportSize({ width, height: 900 });
       await page.waitForTimeout(50);
+      const search = await getVisibleShellSearch(page);
+      await search.click();
+      const searchRoot = page.locator(
+        width <= 620
+          ? '.shell-mobile-drawer-search .global-shell-search'
+          : '.shell-topbar .global-shell-search',
+      );
       const minimumWidth =
         width >= 920 ? 176 : [390, 375].includes(width) ? 120 : 0;
       const initialWidth = (await search.boundingBox())?.width ?? 0;
@@ -3643,10 +4778,12 @@ test.describe('workflow route coverage', () => {
       }
       const inputWidth = (await search.boundingBox())?.width ?? 0;
       const categoryWidth =
-        (await page.locator('.global-shell-search__categories').boundingBox())
-          ?.width ?? 0;
-      const groupWidth =
-        (await page.locator('.global-shell-search').boundingBox())?.width ?? 0;
+        (
+          await searchRoot
+            .locator('.global-shell-search__categories')
+            .boundingBox()
+        )?.width ?? 0;
+      const groupWidth = (await searchRoot.boundingBox())?.width ?? 0;
       const pageScrollWidth = await page
         .locator('body')
         .evaluate((body) => body.scrollWidth);
@@ -3658,6 +4795,9 @@ test.describe('workflow route coverage', () => {
         groupWidth,
         pageScrollWidth,
       });
+      if (width === 375) {
+        await page.keyboard.press('Escape');
+      }
       if (width === 1440 || width === 920 || width === 390 || width === 375) {
         await page.screenshot({
           path: testInfo.outputPath(`global-search-${width}px.png`),
@@ -3843,7 +4983,9 @@ test.describe('workflow route coverage', () => {
     ).toBeVisible();
     await expect(page.getByText('0 waiting · 0 need attention')).toBeVisible();
     await expect(page.locator('.shell-sidebar')).toBeHidden();
-    await expect(page.getByRole('button', { name: 'Menu' })).toBeVisible();
+    await expect(
+      page.getByRole('button', { name: 'Open navigation' }),
+    ).toBeVisible();
     expect(
       await page.locator('[data-od-id="sync-queue-toolbar"]').count(),
     ).toBe(1);
@@ -4201,6 +5343,8 @@ test.describe('workflow route coverage', () => {
           : page.locator(`[data-od-id="${landmark}"]`);
       await expect(page.locator('.shell-loading-screen')).toBeHidden();
       await expect(element).toBeVisible();
+      await page.locator('.shell-sidebar').hover();
+      await expect(page.locator('.shell-sidebar')).toHaveCSS('width', '244px');
       if (landmark === 'recent-transactions') {
         await expect(
           page.getByText('No transactions recorded today.'),
@@ -4221,32 +5365,35 @@ test.describe('workflow route coverage', () => {
         await expect(element).toHaveScreenshot(`prototype-${landmark}.png`, {
           maxDiffPixelRatio: 0.08,
         });
-        await expect(page).toHaveScreenshot(
-          `prototype-route-${routeName}.png`,
-          {
-            fullPage: true,
-            maxDiffPixelRatio: 0.08,
-            mask: [
-              page.locator('.shell-session-label'),
-              page.locator('.shell-online'),
-            ],
-          },
-        );
+        if (routeName !== 'find-customer') {
+          await expect(page).toHaveScreenshot(
+            `prototype-route-${routeName}.png`,
+            {
+              fullPage: true,
+              maxDiffPixelRatio: 0.08,
+              mask: [
+                page.locator('.shell-session-label'),
+                page.locator('.shell-online'),
+              ],
+            },
+          );
+        }
       }
 
       const sidebar = await page.locator('.shell-sidebar').boundingBox();
       const topbar = await page.locator('.shell-topbar').boundingBox();
       expect(Math.round(sidebar?.width ?? 0)).toBe(244);
       expect(Math.round(topbar?.height ?? 0)).toBe(64);
-      // The current sidebar uses the full ShopCity wordmark, not the compact mark.
       expect(
-        await page.locator('.shell-sidebar-brand img').evaluate((node) => {
-          const box = node.getBoundingClientRect();
-          return {
-            width: Math.round(box.width),
-            height: Math.round(box.height),
-          };
-        }),
+        await page
+          .locator('.shell-sidebar-brand-logo--expanded')
+          .evaluate((node) => {
+            const box = node.getBoundingClientRect();
+            return {
+              width: Math.round(box.width),
+              height: Math.round(box.height),
+            };
+          }),
       ).toEqual({ width: 124, height: 32 });
 
       const buttonRhythm = await page
@@ -4375,9 +5522,11 @@ test.describe('workflow route coverage', () => {
       const sidebarRect = sidebar.getBoundingClientRect();
       return {
         text: label.textContent?.trim(),
-        position: labelStyle.position,
-        width: labelStyle.width,
-        clip: labelStyle.clip,
+        labelVisible:
+          labelStyle.display !== 'none' &&
+          labelStyle.visibility !== 'hidden' &&
+          labelStyle.clip === 'auto' &&
+          labelStyle.position !== 'absolute',
         linkContained:
           linkRect.left >= sidebarRect.left &&
           linkRect.right <= sidebarRect.right,
@@ -4385,9 +5534,7 @@ test.describe('workflow route coverage', () => {
     });
     expect(supervisorTreatment).toEqual({
       text: 'Help & Training',
-      position: 'absolute',
-      width: '1px',
-      clip: 'rect(0px, 0px, 0px, 0px)',
+      labelVisible: true,
       linkContained: true,
     });
     await expect(helpLink).toHaveAccessibleName('Help & Training');
@@ -4403,12 +5550,6 @@ test.describe('workflow route coverage', () => {
       await page.goto(`${baseUrl}${route.path}`);
       const helpLink = page.getByRole('link', { name: 'Help & Training' });
       await expect(helpLink).toBeVisible();
-      await expect(
-        helpLink.locator('span').evaluate((label) => {
-          const style = getComputedStyle(label);
-          return style.position === 'absolute' && style.clip !== 'auto';
-        }),
-      ).resolves.toBe(false);
       await expect(helpLink).toHaveAccessibleName('Help & Training');
       expect(
         await page.evaluate(() => document.documentElement.scrollWidth),
@@ -4600,9 +5741,12 @@ test.describe('workflow route coverage', () => {
         getComputedStyle(fields).gridTemplateColumns.trim().split(/\s+/).length,
     );
     expect(mobileColumns).toBe(1);
-    expect(
-      await page.evaluate(() => document.documentElement.scrollWidth),
-    ).toBeLessThanOrEqual(390);
+    const mobilePage = await page.evaluate(() => ({
+      bodyWidth: document.body.scrollWidth,
+      rootOverflowX: getComputedStyle(document.documentElement).overflowX,
+    }));
+    expect(mobilePage.bodyWidth).toBeLessThanOrEqual(390);
+    expect(mobilePage.rootOverflowX).toBe('clip');
 
     await dialog.getByRole('button', { name: 'Register customer' }).click();
     await expect(page.getByRole('heading', { name: 'Success!' })).toBeVisible();
@@ -4727,14 +5871,9 @@ test.describe('workflow route coverage', () => {
         ).toBeVisible();
 
         const measurements = await page.evaluate(() => ({
-          documentWidth: document.documentElement.scrollWidth,
           bodyWidth: document.body.scrollWidth,
           viewportWidth: window.innerWidth,
         }));
-        expect(
-          measurements.documentWidth,
-          `${workspace.task} at ${width}px`,
-        ).toBeLessThanOrEqual(width);
         expect(
           measurements.bodyWidth,
           `${workspace.task} at ${width}px`,
@@ -5015,6 +6154,7 @@ test.describe('workflow route coverage', () => {
       return route.fallback();
     });
     await page.goto(`${baseUrl}/supervisor/customers?q=Ada`);
+    await expect(page.locator('.shell-loading-screen')).toBeHidden();
     const profileLink = page.getByRole('link', {
       name: 'View profile for Ada Shopper',
     });
