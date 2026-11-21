@@ -1,5 +1,7 @@
 # ShopCity Loyalty Platform
 
+> **For hiring managers and technical reviewers:** [Engineering case study — architecture, decisions, code evidence, and outstanding release risks](docs/engineering-case-study.md).
+
 ShopCity is a production-oriented **loyalty store-credit platform for retail operations**. It runs alongside an existing point-of-sale system and provides a controlled source of truth for customer loyalty balances, receipt-linked earning, redemption, approvals, expiry, fraud monitoring, offline capture, device attribution, audit history, and operational reporting.
 
 The platform includes role-specific web applications for **Cashiers, Supervisors, and Administrators**, backed by a NestJS API, PostgreSQL ledger, Supabase authentication, Redis-backed background processing, and an OpenAPI-generated frontend client.
