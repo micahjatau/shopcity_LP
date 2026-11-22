@@ -49,6 +49,15 @@ The additive application schema, guarded POST endpoint, durable invocation recor
 - Report rebuild duration and serverless request budget have not been measured; current design intentionally limits F7 to one tenant per call.
 - Migration and schedule setup have not been applied or validated against Preview.
 
+## Recheck — 2026-11-22 continuation
+
+- The workerless implementation commit is `45d189ef` on `workflow-states-implementation`. No Preview deployment was created, so there is no deployment identifier. The local Supabase link file names the requested candidate ref `nmuedccamqacgszvosvm`, but the CLI project-list request failed with an invalid stored access token; project identity, schema, `_prisma_migrations` history, and existing Supabase Cron inventory remain unverified. No link, remote migration, schedule, or secret operation was performed.
+- Focused local Jest rerun: 4 suites and 87 tests passed. The prior full root and Testcontainers results remain as recorded above. This is not a complete Preview F0–F10 certification or a direct Preview invocation matrix.
+- Fresh isolated web production build passed in 1m50s with 2,590,244 KB maximum RSS. The earlier SIGKILL was not reproduced; its exact cause is not established. One existing React hook-dependency warning remains. The temporary build output was isolated and removed; generated Next config changes were restored.
+- Focused Semgrep registry scan did not complete: the CLI timed out after 30 seconds (exit 124). This is not a passing Semgrep result; source review was performed manually.
+- Vercel CLI confirms `shopcity-api` is under an active Hobby plan. A Preview variable-name-only inventory did not list `SCHEDULER_SECRET`, `SCHEDULER_ENVIRONMENT`, or `SCHEDULED_SMS_NOT_BEFORE`; the `SMS_PROVIDER_MODE` key is listed, but its value and all sensitive values were deliberately not inspected. No deployment or environment change was made.
+- Single-owner cutover remains unverified and is not mechanically enforced globally: `vercel.json` still declares its daily report-materialization Cron, and `src/worker.ts` still starts legacy runtimes when launched. PostgreSQL outbox claims and per-tenant report advisory locks mitigate overlapping work but do not replace an owner inventory or disable competing schedules. Before any Supabase schedule is enabled, the matching legacy owner and Vercel Cron must be disabled and verified; preserve the legacy infrastructure for rollback.
+
 ## Approval
 
 No Production cutover recommendation is made. Any future Production migration, worker retirement, schedule removal, SMS activation, or replay requires a separate explicit approval and a completed Preview evidence package.
