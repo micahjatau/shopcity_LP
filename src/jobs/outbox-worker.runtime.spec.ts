@@ -97,6 +97,7 @@ describe('OutboxWorkerRuntime', () => {
       }),
     );
     expect(smsProvider.getDeliveryReport).toHaveBeenCalledWith('provider-1');
+    expect(smsProvider.send).not.toHaveBeenCalled();
     expect(updateMany).toHaveBeenCalledWith(
       expect.objectContaining({
         // Jest's matcher helpers are dynamically typed.
@@ -1508,6 +1509,8 @@ function prismaStub(overrides: PrismaStubOverrides): PrismaStub {
           findUnique: jest.fn().mockResolvedValue(outboxEvent),
           update: outboxEventUpdate,
         },
+        receipt: { findUnique: receiptFindUnique },
+        redemption: { findUnique: redemptionFindUnique },
         $queryRaw: jest.fn().mockResolvedValue([{ one: 1 }]),
       } as never),
     ),

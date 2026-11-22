@@ -18,6 +18,9 @@ import {
   ScriptedSmsProvider,
 } from '../src/jobs/sms.provider';
 import { ReportMaterializerService } from '../src/modules/reports/report-materializer.service';
+import { FraudRulesService } from '../src/modules/fraud/fraud-rules.service';
+import { FraudService } from '../src/modules/fraud/fraud.service';
+import { OutboxProcessingService } from '../src/modules/outbox-processing/outbox-processing.service';
 
 describe('outbox worker recovery (int)', () => {
   let pgContainer: Awaited<ReturnType<PostgreSqlContainer['start']>>;
@@ -63,6 +66,63 @@ describe('outbox worker recovery (int)', () => {
   afterAll(async () => {
     await prisma?.$disconnect();
     await pgContainer?.stop();
+  }, 120000);
+
+  it('claims fraud events once under overlapping schedules without touching SMS', async () => {
+    const fixture = await createEarnFixture(prisma, `cron-${randomUUID()}`);
+    const fraudEvent = await prisma.outboxEvent.create({
+      data: {
+        tenantId: fixture.tenant.id,
+        aggregateType: 'auth-user',
+        aggregateId: randomUUID(),
+        eventType: 'fraud.evaluate',
+        payload: {},
+      },
+    });
+    const smsEvent = await prisma.outboxEvent.create({
+      data: {
+        tenantId: fixture.tenant.id,
+        aggregateType: 'receipt',
+        aggregateId: randomUUID(),
+        eventType: 'sms.send',
+        payload: {},
+      },
+    });
+    const config = {
+      get: (_key: string, fallback?: number) => fallback ?? 1,
+    } as never;
+    const fraudService = new FraudService(
+      prisma,
+      new FraudRulesService(config),
+      auditService,
+    );
+    const processor = new OutboxProcessingService(prisma, config, fraudService);
+
+    const results = await Promise.all([
+      processor.processBatch(),
+      processor.processBatch(),
+    ]);
+
+    expect(results.reduce((total, result) => total + result.claimed, 0)).toBe(
+      1,
+    );
+    expect(results.reduce((total, result) => total + result.completed, 0)).toBe(
+      1,
+    );
+    await expect(
+      prisma.outboxEvent.findUniqueOrThrow({
+        where: {
+          tenantId_id: { tenantId: fixture.tenant.id, id: fraudEvent.id },
+        },
+      }),
+    ).resolves.toMatchObject({ status: 'COMPLETED' });
+    await expect(
+      prisma.outboxEvent.findUniqueOrThrow({
+        where: {
+          tenantId_id: { tenantId: fixture.tenant.id, id: smsEvent.id },
+        },
+      }),
+    ).resolves.toMatchObject({ status: 'PENDING' });
   }, 120000);
 
   it('keeps Redis empty until the worker publishes committed outbox rows', async () => {

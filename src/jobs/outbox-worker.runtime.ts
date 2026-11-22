@@ -4,7 +4,9 @@ import { OutboxEventStatus, Prisma } from '@prisma/client';
 import { type Job, type Queue, type Worker } from 'bullmq';
 import { workerEnvValidationSchema } from '../config/env.validation';
 import { PrismaService } from '../database/prisma.service';
-import { FraudBehaviorRuntime } from './fraud-behavior.runtime';
+import { AuditService } from '../modules/audit/audit.service';
+import { FraudRulesService } from '../modules/fraud/fraud-rules.service';
+import { FraudService } from '../modules/fraud/fraud.service';
 import { ReportMaterializerService } from '../modules/reports/report-materializer.service';
 import { OUTBOX_RETRY_ATTEMPTS } from './outbox.constants';
 import { createOutboxQueue, publishOutboxEvent } from './outbox.publisher';
@@ -53,29 +55,6 @@ type OutboxClaimRow = {
   id: string;
 };
 
-type FraudSubjectType = 'RECEIPT' | 'REDEMPTION' | 'LEDGER_ENTRY';
-
-type FraudFinding = {
-  ruleCode: string;
-  severity: 'LOW' | 'MEDIUM' | 'HIGH';
-  dedupeKey: string;
-  subjectType: FraudSubjectType;
-  subjectId: string;
-  windowStart: Date;
-  windowEnd?: Date | null;
-  branchId?: string | null;
-  cashierId?: string | null;
-  customerId?: string | null;
-  receiptId?: string | null;
-  ledgerEntryId?: string | null;
-  redemptionId?: string | null;
-  evidence: Record<string, unknown>;
-};
-
-const DEFAULT_PURCHASE_FLAG_THRESHOLD_KOBO = 10_000_000;
-const DEFAULT_PURCHASE_APPROVAL_THRESHOLD_KOBO = 20_000_000;
-const DEFAULT_REDEMPTION_APPROVAL_THRESHOLD_KOBO = 500_000;
-
 export class OutboxWorkerRuntime {
   private readonly logger = new Logger(OutboxWorkerRuntime.name);
   private queue?: Queue;
@@ -86,20 +65,24 @@ export class OutboxWorkerRuntime {
   private activeDeliveryReportPoll?: Promise<void>;
   private started = false;
   private stopping = false;
-  private readonly fraudBehaviorService: FraudBehaviorRuntime;
+  private readonly fraudService: FraudService;
 
   constructor(
     private readonly prisma: PrismaService,
     private readonly config: WorkerConfig,
     private readonly smsProvider: SmsProvider,
-    fraudBehaviorService?: FraudBehaviorRuntime,
+    _legacyFraudBehaviorService?: unknown,
     private readonly reportMaterializerService?: ReportMaterializerService,
+    fraudService?: FraudService,
   ) {
-    this.fraudBehaviorService =
-      fraudBehaviorService ??
-      new FraudBehaviorRuntime(
+    this.fraudService =
+      fraudService ??
+      new FraudService(
         prisma,
-        new ConfigService(process.env as Record<string, string | undefined>),
+        new FraudRulesService(
+          new ConfigService(process.env as Record<string, string | undefined>),
+        ),
+        new AuditService(prisma),
       );
   }
 
@@ -235,7 +218,7 @@ export class OutboxWorkerRuntime {
       return;
     }
 
-    const poll = this.pollDeliveryReports();
+    const poll = this.pollDeliveryReports().then(() => undefined);
     this.activeDeliveryReportPoll = poll;
     void poll
       .catch(() => {
@@ -250,8 +233,29 @@ export class OutboxWorkerRuntime {
       });
   }
 
-  private async pollDeliveryReports(): Promise<void> {
-    if (!this.smsProvider.getDeliveryReport || this.stopping) return;
+  async pollDeliveryReportsOnce(): Promise<number> {
+    return this.pollDeliveryReports();
+  }
+
+  async processOutboxEvent(data: {
+    id: string;
+    tenantId: string;
+  }): Promise<void> {
+    const job = {
+      data,
+      discard: () => undefined,
+    } as unknown as Job<OutboxJobPayload>;
+    await this.handleJob(job);
+  }
+
+  private async pollDeliveryReports(): Promise<number> {
+    if (
+      !this.smsProvider.getDeliveryReport ||
+      this.smsProvider.supportsDeliveryReports === false ||
+      this.stopping
+    ) {
+      return 0;
+    }
 
     const now = new Date();
     const messages = await this.prisma.smsMessage.findMany({
@@ -279,6 +283,7 @@ export class OutboxWorkerRuntime {
       take: this.config.deliveryReportPollBatchSize,
     });
 
+    let polled = 0;
     for (const message of messages) {
       if (this.stopping || !message.providerMessageId) continue;
 
@@ -301,6 +306,7 @@ export class OutboxWorkerRuntime {
         data: { nextDeliveryReportPollAt: nextPollAt },
       });
       if (claim.count !== 1) continue;
+      polled += 1;
 
       let report: SmsDeliveryReport | null = null;
       try {
@@ -341,6 +347,7 @@ export class OutboxWorkerRuntime {
         });
       }
     }
+    return polled;
   }
 
   private async recoverAndPublishOnce(): Promise<void> {
@@ -886,43 +893,10 @@ export class OutboxWorkerRuntime {
     tenantId: string;
     id: string;
   }): Promise<void> {
-    await this.prisma.$transaction(async (tx) => {
-      await tx.$queryRaw`
-        SELECT 1
-        FROM "OutboxEvent"
-        WHERE "tenantId" = ${outboxEvent.tenantId}
-          AND "id" = ${outboxEvent.id}
-        FOR UPDATE
-      `;
-
-      const latest = await tx.outboxEvent.findUnique({
-        where: {
-          tenantId_id: { tenantId: outboxEvent.tenantId, id: outboxEvent.id },
-        },
-      });
-
-      if (
-        !latest ||
-        latest.processedAt ||
-        latest.status === OutboxEventStatus.COMPLETED
-      ) {
-        return;
-      }
-
-      const processedAt = new Date();
-      await tx.outboxEvent.update({
-        where: {
-          tenantId_id: { tenantId: outboxEvent.tenantId, id: outboxEvent.id },
-        },
-        data: {
-          status: OutboxEventStatus.COMPLETED,
-          processedAt,
-          nextAttemptAt: null,
-        },
-      });
-
-      await this.evaluateFraudForOutboxEvent(latest, tx);
-    });
+    await this.fraudService.processOutboxEvent(
+      outboxEvent.tenantId,
+      outboxEvent.id,
+    );
   }
 
   private async processReportRefreshEvent(outboxEvent: {
@@ -960,368 +934,6 @@ export class OutboxWorkerRuntime {
       materializedAt,
     });
     await this.markOutboxEventCompleted(outboxEvent);
-  }
-
-  private async evaluateFraudForOutboxEvent(
-    outboxEvent: {
-      tenantId: string;
-      aggregateType: string;
-      aggregateId: string;
-      eventType: string;
-      payload: Prisma.JsonValue;
-    },
-    client?: Prisma.TransactionClient,
-  ): Promise<void> {
-    if (outboxEvent.eventType !== 'fraud.evaluate') {
-      return;
-    }
-
-    const payload = normalizeJsonPayload(outboxEvent.payload);
-    if (payload.ruleCode === 'FR-DUP-001') {
-      const branchId =
-        typeof payload.branchId === 'string' ? payload.branchId : '';
-      const cashierId =
-        typeof payload.cashierId === 'string' ? payload.cashierId : '';
-      const customerId =
-        typeof payload.customerId === 'string' ? payload.customerId : '';
-      const normalizedPosReceiptNumber =
-        typeof payload.normalizedPosReceiptNumber === 'string'
-          ? payload.normalizedPosReceiptNumber
-          : '';
-      const receiptWeekStartRaw =
-        typeof payload.receiptWeekStart === 'string'
-          ? payload.receiptWeekStart
-          : new Date().toISOString();
-      const receiptId =
-        typeof payload.originalReceiptId === 'string'
-          ? payload.originalReceiptId
-          : outboxEvent.aggregateId;
-
-      await this.recordFraudFindings(
-        outboxEvent.tenantId,
-        [
-          {
-            ruleCode: 'FR-DUP-001',
-            severity: 'HIGH' as const,
-            dedupeKey: this.dedupeKey(
-              'FR-DUP-001',
-              `${branchId}:${normalizedPosReceiptNumber}:${receiptWeekStartRaw}`,
-            ),
-            subjectType: 'RECEIPT' as const,
-            subjectId: receiptId,
-            windowStart: new Date(receiptWeekStartRaw),
-            branchId,
-            cashierId,
-            customerId,
-            receiptId,
-            evidence: payload,
-          },
-        ],
-        client,
-      );
-      return;
-    }
-
-    if (outboxEvent.aggregateType === 'receipt') {
-      const receipt = await this.prisma.receipt.findUnique({
-        where: {
-          tenantId_id: {
-            tenantId: outboxEvent.tenantId,
-            id: outboxEvent.aggregateId,
-          },
-        },
-      });
-
-      if (!receipt) {
-        throw new Error(
-          `Receipt ${outboxEvent.aggregateId} not found for fraud evaluation`,
-        );
-      }
-
-      const findings = [
-        ...(receipt.purchaseAmountKobo >
-        BigInt(this.purchaseFlagThresholdKobo())
-          ? [
-              {
-                ruleCode: 'FR-HV-001',
-                severity: 'MEDIUM' as const,
-                dedupeKey: this.dedupeKey('FR-HV-001', receipt.id),
-                subjectType: 'RECEIPT' as const,
-                subjectId: receipt.id,
-                windowStart: receipt.receiptWeekStart,
-                branchId: receipt.branchId,
-                cashierId: receipt.capturedBy,
-                customerId: receipt.customerId,
-                receiptId: receipt.id,
-                evidence: {
-                  purchaseAmountKobo: receipt.purchaseAmountKobo.toString(),
-                  thresholdKobo: this.purchaseFlagThresholdKobo(),
-                  normalizedPosReceiptNumber:
-                    receipt.normalizedPosReceiptNumber,
-                  occurredAt: receipt.occurredAt.toISOString(),
-                },
-              },
-            ]
-          : []),
-        ...(receipt.purchaseAmountKobo >
-        BigInt(this.purchaseApprovalThresholdKobo())
-          ? [
-              {
-                ruleCode: 'FR-HV-002',
-                severity: 'HIGH' as const,
-                dedupeKey: this.dedupeKey('FR-HV-002', receipt.id),
-                subjectType: 'RECEIPT' as const,
-                subjectId: receipt.id,
-                windowStart: receipt.receiptWeekStart,
-                branchId: receipt.branchId,
-                cashierId: receipt.capturedBy,
-                customerId: receipt.customerId,
-                receiptId: receipt.id,
-                evidence: {
-                  purchaseAmountKobo: receipt.purchaseAmountKobo.toString(),
-                  thresholdKobo: this.purchaseApprovalThresholdKobo(),
-                  normalizedPosReceiptNumber:
-                    receipt.normalizedPosReceiptNumber,
-                  occurredAt: receipt.occurredAt.toISOString(),
-                },
-              },
-            ]
-          : []),
-        ...(await this.fraudBehaviorService.evaluateReceiptBehavior({
-          tenantId: receipt.tenantId,
-          receiptId: receipt.id,
-          branchId: receipt.branchId,
-          customerId: receipt.customerId,
-          cashierId: receipt.capturedBy,
-          cardId: receipt.cardId,
-          normalizedPosReceiptNumber: receipt.normalizedPosReceiptNumber,
-          receiptWeekStart: receipt.receiptWeekStart,
-          purchaseAmountKobo: receipt.purchaseAmountKobo,
-          occurredAt: receipt.occurredAt,
-        })),
-      ];
-
-      await this.recordFraudFindings(receipt.tenantId, findings, client);
-      return;
-    }
-
-    if (outboxEvent.aggregateType === 'redemption') {
-      const redemption = await this.prisma.redemption.findUnique({
-        where: {
-          tenantId_id: {
-            tenantId: outboxEvent.tenantId,
-            id: outboxEvent.aggregateId,
-          },
-        },
-      });
-
-      if (!redemption) {
-        throw new Error(
-          `Redemption ${outboxEvent.aggregateId} not found for fraud evaluation`,
-        );
-      }
-
-      await this.recordFraudFindings(
-        redemption.tenantId,
-        [
-          ...(redemption.requestedAmountKobo >
-          BigInt(this.redemptionApprovalThresholdKobo())
-            ? [
-                {
-                  ruleCode: 'FR-HV-003',
-                  severity: 'HIGH' as const,
-                  dedupeKey: this.dedupeKey('FR-HV-003', redemption.id),
-                  subjectType: 'REDEMPTION' as const,
-                  subjectId: redemption.id,
-                  windowStart: redemption.requestedAt,
-                  branchId: redemption.branchId,
-                  cashierId: redemption.requestedBy,
-                  customerId: redemption.customerId,
-                  receiptId: redemption.receiptId,
-                  redemptionId: redemption.id,
-                  evidence: {
-                    requestedAmountKobo:
-                      redemption.requestedAmountKobo.toString(),
-                    thresholdKobo: this.redemptionApprovalThresholdKobo(),
-                    occurredAt: redemption.requestedAt.toISOString(),
-                  },
-                },
-              ]
-            : []),
-        ],
-        client,
-      );
-      return;
-    }
-
-    if (outboxEvent.aggregateType === 'card') {
-      const occurredAt = readOutboxOccurredAt(payload);
-      const windowEnd = occurredAt;
-      const windowStart = new Date(
-        windowEnd.getTime() - 30 * 24 * 60 * 60 * 1000,
-      );
-
-      const findings =
-        await this.fraudBehaviorService.evaluateCardReplacementBehavior({
-          tenantId: outboxEvent.tenantId,
-          branchId:
-            typeof payload.branchId === 'string' ? payload.branchId : '',
-          customerId:
-            typeof payload.customerId === 'string' ? payload.customerId : '',
-          cardId:
-            typeof payload.cardId === 'string'
-              ? payload.cardId
-              : outboxEvent.aggregateId,
-          replacementCount: 0,
-          windowStart,
-          windowEnd,
-        });
-
-      await this.recordFraudFindings(outboxEvent.tenantId, findings, client);
-      return;
-    }
-
-    if (outboxEvent.aggregateType === 'reversal') {
-      const occurredAt = readOutboxOccurredAt(payload);
-      const windowEnd = occurredAt;
-      const windowStart = new Date(windowEnd.getTime() - 24 * 60 * 60 * 1000);
-
-      const findings = await this.fraudBehaviorService.evaluateReversalBehavior(
-        {
-          tenantId: outboxEvent.tenantId,
-          branchId:
-            typeof payload.branchId === 'string' ? payload.branchId : '',
-          cashierId:
-            typeof payload.actorId === 'string'
-              ? payload.actorId
-              : typeof payload.cashierId === 'string'
-                ? payload.cashierId
-                : outboxEvent.aggregateId,
-          reversalCount: 0,
-          windowStart,
-          windowEnd,
-        },
-      );
-
-      await this.recordFraudFindings(outboxEvent.tenantId, findings, client);
-      return;
-    }
-
-    if (outboxEvent.aggregateType === 'auth-user') {
-      const occurredAt = readOutboxOccurredAt(payload);
-      const windowEnd = occurredAt;
-      const windowStart = new Date(windowEnd.getTime() - 15 * 60 * 1000);
-
-      const findings = await this.fraudBehaviorService.evaluateAuthFailures({
-        tenantId: outboxEvent.tenantId,
-        userId:
-          typeof payload.userId === 'string'
-            ? payload.userId
-            : outboxEvent.aggregateId,
-        failureCount: 0,
-        windowStart,
-        windowEnd,
-      });
-
-      await this.recordFraudFindings(outboxEvent.tenantId, findings, client);
-    }
-  }
-
-  private async recordFraudFindings(
-    tenantId: string,
-    findings: FraudFinding[],
-    client?: Prisma.TransactionClient,
-  ): Promise<number> {
-    if (findings.length === 0) {
-      return 0;
-    }
-
-    const now = new Date();
-
-    const writeFindings = async (tx: Prisma.TransactionClient) => {
-      for (const finding of findings) {
-        await tx.fraudFlag.upsert({
-          where: {
-            tenantId_dedupeKey: {
-              tenantId,
-              dedupeKey: finding.dedupeKey,
-            },
-          },
-          create: {
-            tenantId,
-            ruleCode: finding.ruleCode,
-            severity: finding.severity,
-            status: 'OPEN',
-            dedupeKey: finding.dedupeKey,
-            subjectType: finding.subjectType,
-            subjectId: finding.subjectId,
-            branchId: finding.branchId ?? null,
-            cashierId: finding.cashierId ?? null,
-            customerId: finding.customerId ?? null,
-            receiptId: finding.receiptId ?? null,
-            ledgerEntryId: finding.ledgerEntryId ?? null,
-            redemptionId: finding.redemptionId ?? null,
-            windowStart: finding.windowStart,
-            windowEnd: finding.windowEnd ?? null,
-            firstDetectedAt: now,
-            lastDetectedAt: now,
-            occurrenceCount: 1,
-            evidence: finding.evidence as Prisma.InputJsonValue,
-          },
-          update: {
-            ruleCode: finding.ruleCode,
-            severity: finding.severity,
-            subjectType: finding.subjectType,
-            subjectId: finding.subjectId,
-            branchId: finding.branchId ?? null,
-            cashierId: finding.cashierId ?? null,
-            customerId: finding.customerId ?? null,
-            receiptId: finding.receiptId ?? null,
-            ledgerEntryId: finding.ledgerEntryId ?? null,
-            redemptionId: finding.redemptionId ?? null,
-            windowStart: finding.windowStart,
-            windowEnd: finding.windowEnd ?? null,
-            lastDetectedAt: now,
-            occurrenceCount: { increment: 1 },
-            evidence: finding.evidence as Prisma.InputJsonValue,
-          },
-        });
-      }
-    };
-
-    if (client) {
-      await writeFindings(client);
-      return findings.length;
-    }
-
-    await this.prisma.$transaction(writeFindings);
-
-    return findings.length;
-  }
-
-  private purchaseFlagThresholdKobo(): number {
-    return parseThresholdKobo(
-      process.env.PURCHASE_FLAG_THRESHOLD_KOBO,
-      DEFAULT_PURCHASE_FLAG_THRESHOLD_KOBO,
-    );
-  }
-
-  private purchaseApprovalThresholdKobo(): number {
-    return parseThresholdKobo(
-      process.env.PURCHASE_APPROVAL_THRESHOLD_KOBO,
-      DEFAULT_PURCHASE_APPROVAL_THRESHOLD_KOBO,
-    );
-  }
-
-  private redemptionApprovalThresholdKobo(): number {
-    return parseThresholdKobo(
-      process.env.REDEMPTION_APPROVAL_THRESHOLD_KOBO,
-      DEFAULT_REDEMPTION_APPROVAL_THRESHOLD_KOBO,
-    );
-  }
-
-  private dedupeKey(ruleCode: string, subjectId: string): string {
-    return `${ruleCode}:${subjectId}`;
   }
 
   private async markOutboxEventCompleted(outboxEvent: {
@@ -1447,26 +1059,6 @@ function readNumberField(
   const value = payload[key];
 
   return typeof value === 'number' && Number.isFinite(value) ? value : fallback;
-}
-
-function readOutboxOccurredAt(payload: Record<string, Prisma.JsonValue>): Date {
-  const occurredAt = payload.occurredAt;
-  if (typeof occurredAt === 'string') {
-    const parsed = new Date(occurredAt);
-    if (!Number.isNaN(parsed.getTime())) {
-      return parsed;
-    }
-  }
-
-  return new Date();
-}
-
-function parseThresholdKobo(
-  value: string | undefined,
-  fallback: number,
-): number {
-  const parsed = Number(value);
-  return Number.isFinite(parsed) ? parsed : fallback;
 }
 
 function mapSmsDispatchResult(

@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { FraudFlagStatus, Prisma } from '@prisma/client';
+import { FraudFlagStatus, OutboxEventStatus, Prisma } from '@prisma/client';
 import { AuditService } from '../audit/audit.service';
 import { PrismaService } from '../../database/prisma.service';
 import { FraudRulesService } from './fraud-rules.service';
@@ -30,6 +30,39 @@ export class FraudService {
     ]);
   }
 
+  async processOutboxEvent(tenantId: string, eventId: string): Promise<number> {
+    return this.prismaService.$transaction(async (tx) => {
+      await tx.$queryRaw`
+        SELECT 1
+        FROM "OutboxEvent"
+        WHERE "tenantId" = ${tenantId} AND "id" = ${eventId}
+        FOR UPDATE
+      `;
+
+      const event = await tx.outboxEvent.findUnique({
+        where: { tenantId_id: { tenantId, id: eventId } },
+      });
+      if (!event || event.eventType !== 'fraud.evaluate') return 0;
+      if (event.processedAt || event.status === OutboxEventStatus.COMPLETED) {
+        return 0;
+      }
+
+      const findings = await this.evaluateOutboxEvent(tx, event);
+      if (findings.length > 0) {
+        await this.upsertFindings(tx, tenantId, findings, new Date());
+      }
+      await tx.outboxEvent.update({
+        where: { tenantId_id: { tenantId, id: eventId } },
+        data: {
+          status: OutboxEventStatus.COMPLETED,
+          processedAt: new Date(),
+          nextAttemptAt: null,
+        },
+      });
+      return findings.length;
+    });
+  }
+
   async evaluateRedemption(input: FraudRedemptionInput): Promise<number> {
     return this.recordFindings(
       input.tenantId,
@@ -40,12 +73,14 @@ export class FraudService {
     );
   }
 
-  private async getConfiguredPolicy(tenantId: string, branchId: string) {
-    if (!this.prismaService.policyConfiguration) {
-      return undefined;
-    }
-
-    const policy = await this.prismaService.policyConfiguration.findUnique({
+  private async getConfiguredPolicy(
+    tenantId: string,
+    branchId: string,
+    client: Pick<Prisma.TransactionClient, 'policyConfiguration'> = this
+      .prismaService,
+  ) {
+    if (!client.policyConfiguration) return undefined;
+    const policy = await client.policyConfiguration.findUnique({
       where: { tenantId_branchId: { tenantId, branchId } },
       select: {
         purchaseFlagThresholdKobo: true,
@@ -169,6 +204,154 @@ export class FraudService {
     ];
   }
 
+  private async evaluateOutboxEvent(
+    tx: Prisma.TransactionClient,
+    event: {
+      tenantId: string;
+      aggregateType: string;
+      aggregateId: string;
+      payload: Prisma.JsonValue;
+    },
+  ): Promise<FraudFinding[]> {
+    const payload = readObject(event.payload);
+    if (payload.ruleCode === 'FR-DUP-001') {
+      const branchId = readString(payload, 'branchId');
+      const normalizedReceipt = readString(
+        payload,
+        'normalizedPosReceiptNumber',
+      );
+      const weekStart = readDate(payload.receiptWeekStart);
+      if (!branchId || !normalizedReceipt || !weekStart) {
+        throw new Error('Invalid duplicate-receipt fraud event payload');
+      }
+      const cashierId = readString(payload, 'cashierId');
+      const customerId = readString(payload, 'customerId');
+      const receiptId =
+        readString(payload, 'originalReceiptId') || event.aggregateId;
+      return [
+        {
+          ruleCode: 'FR-DUP-001',
+          severity: 'HIGH',
+          dedupeKey: `FR-DUP-001:${branchId}:${normalizedReceipt}:${weekStart.toISOString()}`,
+          subjectType: 'RECEIPT',
+          subjectId: receiptId,
+          windowStart: weekStart,
+          branchId,
+          cashierId: cashierId || null,
+          customerId: customerId || null,
+          receiptId,
+          evidence: payload,
+        },
+      ];
+    }
+
+    if (event.aggregateType === 'receipt') {
+      const receipt = await tx.receipt.findUnique({
+        where: {
+          tenantId_id: { tenantId: event.tenantId, id: event.aggregateId },
+        },
+      });
+      if (!receipt) throw new Error(`Receipt ${event.aggregateId} not found`);
+      const policy = await this.getConfiguredPolicy(
+        receipt.tenantId,
+        receipt.branchId,
+        tx,
+      );
+      return this.fraudRulesService.evaluateReceipt(
+        {
+          tenantId: receipt.tenantId,
+          receiptId: receipt.id,
+          branchId: receipt.branchId,
+          customerId: receipt.customerId,
+          cashierId: receipt.capturedBy,
+          cardId: receipt.cardId,
+          normalizedPosReceiptNumber: receipt.normalizedPosReceiptNumber,
+          receiptWeekStart: receipt.receiptWeekStart,
+          purchaseAmountKobo: receipt.purchaseAmountKobo,
+          occurredAt: receipt.occurredAt,
+        },
+        policy,
+      );
+    }
+
+    if (event.aggregateType === 'redemption') {
+      const redemption = await tx.redemption.findUnique({
+        where: {
+          tenantId_id: { tenantId: event.tenantId, id: event.aggregateId },
+        },
+      });
+      if (!redemption) {
+        throw new Error(`Redemption ${event.aggregateId} not found`);
+      }
+      const policy = await this.getConfiguredPolicy(
+        redemption.tenantId,
+        redemption.branchId,
+        tx,
+      );
+      return this.fraudRulesService.evaluateRedemption(
+        {
+          tenantId: redemption.tenantId,
+          redemptionId: redemption.id,
+          receiptId: redemption.receiptId,
+          branchId: redemption.branchId,
+          customerId: redemption.customerId,
+          cashierId: redemption.requestedBy,
+          cardId: redemption.cardId,
+          requestedAmountKobo: redemption.requestedAmountKobo,
+          occurredAt: redemption.requestedAt,
+        },
+        policy,
+      );
+    }
+
+    if (event.aggregateType === 'reversal') {
+      const reversal = await tx.loyaltyLedgerEntry.findUnique({
+        where: {
+          tenantId_id: { tenantId: event.tenantId, id: event.aggregateId },
+        },
+        select: {
+          createdBy: true,
+          createdAt: true,
+          effectiveAt: true,
+          receipt: { select: { branchId: true } },
+        },
+      });
+      if (!reversal) {
+        throw new Error(`Reversal ${event.aggregateId} not found`);
+      }
+      const occurredAt = readDate(payload.occurredAt) ?? reversal.effectiveAt;
+      const cashierId = readString(payload, 'actorId') || reversal.createdBy;
+      const branchId =
+        readString(payload, 'branchId') || reversal.receipt?.branchId || '';
+      const windowStart = new Date(occurredAt.getTime() - 24 * 60 * 60 * 1000);
+      const reversalCount = await tx.loyaltyLedgerEntry.count({
+        where: {
+          tenantId: event.tenantId,
+          createdBy: cashierId,
+          reversesEntryId: { not: null },
+          createdAt: { gte: windowStart, lte: reversal.createdAt },
+        },
+      });
+      return this.fraudRulesService.evaluateReversalFrequency({
+        tenantId: event.tenantId,
+        branchId,
+        cashierId,
+        reversalCount,
+        windowStart,
+        windowEnd: occurredAt,
+      });
+    }
+
+    // Historical card/auth behavior events are terminally consumed but no
+    // longer emit deferred low-confidence findings.
+    if (event.aggregateType === 'card' || event.aggregateType === 'auth-user') {
+      return [];
+    }
+    throw new Error(
+      `Unsupported fraud outbox aggregate: ${event.aggregateType}`,
+    );
+  }
+
   private async upsertFindings(
     tx: {
       fraudFlag: {
@@ -228,4 +411,22 @@ export class FraudService {
       });
     }
   }
+}
+
+function readObject(value: Prisma.JsonValue): Record<string, unknown> {
+  if (value && typeof value === 'object' && !Array.isArray(value)) {
+    return value;
+  }
+  throw new Error('Fraud outbox payload must be an object');
+}
+
+function readString(value: Record<string, unknown>, key: string): string {
+  const field = value[key];
+  return typeof field === 'string' ? field.trim() : '';
+}
+
+function readDate(value: unknown): Date | null {
+  if (typeof value !== 'string') return null;
+  const date = new Date(value);
+  return Number.isNaN(date.valueOf()) ? null : date;
 }

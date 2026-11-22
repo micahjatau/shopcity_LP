@@ -205,3 +205,10 @@ Use these buckets in each migration row so local deploy checks, CI proof, shared
 - Postflight: `prisma migrate status` reports the schema up to date; `_prisma_migrations` contains 60 finished records, zero rolled-back records, and zero incomplete records. Key application tables exist with RLS enabled, and the confirmed-ledger, customer-consent, and marketing-preference append-only delete triggers are present.
 - Initial bootstrap: after migration, the active ShopCity tenant (`00000000-0000-4000-8000-000000000001`) and Main Branch (`00000000-0000-4000-8000-000000000002`) were created, along with the single initial active Admin identity. No demo staff or devices were seeded.
 - Environment follow-up: Vercel Production variables are scoped to this new project; Preview remains scoped to the existing project. The shared `vercel.json` no longer hardcodes the prior database URL, tenant/branch IDs, or Preview CORS origin. The Production deployment has not yet been triggered.
+
+## 2026-11-15 Supabase Cron workerless scheduling (proposed, not applied)
+
+- Migration: `prisma/migrations/20261115120000_supabase_scheduled_job_claims/migration.sql` (additive scheduled-run evidence and cursor/lease tables; both tables enable RLS with no user-facing policies).
+- Status: applied and validated only in disposable local Testcontainers PostgreSQL. The full integration suite passed on 2026-11-22 (35 suites passed, one skipped; 179 tests passed, two skipped), and the scheduled-jobs integration suite was rerun after adding RLS and failure-evidence assertions. Not applied to a developer/shared database, CI environment, Preview, or Production. No shared database changes were made.
+- Backup/restore: not run; a separate restore rehearsal remains required before any shared deployment.
+- Safety: no data backfill/deletion, no financial history modification, no live SMS, and no remote Cron/Vault setup. Preview-only schedule setup is a separate gated operation.

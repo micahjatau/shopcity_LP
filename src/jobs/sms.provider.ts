@@ -31,6 +31,7 @@ export interface SmsDeliveryReport {
 }
 
 export interface SmsProvider {
+  readonly supportsDeliveryReports?: boolean;
   readonly requiresLocalSubmissionReservation?: boolean;
   readonly submissionReservationWindowMs?: number;
   send(input: SmsSendInput): Promise<SmsSendResult>;
@@ -191,6 +192,18 @@ export class SandboxSmsProvider implements SmsProvider {
     return Promise.resolve({
       status: 'SENT',
       providerMessageId: `sandbox-${input.outboxEventId}`,
+    });
+  }
+}
+
+export class DisabledSmsProvider implements SmsProvider {
+  readonly supportsDeliveryReports = false;
+
+  send(): Promise<SmsSendResult> {
+    return Promise.resolve({
+      status: 'FAILED',
+      errorMessage: 'SMS delivery is disabled by configuration',
+      failureCategory: 'terminal',
     });
   }
 }

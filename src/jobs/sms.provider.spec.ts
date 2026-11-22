@@ -8,6 +8,7 @@ import {
   AfricaTalkingSmsProvider,
   ArkeselSmsProvider,
   DeterministicSmsProvider,
+  DisabledSmsProvider,
   EbulkSmsProvider,
   SandboxSmsProvider,
   TermiiSmsProvider,
@@ -1165,6 +1166,31 @@ describe('sms provider selection', () => {
     );
 
     fetchSpy.mockRestore();
+  });
+
+  it('keeps provider calls disabled in production without using credentials', async () => {
+    const fetchSpy = jest.spyOn(globalThis, 'fetch');
+    const provider = createSmsProvider({
+      ...baseEnv(),
+      NODE_ENV: 'production',
+      SMS_PROVIDER_MODE: 'disabled',
+      SMS_PROVIDER_VENDOR: 'termii',
+      TERMII_API_KEY: 'unused-secret',
+      TERMII_SENDER_ID: 'ShopCity',
+    });
+
+    try {
+      expect(provider).toBeInstanceOf(DisabledSmsProvider);
+      await expect(provider.send(smsInput())).resolves.toEqual({
+        status: 'FAILED',
+        errorMessage: 'SMS delivery is disabled by configuration',
+        failureCategory: 'terminal',
+      });
+      expect(provider.supportsDeliveryReports).toBe(false);
+      expect(fetchSpy).not.toHaveBeenCalled();
+    } finally {
+      fetchSpy.mockRestore();
+    }
   });
 
   it('allows sandbox mode through the factory', () => {
