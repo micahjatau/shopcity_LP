@@ -125,6 +125,125 @@ describe('outbox worker recovery (int)', () => {
     ).resolves.toMatchObject({ status: 'PENDING' });
   }, 120000);
 
+  it('keeps multi-tenant fraud outbox dispatch scoped to each tenant', async () => {
+    const tenantA = await prisma.tenant.create({
+      data: { name: `tenant-isolation-a-${randomUUID()}` },
+    });
+    const tenantB = await prisma.tenant.create({
+      data: { name: `tenant-isolation-b-${randomUUID()}` },
+    });
+    const aggregateId = randomUUID();
+    const [eventA, eventB] = await Promise.all([
+      prisma.outboxEvent.create({
+        data: {
+          tenantId: tenantA.id,
+          aggregateType: 'tenant-isolation',
+          aggregateId,
+          eventType: 'fraud.evaluate',
+          payload: {},
+        },
+      }),
+      prisma.outboxEvent.create({
+        data: {
+          tenantId: tenantB.id,
+          aggregateType: 'tenant-isolation',
+          aggregateId,
+          eventType: 'fraud.evaluate',
+          payload: {},
+        },
+      }),
+    ]);
+    const processedPairs: string[] = [];
+    const processOutboxEvent = jest.fn(
+      (tenantId: string, eventId: string): void => {
+        processedPairs.push(`${tenantId}:${eventId}`);
+      },
+    );
+    const processor = new OutboxProcessingService(
+      prisma,
+      { get: (_key: string, fallback?: number) => fallback ?? 10 } as never,
+      { processOutboxEvent } as never,
+    );
+
+    await expect(
+      processor.processBatch('fraud.evaluate'),
+    ).resolves.toMatchObject({
+      claimed: 2,
+      completed: 2,
+      retried: 0,
+      deadLettered: 0,
+    });
+    expect(processedPairs.sort()).toEqual(
+      [`${tenantA.id}:${eventA.id}`, `${tenantB.id}:${eventB.id}`].sort(),
+    );
+    const persisted = await prisma.outboxEvent.findMany({
+      where: { id: { in: [eventA.id, eventB.id] } },
+      select: { tenantId: true, id: true, status: true, attempts: true },
+    });
+    expect(persisted).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          tenantId: tenantA.id,
+          id: eventA.id,
+          status: 'QUEUED',
+          attempts: 1,
+        }),
+        expect.objectContaining({
+          tenantId: tenantB.id,
+          id: eventB.id,
+          status: 'QUEUED',
+          attempts: 1,
+        }),
+      ]),
+    );
+  }, 120000);
+
+  it('dead-letters a tenant-scoped outbox event at the retry limit', async () => {
+    const tenant = await prisma.tenant.create({
+      data: { name: `retry-budget-${randomUUID()}` },
+    });
+    const event = await prisma.outboxEvent.create({
+      data: {
+        tenantId: tenant.id,
+        aggregateType: 'retry-budget',
+        aggregateId: randomUUID(),
+        eventType: 'fraud.evaluate',
+        payload: {},
+        status: 'FAILED',
+        attempts: 4,
+        nextAttemptAt: new Date(Date.now() - 1_000),
+      },
+    });
+    const processOutboxEvent = jest
+      .fn()
+      .mockRejectedValue(new Error('synthetic retry failure'));
+    const processor = new OutboxProcessingService(
+      prisma,
+      { get: (_key: string, fallback?: number) => fallback ?? 10 } as never,
+      { processOutboxEvent } as never,
+    );
+
+    await expect(
+      processor.processBatch('fraud.evaluate'),
+    ).resolves.toMatchObject({
+      claimed: 1,
+      completed: 0,
+      retried: 0,
+      deadLettered: 1,
+    });
+    expect(processOutboxEvent).toHaveBeenCalledWith(tenant.id, event.id);
+    const persisted = await prisma.outboxEvent.findUniqueOrThrow({
+      where: { tenantId_id: { tenantId: tenant.id, id: event.id } },
+    });
+    expect(persisted).toMatchObject({
+      status: 'FAILED',
+      attempts: 5,
+      failureCategory: 'retry-budget-exhausted',
+      nextAttemptAt: null,
+    });
+    expect(persisted.deadLetteredAt).toBeInstanceOf(Date);
+  }, 120000);
+
   it('keeps Redis empty until the worker publishes committed outbox rows', async () => {
     const redisEnv = await createRedisTestEnvironment();
 

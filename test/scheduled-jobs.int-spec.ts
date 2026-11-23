@@ -217,4 +217,133 @@ describe('scheduled job persistence (int)', () => {
     ).rejects.toMatchObject({ code: 'P2002' });
     expect(created.status).toBe('COMPLETED');
   });
+
+  it('executes a concurrent duplicate invocation key once', async () => {
+    let signalEntered!: () => void;
+    let releaseWork!: () => void;
+    const entered = new Promise<void>((resolve) => {
+      signalEntered = resolve;
+    });
+    const gate = new Promise<void>((resolve) => {
+      releaseWork = resolve;
+    });
+    const expireDueCredit = jest.fn(async () => {
+      signalEntered();
+      await gate;
+      return { examined: 1, expiredLots: 1, expiredAmountKobo: 250n };
+    });
+    const service = new ScheduledJobsService(
+      prisma,
+      { get: jest.fn().mockReturnValue('preview') } as unknown as ConfigService,
+      {} as never,
+      { expireDueCredit } as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      {} as never,
+    );
+    const key = `preview:F1:${randomUUID()}`;
+    const first = service.run('F1', key);
+    await entered;
+
+    const concurrent = await service.run('F1', key);
+    expect(concurrent.status).toBe('RUNNING');
+    expect(expireDueCredit).toHaveBeenCalledTimes(1);
+    releaseWork();
+
+    await expect(first).resolves.toMatchObject({ status: 'COMPLETED' });
+    expect(
+      await prisma.scheduledJobRun.count({
+        where: { environment: 'preview', flow: 'F1', idempotencyKey: key },
+      }),
+    ).toBe(1);
+    expect(expireDueCredit).toHaveBeenCalledTimes(1);
+  });
+
+  it('reclaims an invocation stranded in RUNNING after the stale-run window', async () => {
+    const key = `preview:F1:${randomUUID()}`;
+    const staleStartedAt = new Date(Date.now() - 11 * 60_000);
+    await prisma.scheduledJobRun.create({
+      data: {
+        environment: 'preview',
+        flow: 'F1',
+        idempotencyKey: key,
+        status: 'RUNNING',
+        startedAt: staleStartedAt,
+      },
+    });
+    const expireDueCredit = jest.fn().mockResolvedValue({
+      examined: 1,
+      expiredLots: 1,
+      expiredAmountKobo: 250n,
+    });
+    const service = new ScheduledJobsService(
+      prisma,
+      { get: jest.fn().mockReturnValue('preview') } as unknown as ConfigService,
+      {} as never,
+      { expireDueCredit } as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      {} as never,
+    );
+
+    const result = await service.run('F1', key);
+    const persisted = await prisma.scheduledJobRun.findUniqueOrThrow({
+      where: {
+        environment_flow_idempotencyKey: {
+          environment: 'preview',
+          flow: 'F1',
+          idempotencyKey: key,
+        },
+      },
+    });
+
+    expect(result.status).toBe('COMPLETED');
+    expect(persisted.startedAt.getTime()).toBeGreaterThan(
+      staleStartedAt.getTime(),
+    );
+    expect(persisted.finishedAt).not.toBeNull();
+    expect(expireDueCredit).toHaveBeenCalledTimes(1);
+  });
+
+  it('reclaims an expired cursor lease and releases it after F7 succeeds', async () => {
+    await prisma.scheduledJobCursor.upsert({
+      where: { jobKey: 'report-materialization' },
+      create: {
+        jobKey: 'report-materialization',
+        cursor: null,
+        leaseToken: 'expired-lease-token',
+        leaseExpiresAt: new Date(Date.now() - 1_000),
+      },
+      update: {
+        leaseToken: 'expired-lease-token',
+        leaseExpiresAt: new Date(Date.now() - 1_000),
+      },
+    });
+    const rebuildTenant = jest
+      .fn<Promise<void>, [string, { materializedAt?: Date; asOf?: Date }]>()
+      .mockResolvedValue(undefined);
+    const service = new ScheduledJobsService(
+      prisma,
+      { get: jest.fn().mockReturnValue('preview') } as unknown as ConfigService,
+      {} as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      { rebuildTenant } as never,
+    );
+
+    const result = await service.run('F7', `preview:F7:${randomUUID()}`);
+    const cursor = await prisma.scheduledJobCursor.findUniqueOrThrow({
+      where: { jobKey: 'report-materialization' },
+    });
+
+    expect(result.status).toBe('COMPLETED');
+    expect(rebuildTenant).toHaveBeenCalledTimes(1);
+    expect(cursor.cursor).toBe(rebuildTenant.mock.calls[0]?.[0]);
+    expect(cursor.leaseToken).toBeNull();
+    expect(cursor.leaseExpiresAt).toBeNull();
+  });
 });

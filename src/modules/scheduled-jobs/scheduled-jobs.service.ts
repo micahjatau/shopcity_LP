@@ -15,6 +15,7 @@ const MAX_JOB_BATCH = 25;
 const REPORT_BATCH_SIZE = 1;
 const PILOT_HISTORY_BATCH_SIZE = 10;
 const PILOT_HISTORY_RETENTION_MS = 30 * 24 * 60 * 60 * 1000;
+const SCHEDULED_CURSOR_LEASE_MS = 7 * 60_000;
 const FLOW_IDS = [
   'F0',
   'F1',
@@ -200,7 +201,7 @@ export class ScheduledJobsService {
         return { flow, counters: { ...result } };
       }
       case 'F4': {
-        const result = await this.outbox.processBatch();
+        const result = await this.outbox.processBatch('fraud.evaluate');
         return { flow, counters: { ...result } };
       }
       case 'F7':
@@ -356,7 +357,7 @@ export class ScheduledJobsService {
           jobKey,
           cursor: null,
           leaseToken: token,
-          leaseExpiresAt: new Date(now.getTime() + 5 * 60_000),
+          leaseExpiresAt: new Date(now.getTime() + SCHEDULED_CURSOR_LEASE_MS),
         },
       });
       return { cursor: null, token };
@@ -370,7 +371,7 @@ export class ScheduledJobsService {
       },
       data: {
         leaseToken: token,
-        leaseExpiresAt: new Date(now.getTime() + 5 * 60_000),
+        leaseExpiresAt: new Date(now.getTime() + SCHEDULED_CURSOR_LEASE_MS),
       },
     });
     if (acquired.count !== 1) return null;

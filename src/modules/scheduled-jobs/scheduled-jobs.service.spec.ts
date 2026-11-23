@@ -1,5 +1,22 @@
 import { ConfigService } from '@nestjs/config';
-import { ScheduledJobsService } from './scheduled-jobs.service';
+import {
+  ScheduledJobsService,
+  type ScheduledFlowId,
+} from './scheduled-jobs.service';
+
+const SCHEDULED_FLOWS: readonly ScheduledFlowId[] = [
+  'F0',
+  'F1',
+  'F2',
+  'F3',
+  'F4',
+  'F5',
+  'F6',
+  'F7',
+  'F8',
+  'F9',
+  'F10',
+];
 
 describe('ScheduledJobsService', () => {
   const completed = {
@@ -111,4 +128,154 @@ describe('ScheduledJobsService', () => {
     expect(result.status).toBe('FAILED');
     expect(updateRun).toHaveBeenCalledTimes(1);
   });
+
+  it.each(SCHEDULED_FLOWS)(
+    'dispatches %s through its bounded flow adapter and records completion',
+    async (flow) => {
+      const running = {
+        ...completed,
+        id: `run-${flow}`,
+        flow,
+        idempotencyKey: `preview:${flow}:matrix`,
+        status: 'RUNNING',
+        finishedAt: null,
+        result: null,
+      };
+      const completedRun = {
+        ...running,
+        status: 'COMPLETED',
+        finishedAt: new Date(),
+        result: { flow, counters: {} },
+      };
+      const queryRaw = jest.fn().mockResolvedValue([]);
+      const tx = { $queryRaw: queryRaw };
+      const transaction = jest
+        .fn()
+        .mockImplementation(
+          async (callback: (transaction: typeof tx) => Promise<unknown>) =>
+            callback(tx),
+        );
+      const executeRaw = jest.fn().mockResolvedValue(0);
+      const prisma = {
+        scheduledJobRun: {
+          findUnique: jest.fn().mockResolvedValue(null),
+          create: jest.fn().mockResolvedValue(running),
+          update: jest.fn().mockResolvedValue(completedRun),
+        },
+        scheduledJobCursor: {
+          create: jest.fn().mockResolvedValue({}),
+          updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+        },
+        tenant: { findMany: jest.fn().mockResolvedValue([{ id: 'tenant-1' }]) },
+        $transaction: transaction,
+        $executeRaw: executeRaw,
+      };
+      const creditExpiry = {
+        expireDueCredit: jest.fn().mockResolvedValue({
+          examined: 1,
+          expiredLots: 1,
+          expiredAmountKobo: 100n,
+        }),
+      };
+      const reminder = {
+        enqueueDueReminders: jest.fn().mockResolvedValue({
+          customers: 1,
+          amountKobo: 100n,
+        }),
+      };
+      const outbox = {
+        processBatch: jest.fn().mockResolvedValue({ claimed: 0 }),
+        processAllBatches: jest.fn().mockResolvedValue({ claimed: 0 }),
+        pollDeliveryReportsOnce: jest.fn().mockResolvedValue(0),
+      };
+      const reports = {
+        recordPilotOperationsSnapshot: jest.fn().mockResolvedValue(undefined),
+      };
+      const materializer = {
+        rebuildTenant: jest
+          .fn<Promise<void>, [string, { materializedAt?: Date; asOf?: Date }]>()
+          .mockResolvedValue(undefined),
+      };
+      const service = new ScheduledJobsService(
+        prisma as never,
+        {
+          get: jest.fn((key: string, fallback?: unknown) =>
+            key === 'SCHEDULER_ENVIRONMENT' ? 'preview' : fallback,
+          ),
+        } as unknown as ConfigService,
+        {} as never,
+        creditExpiry as never,
+        reminder as never,
+        outbox as never,
+        reports as never,
+        materializer as never,
+      );
+
+      const result = await service.run(flow, running.idempotencyKey);
+
+      expect(result.status).toBe('COMPLETED');
+      expect(result.result).toEqual({ flow, counters: {} });
+      switch (flow) {
+        case 'F0':
+          expect(transaction).toHaveBeenCalledTimes(1);
+          break;
+        case 'F1':
+          expect(creditExpiry.expireDueCredit).toHaveBeenCalledTimes(1);
+          break;
+        case 'F2':
+          expect(reminder.enqueueDueReminders).toHaveBeenCalledTimes(1);
+          break;
+        case 'F3':
+          expect(outbox.processBatch).toHaveBeenCalledWith('sms.send');
+          break;
+        case 'F4':
+          expect(outbox.processBatch).toHaveBeenCalledWith('fraud.evaluate');
+          break;
+        case 'F5':
+          expect(outbox.processBatch).toHaveBeenCalledWith('report.refresh');
+          break;
+        case 'F6':
+          expect(outbox.pollDeliveryReportsOnce).toHaveBeenCalledTimes(1);
+          break;
+        case 'F7': {
+          const rebuildCall = materializer.rebuildTenant.mock.calls[0];
+          expect(rebuildCall?.[0]).toBe('tenant-1');
+          expect(rebuildCall?.[1]?.asOf).toBeInstanceOf(Date);
+          const cursorCreateMock = prisma.scheduledJobCursor
+            .create as unknown as jest.Mock<
+            unknown,
+            [
+              {
+                data: {
+                  jobKey: string;
+                  cursor: string | null;
+                  leaseToken: string;
+                  leaseExpiresAt: Date;
+                };
+              },
+            ]
+          >;
+          const leaseExpiresAt =
+            cursorCreateMock.mock.calls[0]?.[0].data.leaseExpiresAt;
+          expect(leaseExpiresAt).toBeInstanceOf(Date);
+          const leaseRemainingMs = leaseExpiresAt.getTime() - Date.now();
+          expect(leaseRemainingMs).toBeGreaterThan(6 * 60_000);
+          expect(leaseRemainingMs).toBeLessThanOrEqual(7 * 60_000);
+          break;
+        }
+        case 'F8':
+          expect(reports.recordPilotOperationsSnapshot).toHaveBeenCalledWith(
+            'tenant-1',
+            expect.any(Date),
+          );
+          break;
+        case 'F9':
+          expect(executeRaw).toHaveBeenCalledTimes(1);
+          break;
+        case 'F10':
+          expect(outbox.processAllBatches).toHaveBeenCalledTimes(1);
+          break;
+      }
+    },
+  );
 });

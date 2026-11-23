@@ -2,7 +2,7 @@
 
 - [x] 1.1 Record current scheduler owners and existing workerless risks.
 - [x] 1.2 Define F0–F10, protected dispatch, durable evidence, safety invariants, and explicit Production stop gate.
-- [ ] 1.3 Validate OpenSpec artifacts and map F0–F10 to the supplied operations brief; exact flow names/cadences remain unverified because the detailed brief and Preview schedule inventory are unavailable in the compacted context.
+- [ ] 1.3 Reconcile the proposed F0–F10 mapping with the authoritative operations brief and obtain owner/cadence approval. A source-default-based UTC proposal and the read-only Preview Cron inventory (zero jobs) are recorded in the runbook; timezone and operational owner sign-off remain pending.
 
 ## Phase 2 — Local additive implementation
 
@@ -11,20 +11,20 @@
 - [x] 2.3 Add bounded handlers for approval expiry, credit expiry, and reminder enqueue using existing services and domain safeguards.
 - [ ] 2.4 Extend PostgreSQL outbox claims for SMS, fraud, and report refresh with `FOR UPDATE SKIP LOCKED`, bounded retries, idempotent completion, per-event batch caps, and legacy status compatibility; verify no dual-owner schedule is enabled.
 - [x] 2.5 Add SMS DLR polling without sending messages; prove SMS intent processing cannot bypass existing consent/suppression/CAS/provider behavior locally. Preview non-sending proof remains pending.
-- [x] 2.6 Add bounded/fair report materialization with a persisted cursor and failure-safe advancement; retain tenant-level lock and current transaction limits. Testcontainers verifies cursor serialization, failed-tenant evidence, and no cursor advancement.
+- [x] 2.6 Add bounded/fair report materialization with a persisted cursor and failure-safe advancement; retain tenant-level lock and current transaction limits. Testcontainers verifies cursor serialization, failed-tenant evidence, and no cursor advancement. F7 now uses a 420-second token-fenced cursor lease; its tenant rebuild transaction has a 10-second max wait and 30-second timeout. End-to-end Vercel request cap approval remains pending.
 - [ ] 2.7 Add pilot operations snapshot and retention handlers with existing cadence/retention semantics and explicit bounded progress.
 - [ ] 2.8 Add Supabase Cron/Vault setup and rollback scripts that require explicit Preview project identity and are never automatically applied remotely.
 
 ## Phase 3 — Validation and documentation
 
-- [ ] 3.1 Add isolated unit tests per handler, including claims, replay, retries, timeout ambiguity, and batch caps.
-- [ ] 3.2 Add Testcontainers coverage for concurrent claims, expired lease recovery, per-tenant fairness, event-type isolation, financial idempotency, and SMS isolation.
-- [ ] 3.3 Update architecture/ADR, migration tracker, schedule inventory, Preview validation report, alerting, deployment, and rollback runbooks. Schedule installation/secret setup is blocked until Preview project access and exact approved cadences are available.
+- [ ] 3.1 Complete isolated unit tests per handler, including claims, replay, retries, timeout ambiguity, and batch caps. The F0–F10 controller/service dispatch matrix, terminal idempotency, retry exhaustion, and 30-second report-transaction bound pass; remaining per-flow domain invariants and provider-timeout ambiguity coverage are still required.
+- [ ] 3.2 Complete Testcontainers coverage for per-tenant fairness, event-type isolation, financial idempotency, and SMS isolation. The 2026-11-23 rerun passes duplicate invocation, stale RUNNING recovery, expired cursor-lease recovery, persisted retry exhaustion, and two-tenant event-to-handler isolation.
+- [ ] 3.3 Update architecture/ADR, migration tracker, schedule inventory, Preview validation report, alerting, deployment, and rollback runbooks. The proposed UTC owner/cadence matrix and Preview stop gate are documented; Operations approval, credential rotation, and Preview legacy-owner verification remain pending.
 - [x] 3.4 Run build, lint, typecheck, focused and full integration tests, formatting/lint, migration validation, OpenSpec validation, and GitNexus change detection. GitNexus reported a HIGH aggregate scope; affected flows were reviewed and are recorded in the impact tracker.
 
 ## Phase 4 — Preview-only gate (not executable until access is restored)
 
-- [ ] 4.1 Verify Preview-only Supabase project ref and Vercel project/tier without exposing credentials.
+- [ ] 4.1 Verify Preview-only Supabase project ref and Vercel project/environment/tier without exposing credentials. Read-only metadata identified the exact Preview ref, Hobby plan, Fluid Compute, and active Production Vercel Cron; a later pg_dump parser error exposed a credential fragment, so rotate that credential before further Preview DB access.
 - [ ] 4.2 Apply additive migration and schedules to Preview only after environment assertion and explicit approval.
 - [ ] 4.3 Keep SMS provider non-sending; verify no message is sent and no historical SMS becomes eligible.
 - [ ] 4.4 Collect at least one complete schedule cycle, duplicate/concurrency/recovery evidence, report freshness/cursor progress, and `pg_net` vs Nest completion evidence.

@@ -3,6 +3,27 @@ import type { PrismaService } from '../../database/prisma.service';
 import { ReportMaterializerService } from './report-materializer.service';
 
 describe('ReportMaterializerService', () => {
+  it('bounds a tenant rebuild database transaction to 30 seconds', async () => {
+    const tx = reportTxStub();
+    const stateUpsert = jest.fn().mockResolvedValue(undefined);
+    const prisma = prismaStub(tx, stateUpsert);
+    const service = new ReportMaterializerService(prisma, configService());
+
+    await service.rebuildTenant('tenant-1', {
+      materializedAt: new Date('2026-08-10T12:00:00.000Z'),
+      asOf: new Date('2026-08-10T12:00:00.000Z'),
+    });
+
+    const transactionMock = Reflect.get(prisma, '$transaction') as jest.Mock<
+      unknown,
+      unknown[]
+    >;
+    expect(transactionMock).toHaveBeenCalledWith(expect.any(Function), {
+      maxWait: 10_000,
+      timeout: 30_000,
+    });
+  });
+
   it('uses the same tenant-wide advisory lock for tenant and branch materialization', async () => {
     const tx = reportTxStub();
     const stateUpsert = jest.fn().mockResolvedValue(undefined);

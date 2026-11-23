@@ -2,6 +2,20 @@ import { ConfigService } from '@nestjs/config';
 import { ScheduledJobsController } from './scheduled-jobs.controller';
 import type { ScheduledJobsService } from './scheduled-jobs.service';
 
+const SCHEDULED_FLOWS = [
+  'F0',
+  'F1',
+  'F2',
+  'F3',
+  'F4',
+  'F5',
+  'F6',
+  'F7',
+  'F8',
+  'F9',
+  'F10',
+] as const;
+
 describe('ScheduledJobsController', () => {
   const config = {
     get: jest.fn(
@@ -23,7 +37,9 @@ describe('ScheduledJobsController', () => {
   };
   const runJob = jest.fn().mockResolvedValue(completedRun);
   const jobs = {
-    isFlow: jest.fn((value: string) => value === 'F0'),
+    isFlow: jest.fn((value: string) =>
+      SCHEDULED_FLOWS.includes(value as (typeof SCHEDULED_FLOWS)[number]),
+    ),
     run: runJob,
   } as unknown as ScheduledJobsService;
   let controller: ScheduledJobsController;
@@ -82,4 +98,17 @@ describe('ScheduledJobsController', () => {
       status: 'COMPLETED',
     });
   });
+
+  it.each(SCHEDULED_FLOWS)(
+    'accepts and dispatches flow %s through the guarded endpoint',
+    async (flow) => {
+      const invocationKey = `preview:${flow}:matrix`;
+      await controller.run(
+        { flow, invocationKey },
+        `Bearer ${'s'.repeat(48)}`,
+        'preview',
+      );
+      expect(runJob).toHaveBeenCalledWith(flow, invocationKey);
+    },
+  );
 });
