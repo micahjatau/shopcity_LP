@@ -45,6 +45,22 @@ describe('report snapshot helpers', () => {
     ).toBe('REVERSED');
   });
 
+  it('prefers confirmation over request when lifecycle timestamps tie', () => {
+    const confirmedAt = new Date('2026-08-10T11:00:00.000Z');
+
+    expect(
+      redemptionStatusAt(
+        {
+          requestedAt: confirmedAt,
+          confirmedAt,
+          rejectedAt: null,
+          reversedAt: null,
+        },
+        confirmedAt,
+      ),
+    ).toBe('CONFIRMED');
+  });
+
   it('does not leak future redemption rejection backward', () => {
     expect(
       redemptionStatusAt(

@@ -11,7 +11,6 @@ Use this tracker when preparing a spec proposal. Run `npm run proposal:impact --
 
 ## Findings
 
-
 ### 2026-11-14 — Increase public login throttle limit
 
 Before proposing `increase-login-throttle-limit`, GitNexus upstream impact for `AuthController.login` resolved exactly to `Method:src/modules/auth/auth.controller.ts:AuthController.login#9` and reported LOW risk: 1 direct dependent (`src/modules/auth/auth.service.spec.ts`), 0 affected processes, and 0 affected modules. The index was stale at `b69befc` versus HEAD `97aca7f`; refresh failed because the FTS `file_fts` index was inconsistent (missing document offset 2021 during delete). Treat graph counts as limited stale-index evidence; source/test review is required. Scope is to raise only `/api/v1/auth/login` from 5 to 10 attempts per 15 minutes, preserving IP/account/pair buckets. Cashier WebAuthn completion and password-recovery limits remain unchanged.
@@ -22,6 +21,14 @@ node .gitnexus/run.cjs impact login -r shopcity_LP --file src/modules/auth/auth.
 node .gitnexus/run.cjs analyze
 ```
 
+### 2026-11-24 — Report lifecycle transition tie-break
+
+Before extending the active `atomic-redeem-settlement` report semantics, `redemptionStatusAt` impact is LOW/exact with 6 impacted symbols (3 direct: `report-snapshot.spec.ts`, `buildDailyFinancialSummaries`, and `buildRedemptionSummaries`), 0 affected execution processes, and the Reports module only. No HIGH/CRITICAL risk. Source and local F7 evidence show a confirmed redemption can set `requestedAt === confirmedAt`; stable sorting then incorrectly selects the earlier pending transition and reports the settlement as pending. The bounded fix makes the later lifecycle transition win equal timestamps and adds a regression test. Preserve the current workerless, tenant/branch-scoped report materialization behavior.
+
+```text
+npm run proposal:impact -- --file src/modules/reports/report-snapshot.ts redemptionStatusAt
+node .gitnexus/run.cjs impact redemptionStatusAt --direction upstream --file src/modules/reports/report-snapshot.ts --repo shopcity_LP --include-tests
+```
 
 ### 2026-11-15 — Supabase Cron workerless processing proposal
 

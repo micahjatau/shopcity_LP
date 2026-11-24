@@ -86,17 +86,17 @@ function latestTransitionAt<T extends string>(
   transitions: Array<{ status: T; occurredAt: Date }>,
   asOf: Date,
 ): { status: T; occurredAt: Date } {
-  const latest = transitions
-    .filter((transition) => transition.occurredAt <= asOf)
-    .sort(
-      (left, right) => right.occurredAt.getTime() - left.occurredAt.getTime(),
-    )[0];
+  const eligible = transitions.filter(
+    (transition) => transition.occurredAt <= asOf,
+  );
 
-  if (!latest) {
+  if (eligible.length === 0) {
     return transitions[0];
   }
 
-  return latest;
+  return eligible.reduce((latest, transition) =>
+    transition.occurredAt >= latest.occurredAt ? transition : latest,
+  );
 }
 
 export function approvalStatusAt(
