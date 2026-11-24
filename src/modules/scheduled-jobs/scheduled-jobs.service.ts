@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Prisma, type ScheduledJobRun } from '@prisma/client';
 import { randomUUID } from 'node:crypto';
+import { performance } from 'node:perf_hooks';
 import { PrismaService } from '../../database/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { expireOverdueApprovals } from '../../jobs/approval-expiry.worker';
@@ -16,6 +17,10 @@ const REPORT_BATCH_SIZE = 1;
 const PILOT_HISTORY_BATCH_SIZE = 10;
 const PILOT_HISTORY_RETENTION_MS = 30 * 24 * 60 * 60 * 1000;
 const SCHEDULED_CURSOR_LEASE_MS = 7 * 60_000;
+const F7_DEFAULT_EXECUTION_BUDGET_MS = 240_000;
+const F7_MAX_EXECUTION_BUDGET_MS = 240_000;
+const F7_MINIMUM_SAFE_WORK_MS = 35_000; // 30s transaction + 5s finalization reserve
+const F7_FINALIZATION_RESERVE_MS = 5_000;
 const FLOW_IDS = [
   'F0',
   'F1',
@@ -43,6 +48,13 @@ class ScheduledJobExecutionFailure extends Error {
   }
 }
 
+class ScheduledJobDeadlineExceeded extends ScheduledJobExecutionFailure {
+  constructor(safeResult: Prisma.InputJsonObject) {
+    super(safeResult);
+    this.name = 'ScheduledJobDeadlineExceeded';
+  }
+}
+
 @Injectable()
 export class ScheduledJobsService {
   private readonly logger = new Logger(ScheduledJobsService.name);
@@ -65,6 +77,7 @@ export class ScheduledJobsService {
   async run(
     flow: ScheduledFlowId,
     idempotencyKey: string,
+    requestStartedAt = performance.now(),
   ): Promise<ScheduledJobRun> {
     const environment = this.config
       .get<string>('SCHEDULER_ENVIRONMENT')
@@ -127,7 +140,7 @@ export class ScheduledJobsService {
     }
 
     try {
-      const result = await this.execute(flow);
+      const result = await this.execute(flow, requestStartedAt);
       return await this.prisma.scheduledJobRun.update({
         where: { id: run.id },
         data: {
@@ -156,7 +169,10 @@ export class ScheduledJobsService {
     }
   }
 
-  private async execute(flow: ScheduledFlowId): Promise<ScheduledFlowResult> {
+  private async execute(
+    flow: ScheduledFlowId,
+    requestStartedAt: number,
+  ): Promise<ScheduledFlowResult> {
     const now = new Date();
     const batchSize = this.batchSize();
     switch (flow) {
@@ -204,8 +220,16 @@ export class ScheduledJobsService {
         const result = await this.outbox.processBatch('fraud.evaluate');
         return { flow, counters: { ...result } };
       }
-      case 'F7':
-        return this.materializeNextTenant(flow, now);
+      case 'F7': {
+        const executionBudgetMs = this.f7ExecutionBudgetMs();
+        return this.materializeNextTenant(
+          flow,
+          now,
+          requestStartedAt,
+          requestStartedAt + executionBudgetMs,
+          executionBudgetMs,
+        );
+      }
       case 'F8':
         return this.captureNextPilotSnapshot(flow, now);
       case 'F9': {
@@ -243,11 +267,38 @@ export class ScheduledJobsService {
   private async materializeNextTenant(
     flow: ScheduledFlowId,
     now: Date,
+    requestStartedAt: number,
+    deadlineAt: number,
+    executionBudgetMs: number,
   ): Promise<ScheduledFlowResult> {
+    const deadlineSkipped = (cursor: string | null) => ({
+      flow,
+      counters: {
+        skipped: true,
+        reason: 'execution-deadline',
+        cursor,
+        executionBudgetMs,
+        elapsedMs: this.elapsedF7Ms(requestStartedAt),
+      },
+    });
+    if (this.remainingF7BudgetMs(deadlineAt) < F7_MINIMUM_SAFE_WORK_MS)
+      return deadlineSkipped(null);
+
     const cursor = await this.acquireCursor('report-materialization');
     if (!cursor)
-      return { flow, counters: { skipped: true, reason: 'lease-held' } };
+      return {
+        flow,
+        counters: {
+          skipped: true,
+          reason: 'lease-held',
+          executionBudgetMs,
+          elapsedMs: this.elapsedF7Ms(requestStartedAt),
+        },
+      };
     try {
+      if (this.remainingF7BudgetMs(deadlineAt) < F7_MINIMUM_SAFE_WORK_MS)
+        return deadlineSkipped(cursor.cursor);
+
       const rows = await this.prisma.tenant.findMany({
         ...(cursor.cursor ? { where: { id: { gt: cursor.cursor } } } : {}),
         orderBy: { id: 'asc' },
@@ -266,7 +317,18 @@ export class ScheduledJobsService {
             )[0]
           : undefined);
       if (!tenant)
-        return { flow, counters: { tenantCount: 0, cursor: cursor.cursor } };
+        return {
+          flow,
+          counters: {
+            tenantCount: 0,
+            cursor: cursor.cursor,
+            executionBudgetMs,
+            elapsedMs: this.elapsedF7Ms(requestStartedAt),
+          },
+        };
+      if (this.remainingF7BudgetMs(deadlineAt) < F7_MINIMUM_SAFE_WORK_MS)
+        return deadlineSkipped(cursor.cursor);
+
       try {
         await this.reportMaterializer.rebuildTenant(tenant.id, {
           materializedAt: now,
@@ -279,11 +341,26 @@ export class ScheduledJobsService {
           failureCategory: safeErrorName(error),
         });
       }
+      if (this.remainingF7BudgetMs(deadlineAt) <= F7_FINALIZATION_RESERVE_MS) {
+        throw new ScheduledJobDeadlineExceeded({
+          flow,
+          failedTenantId: tenant.id,
+          failureCategory: 'ExecutionDeadlineExceeded',
+        });
+      }
       await this.prisma.scheduledJobCursor.updateMany({
         where: { jobKey: 'report-materialization', leaseToken: cursor.token },
         data: { cursor: tenant.id },
       });
-      return { flow, counters: { tenantCount: 1, cursor: tenant.id } };
+      return {
+        flow,
+        counters: {
+          tenantCount: 1,
+          cursor: tenant.id,
+          executionBudgetMs,
+          elapsedMs: this.elapsedF7Ms(requestStartedAt),
+        },
+      };
     } finally {
       await this.releaseCursor('report-materialization', cursor.token);
     }
@@ -401,6 +478,28 @@ export class ScheduledJobsService {
   private positiveConfig(key: string, fallback: number): number {
     const value = Number(this.config.get(key, fallback));
     return Number.isInteger(value) && value > 0 ? value : fallback;
+  }
+
+  private f7ExecutionBudgetMs(): number {
+    const value = Number(
+      this.config.get(
+        'SCHEDULED_F7_EXECUTION_BUDGET_MS',
+        F7_DEFAULT_EXECUTION_BUDGET_MS,
+      ),
+    );
+    return Number.isInteger(value) &&
+      value >= 1_000 &&
+      value <= F7_MAX_EXECUTION_BUDGET_MS
+      ? value
+      : F7_DEFAULT_EXECUTION_BUDGET_MS;
+  }
+
+  private remainingF7BudgetMs(deadlineAt: number): number {
+    return deadlineAt - performance.now();
+  }
+
+  private elapsedF7Ms(requestStartedAt: number): number {
+    return Math.max(0, Math.round(performance.now() - requestStartedAt));
   }
 }
 

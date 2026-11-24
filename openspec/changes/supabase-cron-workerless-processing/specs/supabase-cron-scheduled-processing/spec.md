@@ -87,7 +87,7 @@ Each scheduled invocation SHALL record an idempotency key, flow, environment, st
 
 ### Requirement: report materialization is fair and incremental
 
-F7 SHALL persist a tenant cursor/watermark, process a bounded tenant batch, advance the cursor only after successful completion, wrap at the end, and prevent concurrent rebuilds. It SHALL not repeatedly rebuild only the first page or require a full tenant rebuild on each scheduled tick.
+F7 SHALL persist a tenant cursor/watermark, process a bounded tenant batch, advance the cursor only after successful completion, wrap at the end, and prevent concurrent rebuilds. It SHALL not repeatedly rebuild only the first page or require a full tenant rebuild on each scheduled tick. F7 SHALL enforce a configurable end-to-end request budget using `SCHEDULED_F7_EXECUTION_BUDGET_MS`, defaulting to 240,000 ms and accepting values from 1,000 through 240,000 ms. The budget starts at scheduler-handler entry and MUST remain below the verified runtime limit. F7 MUST NOT abandon an in-flight materialization transaction using an uncancelled timeout race. At a safe boundary, it MUST stop starting work when the remaining budget cannot cover the bounded transaction and cleanup reserve. Cursor advancement MUST occur only when materialization completed within budget; a later invocation MUST resume from the retained cursor. The existing 10-second transaction max-wait, 30-second transaction timeout, 420-second cursor lease, and 600-second stale-run recovery remain unchanged.
 
 #### Scenario: tenant batch fails
 
@@ -98,6 +98,20 @@ F7 SHALL persist a tenant cursor/watermark, process a bounded tenant batch, adva
 
 - **WHEN** no tenant follows the persisted cursor
 - **THEN** the next successful cycle starts from the first tenant without starvation
+
+#### Scenario: F7 budget is nearly exhausted before a tenant starts
+
+- **WHEN** the remaining request budget is below the safe work threshold
+- **THEN** F7 does not begin that tenant's materialization
+- **AND** the cursor remains unchanged and the current lease is safely released
+- **AND** a later invocation can resume from the same tenant
+
+#### Scenario: the budget expires after materialization but before cursor advancement
+
+- **WHEN** the tenant's idempotent materialization completed but the request deadline has elapsed
+- **THEN** F7 does not advance the cursor
+- **AND** the run records a safe deadline outcome
+- **AND** a later invocation may repeat that tenant's materialization before advancing
 
 ### Requirement: migration and cutover are non-destructive and gated
 

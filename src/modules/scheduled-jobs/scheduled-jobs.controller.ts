@@ -11,6 +11,7 @@ import {
 import { ApiExcludeEndpoint } from '@nestjs/swagger';
 import { ConfigService } from '@nestjs/config';
 import { timingSafeEqual } from 'node:crypto';
+import { performance } from 'node:perf_hooks';
 import { PublicRoute } from '../../common/auth/public-route.decorator';
 import { ScheduledJobsService } from './scheduled-jobs.service';
 
@@ -34,6 +35,7 @@ export class ScheduledJobsController {
     @Headers('authorization') authorization?: string,
     @Headers('x-shopcity-scheduler-environment') requestEnvironment?: string,
   ) {
+    const requestStartedAt = performance.now();
     const expectedSecret = this.config.get<string>('SCHEDULER_SECRET');
     const expectedEnvironment = this.config
       .get<string>('SCHEDULER_ENVIRONMENT')
@@ -80,7 +82,11 @@ export class ScheduledJobsController {
       throw new UnauthorizedException('Invalid scheduled invocation key.');
     }
 
-    const result = await this.jobs.run(body.flow, body.invocationKey);
+    const result = await this.jobs.run(
+      body.flow,
+      body.invocationKey,
+      requestStartedAt,
+    );
     if (result.status === 'FAILED') {
       throw new InternalServerErrorException('Scheduled job failed.');
     }

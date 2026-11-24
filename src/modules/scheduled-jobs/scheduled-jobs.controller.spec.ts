@@ -91,7 +91,11 @@ describe('ScheduledJobsController', () => {
       `Bearer ${'s'.repeat(48)}`,
       'preview',
     );
-    expect(runJob).toHaveBeenCalledWith('F0', 'preview:2026-11-15T00:00Z');
+    expect(runJob).toHaveBeenCalledWith(
+      'F0',
+      'preview:2026-11-15T00:00Z',
+      expect.any(Number),
+    );
     expect(response).toMatchObject({
       success: true,
       flow: 'F0',
@@ -108,7 +112,11 @@ describe('ScheduledJobsController', () => {
         `Bearer ${'s'.repeat(48)}`,
         'preview',
       );
-      expect(runJob).toHaveBeenCalledWith(flow, invocationKey);
+      expect(runJob).toHaveBeenCalledWith(
+        flow,
+        invocationKey,
+        expect.any(Number),
+      );
     },
   );
 });

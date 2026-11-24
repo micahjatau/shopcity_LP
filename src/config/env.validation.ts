@@ -289,6 +289,11 @@ export const envValidationSchema = Joi.object({
     .valid('local', 'test', 'preview', 'staging', 'production')
     .optional(),
   SCHEDULED_JOB_BATCH_SIZE: Joi.number().integer().min(1).max(25).default(10),
+  SCHEDULED_F7_EXECUTION_BUDGET_MS: Joi.number()
+    .integer()
+    .min(1000)
+    .max(240000)
+    .default(240000),
   SCHEDULED_SMS_NOT_BEFORE: Joi.date().iso().optional(),
   OUTBOX_PUBLISH_INTERVAL_MS: Joi.number().integer().min(100).default(5000),
   OUTBOX_RETRY_DELAY_MS: Joi.number().integer().min(1000).default(30000),
