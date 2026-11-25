@@ -11,6 +11,18 @@ Use this tracker when preparing a spec proposal. Run `npm run proposal:impact --
 
 ## Findings
 
+### 2026-11-26 — Preview credit-expiry financial-schema reconciliation
+
+Before proposing the Preview-only schema reconciliation, GitNexus upstream impact for `CreditExpiryService.expireDueCredit` resolved exactly to `Method:src/modules/credit-expiry/credit-expiry.service.ts:CreditExpiryService.expireDueCredit#1`: **MEDIUM** risk, 13 impacted symbols (5 direct), 2 affected processes (`ScheduledJobsService.execute` and `src/worker.ts` bootstrap), and the Jobs/Scheduled-jobs modules. Direct dependants include both credit-expiry integration specs, the service spec, `CreditExpiryWorkerRuntime.runSweep`, and `ScheduledJobsService.execute`. No HIGH/CRITICAL result. Database trigger functions are not indexed as symbols, so GitNexus cannot assess their SQL dependency graph; compare the full canonical and Preview PostgreSQL definitions directly. Scope is a forward-only Prisma migration and regression coverage; no `CreditExpiryService` code change, remote migration, F1 retry/activation, Cron change, ledger/lot edit, Production change, or SMS send is authorized.
+
+```text
+npm run proposal:impact -- --file src/modules/credit-expiry/credit-expiry.service.ts expireDueCredit
+node .gitnexus/run.cjs impact expireDueCredit --direction upstream --repo shopcity_LP --file src/modules/credit-expiry/credit-expiry.service.ts --include-tests
+node .gitnexus/run.cjs impact validate_ledger_entry_commit_state --direction upstream --repo shopcity_LP --include-tests
+```
+
+The final command returned `Target not found` because GitNexus does not index PostgreSQL function definitions; that is not a zero-impact finding. The GitNexus MCP `detect_changes` tool is not exposed in this session. The CLI fallback `node .gitnexus/run.cjs detect-changes --scope staged --repo shopcity_LP` reported 13 staged files, six documentation symbols, zero affected processes, and LOW risk. It did not index the migration SQL or the new integration-test symbols; this is limited fallback evidence, not an MCP `detect_changes` pass. Manual diff review and the existing MEDIUM impact analysis remain the compensating checks.
+
 ### 2026-11-14 — Increase public login throttle limit
 
 Before proposing `increase-login-throttle-limit`, GitNexus upstream impact for `AuthController.login` resolved exactly to `Method:src/modules/auth/auth.controller.ts:AuthController.login#9` and reported LOW risk: 1 direct dependent (`src/modules/auth/auth.service.spec.ts`), 0 affected processes, and 0 affected modules. The index was stale at `b69befc` versus HEAD `97aca7f`; refresh failed because the FTS `file_fts` index was inconsistent (missing document offset 2021 during delete). Treat graph counts as limited stale-index evidence; source/test review is required. Scope is to raise only `/api/v1/auth/login` from 5 to 10 attempts per 15 minutes, preserving IP/account/pair buckets. Cashier WebAuthn completion and password-recovery limits remain unchanged.
