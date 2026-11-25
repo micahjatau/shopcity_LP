@@ -1,12 +1,8 @@
 import { Logger } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
 import { OutboxEventStatus, Prisma } from '@prisma/client';
 import { type Job, type Queue, type Worker } from 'bullmq';
 import { workerEnvValidationSchema } from '../config/env.validation';
 import { PrismaService } from '../database/prisma.service';
-import { AuditService } from '../modules/audit/audit.service';
-import { FraudRulesService } from '../modules/fraud/fraud-rules.service';
-import { FraudService } from '../modules/fraud/fraud.service';
 import { ReportMaterializerService } from '../modules/reports/report-materializer.service';
 import { OUTBOX_RETRY_ATTEMPTS } from './outbox.constants';
 import { createOutboxQueue, publishOutboxEvent } from './outbox.publisher';
@@ -17,6 +13,10 @@ import {
   validateSmsIntent,
   type SmsTemplate,
 } from './sms.templates';
+
+export interface FraudOutboxProcessor {
+  processOutboxEvent(tenantId: string, eventId: string): Promise<unknown>;
+}
 
 export interface WorkerConfig {
   redisUrl: string;
@@ -65,7 +65,6 @@ export class OutboxWorkerRuntime {
   private activeDeliveryReportPoll?: Promise<void>;
   private started = false;
   private stopping = false;
-  private readonly fraudService: FraudService;
 
   constructor(
     private readonly prisma: PrismaService,
@@ -73,18 +72,8 @@ export class OutboxWorkerRuntime {
     private readonly smsProvider: SmsProvider,
     _legacyFraudBehaviorService?: unknown,
     private readonly reportMaterializerService?: ReportMaterializerService,
-    fraudService?: FraudService,
-  ) {
-    this.fraudService =
-      fraudService ??
-      new FraudService(
-        prisma,
-        new FraudRulesService(
-          new ConfigService(process.env as Record<string, string | undefined>),
-        ),
-        new AuditService(prisma),
-      );
-  }
+    private readonly fraudProcessor?: FraudOutboxProcessor,
+  ) {}
 
   async start(): Promise<void> {
     if (this.started) {
@@ -893,7 +882,11 @@ export class OutboxWorkerRuntime {
     tenantId: string;
     id: string;
   }): Promise<void> {
-    await this.fraudService.processOutboxEvent(
+    if (!this.fraudProcessor) {
+      throw new Error('Fraud outbox processor is not configured');
+    }
+
+    await this.fraudProcessor.processOutboxEvent(
       outboxEvent.tenantId,
       outboxEvent.id,
     );

@@ -946,7 +946,7 @@ describe('OutboxWorkerRuntime', () => {
     );
   });
 
-  it('evaluates fraud work from a dedicated outbox event', async () => {
+  it('delegates fraud.evaluate events to the configured domain processor', async () => {
     const prisma = prismaStub({
       outboxEvent: {
         id: 'outbox-fraud-evaluate',
@@ -986,35 +986,51 @@ describe('OutboxWorkerRuntime', () => {
         count: jest.fn().mockResolvedValue(2),
       },
     });
-    const runtime = new OutboxWorkerRuntime(prisma, runtimeConfig(), {
-      send: jest.fn(),
-    });
+    const fraudProcessor = { processOutboxEvent: jest.fn() };
+    const runtime = new OutboxWorkerRuntime(
+      prisma,
+      runtimeConfig(),
+      { send: jest.fn() },
+      undefined,
+      undefined,
+      fraudProcessor,
+    );
 
     await runtimeWithHandleJob(runtime).handleJob({
       data: { id: 'outbox-fraud-evaluate', tenantId: 'tenant-1' },
     });
 
-    expect(prisma.receiptFindUnique).not.toHaveBeenCalled();
-    expect(prisma.receiptCount).not.toHaveBeenCalled();
-    expect(prisma.fraudFlagUpsert).toHaveBeenCalledTimes(1);
-    expect(prisma.fraudFlagUpsert).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: {
-          tenantId_dedupeKey: {
-            tenantId: 'tenant-1',
-            dedupeKey: 'FR-DUP-001:branch-1:POS-001:2026-08-10T00:00:00.000Z',
-          },
-        },
-      }),
+    expect(fraudProcessor.processOutboxEvent).toHaveBeenCalledWith(
+      'tenant-1',
+      'outbox-fraud-evaluate',
     );
-    const duplicateOutboxUpdate = lastOutboxUpdate(
-      prisma.outboxEventUpdateCalls,
-    );
-    expect(duplicateOutboxUpdate?.data.status).toBe('COMPLETED');
-    expect(duplicateOutboxUpdate?.data.processedAt).toBeInstanceOf(Date);
   });
 
-  it('evaluates high-value redemption fraud from a dedicated outbox event', async () => {
+  it('fails closed when fraud work has no configured processor', async () => {
+    const prisma = prismaStub({
+      outboxEvent: {
+        id: 'outbox-fraud-unconfigured',
+        tenantId: 'tenant-1',
+        aggregateType: 'auth-user',
+        aggregateId: 'user-1',
+        eventType: 'fraud.evaluate',
+        payload: {},
+        publishedAt: null,
+        smsMessage: null,
+      },
+    });
+    const runtime = new OutboxWorkerRuntime(prisma, runtimeConfig(), {
+      send: jest.fn(),
+    });
+
+    await expect(
+      runtimeWithHandleJob(runtime).handleJob({
+        data: { id: 'outbox-fraud-unconfigured', tenantId: 'tenant-1' },
+      }),
+    ).rejects.toThrow('Fraud outbox processor is not configured');
+  });
+
+  it('delegates redemption fraud work to the configured processor', async () => {
     const prisma = prismaStub({
       outboxEvent: {
         id: 'outbox-redemption-fraud-evaluate',
@@ -1039,29 +1055,24 @@ describe('OutboxWorkerRuntime', () => {
         }),
       },
     });
-    const runtime = new OutboxWorkerRuntime(prisma, runtimeConfig(), {
-      send: jest.fn(),
-    });
+    const fraudProcessor = { processOutboxEvent: jest.fn() };
+    const runtime = new OutboxWorkerRuntime(
+      prisma,
+      runtimeConfig(),
+      { send: jest.fn() },
+      undefined,
+      undefined,
+      fraudProcessor,
+    );
 
     await runtimeWithHandleJob(runtime).handleJob({
       data: { id: 'outbox-redemption-fraud-evaluate', tenantId: 'tenant-1' },
     });
 
-    expect(prisma.fraudFlagUpsert).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: {
-          tenantId_dedupeKey: {
-            tenantId: 'tenant-1',
-            dedupeKey: 'FR-HV-003:redemption-1',
-          },
-        },
-      }),
+    expect(fraudProcessor.processOutboxEvent).toHaveBeenCalledWith(
+      'tenant-1',
+      'outbox-redemption-fraud-evaluate',
     );
-    const redemptionOutboxUpdate = lastOutboxUpdate(
-      prisma.outboxEventUpdateCalls,
-    );
-    expect(redemptionOutboxUpdate?.data.status).toBe('COMPLETED');
-    expect(redemptionOutboxUpdate?.data.processedAt).toBeInstanceOf(Date);
   });
 
   it('processes report refresh events through the report materializer', async () => {

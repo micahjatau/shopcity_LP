@@ -16,6 +16,7 @@ import {
 import {
   DeterministicSmsProvider,
   ScriptedSmsProvider,
+  type SmsProvider,
 } from '../src/jobs/sms.provider';
 import { ReportMaterializerService } from '../src/modules/reports/report-materializer.service';
 import { FraudRulesService } from '../src/modules/fraud/fraud-rules.service';
@@ -27,6 +28,7 @@ describe('outbox worker recovery (int)', () => {
   let prisma: PrismaService;
   let loyaltyService: LoyaltyService;
   let auditService: AuditService;
+  let fraudService: FraudService;
 
   beforeAll(async () => {
     pgContainer = await new PostgreSqlContainer('postgres:16-alpine').start();
@@ -61,12 +63,32 @@ describe('outbox worker recovery (int)', () => {
     } as never;
 
     loyaltyService = new LoyaltyService(prisma, auditService, configService);
+    fraudService = new FraudService(
+      prisma,
+      new FraudRulesService(configService),
+      auditService,
+    );
   }, 120000);
 
   afterAll(async () => {
     await prisma?.$disconnect();
     await pgContainer?.stop();
   }, 120000);
+
+  function createOutboxWorkerRuntime(
+    config: ReturnType<typeof loadWorkerConfig>,
+    smsProvider: SmsProvider,
+    reportMaterializer?: ReportMaterializerService,
+  ) {
+    return new OutboxWorkerRuntime(
+      prisma,
+      config,
+      smsProvider,
+      undefined,
+      reportMaterializer,
+      fraudService,
+    );
+  }
 
   it('claims fraud events once under overlapping schedules without touching SMS', async () => {
     const fixture = await createEarnFixture(prisma, `cron-${randomUUID()}`);
@@ -123,6 +145,42 @@ describe('outbox worker recovery (int)', () => {
         },
       }),
     ).resolves.toMatchObject({ status: 'PENDING' });
+  }, 120000);
+
+  it('dispatches fraud work through the injected worker processor', async () => {
+    const fixture = await createEarnFixture(
+      prisma,
+      `worker-fraud-${randomUUID()}`,
+    );
+    const fraudEvent = await prisma.outboxEvent.create({
+      data: {
+        tenantId: fixture.tenant.id,
+        aggregateType: 'auth-user',
+        aggregateId: randomUUID(),
+        eventType: 'fraud.evaluate',
+        payload: {},
+      },
+    });
+    const redisEnv = await createRedisTestEnvironment();
+    const runtime = createOutboxWorkerRuntime(
+      loadWorkerConfig({ ...process.env, REDIS_URL: redisEnv.redisUrl }),
+      new DeterministicSmsProvider(),
+    );
+
+    try {
+      await runtime.start();
+      await waitFor(async () => {
+        const processed = await prisma.outboxEvent.findUnique({
+          where: {
+            tenantId_id: { tenantId: fixture.tenant.id, id: fraudEvent.id },
+          },
+        });
+        return processed?.status === 'COMPLETED';
+      });
+    } finally {
+      await runtime.stop();
+      await redisEnv.close();
+    }
   }, 120000);
 
   it('keeps multi-tenant fraud outbox dispatch scoped to each tenant', async () => {
@@ -287,8 +345,7 @@ describe('outbox worker recovery (int)', () => {
 
   it('publishes pending outbox rows and delivers sms after worker recovery', async () => {
     const redisEnv = await createRedisTestEnvironment();
-    const runtime = new OutboxWorkerRuntime(
-      prisma,
+    const runtime = createOutboxWorkerRuntime(
       loadWorkerConfig({
         ...process.env,
         REDIS_URL: redisEnv.redisUrl,
@@ -364,14 +421,12 @@ describe('outbox worker recovery (int)', () => {
       prisma,
       new ConfigService({ SHOPCITY_TIMEZONE: 'Africa/Lagos' }),
     );
-    const runtime = new OutboxWorkerRuntime(
-      prisma,
+    const runtime = createOutboxWorkerRuntime(
       loadWorkerConfig({
         ...process.env,
         REDIS_URL: redisEnv.redisUrl,
       }),
       new DeterministicSmsProvider(),
-      undefined,
       reportMaterializer,
     );
 
@@ -455,14 +510,12 @@ describe('outbox worker recovery (int)', () => {
       prisma,
       new ConfigService({ SHOPCITY_TIMEZONE: 'Africa/Lagos' }),
     );
-    const runtime = new OutboxWorkerRuntime(
-      prisma,
+    const runtime = createOutboxWorkerRuntime(
       loadWorkerConfig({
         ...process.env,
         REDIS_URL: redisEnv.redisUrl,
       }),
       new DeterministicSmsProvider(),
-      undefined,
       reportMaterializer,
     );
 
@@ -506,14 +559,12 @@ describe('outbox worker recovery (int)', () => {
       prisma,
       new ConfigService({ SHOPCITY_TIMEZONE: 'Africa/Lagos' }),
     );
-    const runtime = new OutboxWorkerRuntime(
-      prisma,
+    const runtime = createOutboxWorkerRuntime(
       loadWorkerConfig({
         ...process.env,
         REDIS_URL: redisEnv.redisUrl,
       }),
       new DeterministicSmsProvider(),
-      undefined,
       reportMaterializer,
     );
 
@@ -593,8 +644,7 @@ describe('outbox worker recovery (int)', () => {
 
       await redisEnv.restart();
 
-      recoveryRuntime = new OutboxWorkerRuntime(
-        prisma,
+      recoveryRuntime = createOutboxWorkerRuntime(
         loadWorkerConfig({
           ...process.env,
           REDIS_URL: redisEnv.redisUrl,
@@ -649,8 +699,7 @@ describe('outbox worker recovery (int)', () => {
 
   it('backfills missing sms rows for published outbox events', async () => {
     const redisEnv = await createRedisTestEnvironment();
-    const runtime = new OutboxWorkerRuntime(
-      prisma,
+    const runtime = createOutboxWorkerRuntime(
       loadWorkerConfig({
         ...process.env,
         REDIS_URL: redisEnv.redisUrl,
@@ -718,16 +767,14 @@ describe('outbox worker recovery (int)', () => {
 
   it('keeps multi-worker recovery to one sms delivery per outbox event', async () => {
     const redisEnv = await createRedisTestEnvironment();
-    const runtimeA = new OutboxWorkerRuntime(
-      prisma,
+    const runtimeA = createOutboxWorkerRuntime(
       loadWorkerConfig({
         ...process.env,
         REDIS_URL: redisEnv.redisUrl,
       }),
       new DeterministicSmsProvider(),
     );
-    const runtimeB = new OutboxWorkerRuntime(
-      prisma,
+    const runtimeB = createOutboxWorkerRuntime(
       loadWorkerConfig({
         ...process.env,
         REDIS_URL: redisEnv.redisUrl,
@@ -784,8 +831,7 @@ describe('outbox worker recovery (int)', () => {
 
   it('records sms delivery failure when the provider rejects a message', async () => {
     const redisEnv = await createRedisTestEnvironment();
-    const runtime = new OutboxWorkerRuntime(
-      prisma,
+    const runtime = createOutboxWorkerRuntime(
       loadWorkerConfig({
         ...process.env,
         REDIS_URL: redisEnv.redisUrl,

@@ -16,9 +16,11 @@ describe('bootstrapWorker', () => {
       throw new Error('sms provider failed');
     });
 
-    expect(() => bootstrapWorker('redis://127.0.0.1:6379')).toThrow(
-      'sms provider failed',
-    );
+    expect(() =>
+      bootstrapWorker('redis://127.0.0.1:6379', {
+        processOutboxEvent: jest.fn(),
+      }),
+    ).toThrow('sms provider failed');
     expect(PrismaService).not.toHaveBeenCalled();
   });
 });
