@@ -25,15 +25,64 @@ describe('FraudService', () => {
     const service = new FraudService(prisma, rulesStub(), auditStub());
     const input = receiptInput();
 
-    expect(await service.evaluateReceipt(input)).toBe(3);
-    expect(upsert).toHaveBeenCalledTimes(3);
+    expect(await service.evaluateReceipt(input)).toBe(2);
+    expect(upsert).toHaveBeenCalledTimes(2);
     const calls = upsert.mock.calls as Array<[FraudFlagUpsertCall]>;
     expect(calls[0]?.[0].where.tenantId_dedupeKey).toEqual({
       tenantId: 'tenant-1',
       dedupeKey: 'FR-DUP-001:branch-1:POS-001:2026-08-10T00:00:00.000Z',
     });
-    expect(calls[1]?.[0].create.ruleCode).toBe('FR-HV-001');
-    expect(calls[2]?.[0].create.ruleCode).toBe('FR-HV-002');
+    expect(calls[1]?.[0].create.ruleCode).toBe('FR-HV-002');
+  });
+
+  it('completes fraud outbox events atomically and ignores completed replays', async () => {
+    const event: Record<string, unknown> = {
+      tenantId: 'tenant-1',
+      id: 'outbox-duplicate-1',
+      eventType: 'fraud.evaluate',
+      aggregateType: 'receipt',
+      aggregateId: 'receipt-original',
+      payload: {
+        ruleCode: 'FR-DUP-001',
+        originalReceiptId: 'receipt-original',
+        branchId: 'branch-1',
+        cashierId: 'cashier-1',
+        customerId: 'customer-1',
+        normalizedPosReceiptNumber: 'POS-001',
+        receiptWeekStart: '2026-08-10T00:00:00.000Z',
+      },
+      processedAt: null,
+      status: 'PUBLISHED',
+    };
+    const upsert = jest.fn().mockResolvedValue(undefined);
+    const eventUpdate = jest.fn(({ data }: { data: object }) => {
+      Object.assign(event, data);
+      return Promise.resolve(event);
+    });
+    const tx = {
+      $queryRaw: jest.fn().mockResolvedValue([{ one: 1 }]),
+      outboxEvent: {
+        findUnique: jest.fn(() => Promise.resolve(event)),
+        update: eventUpdate,
+      },
+      fraudFlag: { upsert },
+    };
+    const prisma = {
+      $transaction: jest.fn(
+        (callback: (value: typeof tx) => Promise<unknown>) => callback(tx),
+      ),
+    } as unknown as PrismaService;
+    const service = new FraudService(prisma, rulesStub(), auditStub());
+
+    expect(
+      await service.processOutboxEvent('tenant-1', 'outbox-duplicate-1'),
+    ).toBe(1);
+    expect(
+      await service.processOutboxEvent('tenant-1', 'outbox-duplicate-1'),
+    ).toBe(0);
+    expect(upsert).toHaveBeenCalledTimes(1);
+    expect(eventUpdate).toHaveBeenCalledTimes(1);
+    expect(event).toMatchObject({ status: 'COMPLETED' });
   });
 
   it('records duplicate receipt attempts durably', async () => {
@@ -93,19 +142,6 @@ describe('FraudService', () => {
 function rulesStub() {
   return {
     evaluateReceipt: jest.fn().mockReturnValue([
-      {
-        ruleCode: 'FR-HV-001',
-        severity: 'MEDIUM',
-        dedupeKey: 'FR-HV-001:receipt-1',
-        subjectType: 'RECEIPT',
-        subjectId: 'receipt-1',
-        windowStart: new Date('2026-08-10T00:00:00.000Z'),
-        branchId: 'branch-1',
-        cashierId: 'cashier-1',
-        customerId: 'customer-1',
-        receiptId: 'receipt-1',
-        evidence: {},
-      },
       {
         ruleCode: 'FR-HV-002',
         severity: 'HIGH',

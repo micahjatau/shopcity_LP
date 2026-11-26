@@ -3,6 +3,8 @@ import './config/load-env';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from './database/prisma.service';
 import { AuditService } from './modules/audit/audit.service';
+import { FraudRulesService } from './modules/fraud/fraud-rules.service';
+import { FraudService } from './modules/fraud/fraud.service';
 import { ReportMaterializerService } from './modules/reports/report-materializer.service';
 import { ReportsService } from './modules/reports/reports.service';
 import {
@@ -45,6 +47,11 @@ export async function bootstrap() {
     configService,
   );
   const reportsService = new ReportsService(prisma, configService);
+  const fraudService = new FraudService(
+    prisma,
+    new FraudRulesService(configService),
+    new AuditService(prisma),
+  );
   const reportConfig = loadReportMaterializationWorkerConfig();
   const runtime = new OutboxWorkerRuntime(
     prisma,
@@ -52,6 +59,7 @@ export async function bootstrap() {
     smsProvider,
     undefined,
     reportMaterializer,
+    fraudService,
   );
   const creditExpiryRuntime = new CreditExpiryWorkerRuntime(
     new CreditExpiryService(

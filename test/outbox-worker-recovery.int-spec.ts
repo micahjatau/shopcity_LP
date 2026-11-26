@@ -16,14 +16,19 @@ import {
 import {
   DeterministicSmsProvider,
   ScriptedSmsProvider,
+  type SmsProvider,
 } from '../src/jobs/sms.provider';
 import { ReportMaterializerService } from '../src/modules/reports/report-materializer.service';
+import { FraudRulesService } from '../src/modules/fraud/fraud-rules.service';
+import { FraudService } from '../src/modules/fraud/fraud.service';
+import { OutboxProcessingService } from '../src/modules/outbox-processing/outbox-processing.service';
 
 describe('outbox worker recovery (int)', () => {
   let pgContainer: Awaited<ReturnType<PostgreSqlContainer['start']>>;
   let prisma: PrismaService;
   let loyaltyService: LoyaltyService;
   let auditService: AuditService;
+  let fraudService: FraudService;
 
   beforeAll(async () => {
     pgContainer = await new PostgreSqlContainer('postgres:16-alpine').start();
@@ -58,11 +63,243 @@ describe('outbox worker recovery (int)', () => {
     } as never;
 
     loyaltyService = new LoyaltyService(prisma, auditService, configService);
+    fraudService = new FraudService(
+      prisma,
+      new FraudRulesService(configService),
+      auditService,
+    );
   }, 120000);
 
   afterAll(async () => {
     await prisma?.$disconnect();
     await pgContainer?.stop();
+  }, 120000);
+
+  function createOutboxWorkerRuntime(
+    config: ReturnType<typeof loadWorkerConfig>,
+    smsProvider: SmsProvider,
+    reportMaterializer?: ReportMaterializerService,
+  ) {
+    return new OutboxWorkerRuntime(
+      prisma,
+      config,
+      smsProvider,
+      undefined,
+      reportMaterializer,
+      fraudService,
+    );
+  }
+
+  it('claims fraud events once under overlapping schedules without touching SMS', async () => {
+    const fixture = await createEarnFixture(prisma, `cron-${randomUUID()}`);
+    const fraudEvent = await prisma.outboxEvent.create({
+      data: {
+        tenantId: fixture.tenant.id,
+        aggregateType: 'auth-user',
+        aggregateId: randomUUID(),
+        eventType: 'fraud.evaluate',
+        payload: {},
+      },
+    });
+    const smsEvent = await prisma.outboxEvent.create({
+      data: {
+        tenantId: fixture.tenant.id,
+        aggregateType: 'receipt',
+        aggregateId: randomUUID(),
+        eventType: 'sms.send',
+        payload: {},
+      },
+    });
+    const config = {
+      get: (_key: string, fallback?: number) => fallback ?? 1,
+    } as never;
+    const fraudService = new FraudService(
+      prisma,
+      new FraudRulesService(config),
+      auditService,
+    );
+    const processor = new OutboxProcessingService(prisma, config, fraudService);
+
+    const results = await Promise.all([
+      processor.processBatch(),
+      processor.processBatch(),
+    ]);
+
+    expect(results.reduce((total, result) => total + result.claimed, 0)).toBe(
+      1,
+    );
+    expect(results.reduce((total, result) => total + result.completed, 0)).toBe(
+      1,
+    );
+    await expect(
+      prisma.outboxEvent.findUniqueOrThrow({
+        where: {
+          tenantId_id: { tenantId: fixture.tenant.id, id: fraudEvent.id },
+        },
+      }),
+    ).resolves.toMatchObject({ status: 'COMPLETED' });
+    await expect(
+      prisma.outboxEvent.findUniqueOrThrow({
+        where: {
+          tenantId_id: { tenantId: fixture.tenant.id, id: smsEvent.id },
+        },
+      }),
+    ).resolves.toMatchObject({ status: 'PENDING' });
+  }, 120000);
+
+  it('dispatches fraud work through the injected worker processor', async () => {
+    const fixture = await createEarnFixture(
+      prisma,
+      `worker-fraud-${randomUUID()}`,
+    );
+    const fraudEvent = await prisma.outboxEvent.create({
+      data: {
+        tenantId: fixture.tenant.id,
+        aggregateType: 'auth-user',
+        aggregateId: randomUUID(),
+        eventType: 'fraud.evaluate',
+        payload: {},
+      },
+    });
+    const redisEnv = await createRedisTestEnvironment();
+    const runtime = createOutboxWorkerRuntime(
+      loadWorkerConfig({ ...process.env, REDIS_URL: redisEnv.redisUrl }),
+      new DeterministicSmsProvider(),
+    );
+
+    try {
+      await runtime.start();
+      await waitFor(async () => {
+        const processed = await prisma.outboxEvent.findUnique({
+          where: {
+            tenantId_id: { tenantId: fixture.tenant.id, id: fraudEvent.id },
+          },
+        });
+        return processed?.status === 'COMPLETED';
+      });
+    } finally {
+      await runtime.stop();
+      await redisEnv.close();
+    }
+  }, 120000);
+
+  it('keeps multi-tenant fraud outbox dispatch scoped to each tenant', async () => {
+    const tenantA = await prisma.tenant.create({
+      data: { name: `tenant-isolation-a-${randomUUID()}` },
+    });
+    const tenantB = await prisma.tenant.create({
+      data: { name: `tenant-isolation-b-${randomUUID()}` },
+    });
+    const aggregateId = randomUUID();
+    const [eventA, eventB] = await Promise.all([
+      prisma.outboxEvent.create({
+        data: {
+          tenantId: tenantA.id,
+          aggregateType: 'tenant-isolation',
+          aggregateId,
+          eventType: 'fraud.evaluate',
+          payload: {},
+        },
+      }),
+      prisma.outboxEvent.create({
+        data: {
+          tenantId: tenantB.id,
+          aggregateType: 'tenant-isolation',
+          aggregateId,
+          eventType: 'fraud.evaluate',
+          payload: {},
+        },
+      }),
+    ]);
+    const processedPairs: string[] = [];
+    const processOutboxEvent = jest.fn(
+      (tenantId: string, eventId: string): void => {
+        processedPairs.push(`${tenantId}:${eventId}`);
+      },
+    );
+    const processor = new OutboxProcessingService(
+      prisma,
+      { get: (_key: string, fallback?: number) => fallback ?? 10 } as never,
+      { processOutboxEvent } as never,
+    );
+
+    await expect(
+      processor.processBatch('fraud.evaluate'),
+    ).resolves.toMatchObject({
+      claimed: 2,
+      completed: 2,
+      retried: 0,
+      deadLettered: 0,
+    });
+    expect(processedPairs.sort()).toEqual(
+      [`${tenantA.id}:${eventA.id}`, `${tenantB.id}:${eventB.id}`].sort(),
+    );
+    const persisted = await prisma.outboxEvent.findMany({
+      where: { id: { in: [eventA.id, eventB.id] } },
+      select: { tenantId: true, id: true, status: true, attempts: true },
+    });
+    expect(persisted).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          tenantId: tenantA.id,
+          id: eventA.id,
+          status: 'QUEUED',
+          attempts: 1,
+        }),
+        expect.objectContaining({
+          tenantId: tenantB.id,
+          id: eventB.id,
+          status: 'QUEUED',
+          attempts: 1,
+        }),
+      ]),
+    );
+  }, 120000);
+
+  it('dead-letters a tenant-scoped outbox event at the retry limit', async () => {
+    const tenant = await prisma.tenant.create({
+      data: { name: `retry-budget-${randomUUID()}` },
+    });
+    const event = await prisma.outboxEvent.create({
+      data: {
+        tenantId: tenant.id,
+        aggregateType: 'retry-budget',
+        aggregateId: randomUUID(),
+        eventType: 'fraud.evaluate',
+        payload: {},
+        status: 'FAILED',
+        attempts: 4,
+        nextAttemptAt: new Date(Date.now() - 1_000),
+      },
+    });
+    const processOutboxEvent = jest
+      .fn()
+      .mockRejectedValue(new Error('synthetic retry failure'));
+    const processor = new OutboxProcessingService(
+      prisma,
+      { get: (_key: string, fallback?: number) => fallback ?? 10 } as never,
+      { processOutboxEvent } as never,
+    );
+
+    await expect(
+      processor.processBatch('fraud.evaluate'),
+    ).resolves.toMatchObject({
+      claimed: 1,
+      completed: 0,
+      retried: 0,
+      deadLettered: 1,
+    });
+    expect(processOutboxEvent).toHaveBeenCalledWith(tenant.id, event.id);
+    const persisted = await prisma.outboxEvent.findUniqueOrThrow({
+      where: { tenantId_id: { tenantId: tenant.id, id: event.id } },
+    });
+    expect(persisted).toMatchObject({
+      status: 'FAILED',
+      attempts: 5,
+      failureCategory: 'retry-budget-exhausted',
+      nextAttemptAt: null,
+    });
+    expect(persisted.deadLetteredAt).toBeInstanceOf(Date);
   }, 120000);
 
   it('keeps Redis empty until the worker publishes committed outbox rows', async () => {
@@ -108,8 +345,7 @@ describe('outbox worker recovery (int)', () => {
 
   it('publishes pending outbox rows and delivers sms after worker recovery', async () => {
     const redisEnv = await createRedisTestEnvironment();
-    const runtime = new OutboxWorkerRuntime(
-      prisma,
+    const runtime = createOutboxWorkerRuntime(
       loadWorkerConfig({
         ...process.env,
         REDIS_URL: redisEnv.redisUrl,
@@ -185,14 +421,12 @@ describe('outbox worker recovery (int)', () => {
       prisma,
       new ConfigService({ SHOPCITY_TIMEZONE: 'Africa/Lagos' }),
     );
-    const runtime = new OutboxWorkerRuntime(
-      prisma,
+    const runtime = createOutboxWorkerRuntime(
       loadWorkerConfig({
         ...process.env,
         REDIS_URL: redisEnv.redisUrl,
       }),
       new DeterministicSmsProvider(),
-      undefined,
       reportMaterializer,
     );
 
@@ -276,14 +510,12 @@ describe('outbox worker recovery (int)', () => {
       prisma,
       new ConfigService({ SHOPCITY_TIMEZONE: 'Africa/Lagos' }),
     );
-    const runtime = new OutboxWorkerRuntime(
-      prisma,
+    const runtime = createOutboxWorkerRuntime(
       loadWorkerConfig({
         ...process.env,
         REDIS_URL: redisEnv.redisUrl,
       }),
       new DeterministicSmsProvider(),
-      undefined,
       reportMaterializer,
     );
 
@@ -327,14 +559,12 @@ describe('outbox worker recovery (int)', () => {
       prisma,
       new ConfigService({ SHOPCITY_TIMEZONE: 'Africa/Lagos' }),
     );
-    const runtime = new OutboxWorkerRuntime(
-      prisma,
+    const runtime = createOutboxWorkerRuntime(
       loadWorkerConfig({
         ...process.env,
         REDIS_URL: redisEnv.redisUrl,
       }),
       new DeterministicSmsProvider(),
-      undefined,
       reportMaterializer,
     );
 
@@ -414,8 +644,7 @@ describe('outbox worker recovery (int)', () => {
 
       await redisEnv.restart();
 
-      recoveryRuntime = new OutboxWorkerRuntime(
-        prisma,
+      recoveryRuntime = createOutboxWorkerRuntime(
         loadWorkerConfig({
           ...process.env,
           REDIS_URL: redisEnv.redisUrl,
@@ -470,8 +699,7 @@ describe('outbox worker recovery (int)', () => {
 
   it('backfills missing sms rows for published outbox events', async () => {
     const redisEnv = await createRedisTestEnvironment();
-    const runtime = new OutboxWorkerRuntime(
-      prisma,
+    const runtime = createOutboxWorkerRuntime(
       loadWorkerConfig({
         ...process.env,
         REDIS_URL: redisEnv.redisUrl,
@@ -539,16 +767,14 @@ describe('outbox worker recovery (int)', () => {
 
   it('keeps multi-worker recovery to one sms delivery per outbox event', async () => {
     const redisEnv = await createRedisTestEnvironment();
-    const runtimeA = new OutboxWorkerRuntime(
-      prisma,
+    const runtimeA = createOutboxWorkerRuntime(
       loadWorkerConfig({
         ...process.env,
         REDIS_URL: redisEnv.redisUrl,
       }),
       new DeterministicSmsProvider(),
     );
-    const runtimeB = new OutboxWorkerRuntime(
-      prisma,
+    const runtimeB = createOutboxWorkerRuntime(
       loadWorkerConfig({
         ...process.env,
         REDIS_URL: redisEnv.redisUrl,
@@ -605,8 +831,7 @@ describe('outbox worker recovery (int)', () => {
 
   it('records sms delivery failure when the provider rejects a message', async () => {
     const redisEnv = await createRedisTestEnvironment();
-    const runtime = new OutboxWorkerRuntime(
-      prisma,
+    const runtime = createOutboxWorkerRuntime(
       loadWorkerConfig({
         ...process.env,
         REDIS_URL: redisEnv.redisUrl,

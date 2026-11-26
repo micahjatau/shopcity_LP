@@ -7,6 +7,11 @@
     "LOG_LEVEL": "info",
     "SWAGGER_ENABLED": "false"
   },
+  "git": {
+    "deploymentEnabled": {
+      "release/preview-workerless-recertify-2026-11-25": false
+    }
+  },
   "builds": [
     {
       "src": "api/index.ts",

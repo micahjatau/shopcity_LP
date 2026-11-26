@@ -114,6 +114,24 @@ describe('envValidationSchema', () => {
     ).toBe(false);
   });
 
+  it('defaults F7 to a 240-second execution budget and caps configuration', () => {
+    const defaults = envValidationSchema.validate({});
+    expect(defaults.error).toBeUndefined();
+    expect(defaults.value).toMatchObject({
+      SCHEDULED_F7_EXECUTION_BUDGET_MS: 240000,
+    });
+    expect(
+      envValidationSchema.validate({
+        SCHEDULED_F7_EXECUTION_BUDGET_MS: 999,
+      }).error,
+    ).toBeDefined();
+    expect(
+      envValidationSchema.validate({
+        SCHEDULED_F7_EXECUTION_BUDGET_MS: 240001,
+      }).error,
+    ).toBeDefined();
+  });
+
   it('defaults DLR polling to a five-minute interval and bounded batch', () => {
     const result = envValidationSchema.validate({});
     expect(result.error).toBeUndefined();

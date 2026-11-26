@@ -11,6 +11,38 @@ Use this tracker when preparing a spec proposal. Run `npm run proposal:impact --
 
 ## Findings
 
+### 2026-11-26 — Targeted F1 transaction diagnostics
+
+Before proposing diagnostic-only instrumentation for `CreditExpiryService.expireDueCredit`, GitNexus CLI impact resolved the target exactly to `Method:src/modules/credit-expiry/credit-expiry.service.ts:CreditExpiryService.expireDueCredit#1`: **MEDIUM** risk, 14 impacted symbols (6 direct; 3 at depth 2; 5 at depth 3), 2 affected processes (`ScheduledJobsService.execute` and `src/worker.ts` bootstrap), and 2 modules (Jobs and Scheduled-jobs). Direct dependants include the credit-expiry unit/integration/invariant tests, financial-schema reconciliation integration test, `CreditExpiryWorkerRuntime.runSweep`, and `ScheduledJobsService.execute`. No HIGH/CRITICAL risk. The local index was refreshed after `analyze` found an inconsistent FTS index; `analyze --repair-fts` followed by a full rebuild restored an up-to-date index. GitNexus MCP impact/detect_changes tools are not registered; this is CLI evidence, not an MCP pass. Planned scope is failure-only, sanitized transaction-stage diagnostics plus local full-Preview-schema reproduction; no financial logic changes, live F1 invocation, Cron change, or Production operation.
+
+```text
+npm run proposal:impact -- --file src/modules/credit-expiry/credit-expiry.service.ts expireDueCredit
+node .gitnexus/run.cjs impact expireDueCredit --repo shopcity_LP --file src/modules/credit-expiry/credit-expiry.service.ts --include-tests
+```
+
+### 2026-11-26 — Restore missing credit-lot expiry helper after F1 diagnosis
+
+After Preview catalog evidence established that the applied lifecycle triggers call the absent `derive_credit_lot_expires_at(timestamp without time zone)` function, GitNexus impact for the SQL function returned `Target not found` / **UNKNOWN** (not zero); PostgreSQL function bodies are not indexed. Manual catalog/source review is required for this SQL dependency. Test helpers `simulatePreviewDrift`, `applyReconciliationSql`, and `readFixtureState` each report LOW/exact with 1 direct caller and 0 processes/modules. The existing `CreditExpiryService.expireDueCredit` analysis remains MEDIUM/exact with 14 impacted symbols, 6 direct callers, and 2 affected processes (`ScheduledJobsService.execute`, worker bootstrap). Planned correction is a new idempotent forward-only Prisma migration copied exactly from the canonical helper definition, plus a disposable PostgreSQL 17.6 regression that proves SQLSTATE 42883 at the lot-decrement trigger, transaction rollback, and success after restoration. No existing migration is edited/reapplied, no Preview migration is applied, and no live F1/Cron/Production action is included.
+
+```text
+npm run proposal:impact -- --file prisma/migrations/20260725_sprint_2_financial_integrity_lifecycle_closure/migration.sql derive_credit_lot_expires_at
+npm run proposal:impact -- --file test/financial-schema-reconciliation.int-spec.ts simulatePreviewDrift
+npm run proposal:impact -- --file test/financial-schema-reconciliation.int-spec.ts applyReconciliationSql
+npm run proposal:impact -- --file test/financial-schema-reconciliation.int-spec.ts readFixtureState
+```
+
+### 2026-11-26 — Preview credit-expiry financial-schema reconciliation
+
+Before proposing the Preview-only schema reconciliation, GitNexus upstream impact for `CreditExpiryService.expireDueCredit` resolved exactly to `Method:src/modules/credit-expiry/credit-expiry.service.ts:CreditExpiryService.expireDueCredit#1`: **MEDIUM** risk, 13 impacted symbols (5 direct), 2 affected processes (`ScheduledJobsService.execute` and `src/worker.ts` bootstrap), and the Jobs/Scheduled-jobs modules. Direct dependants include both credit-expiry integration specs, the service spec, `CreditExpiryWorkerRuntime.runSweep`, and `ScheduledJobsService.execute`. No HIGH/CRITICAL result. Database trigger functions are not indexed as symbols, so GitNexus cannot assess their SQL dependency graph; compare the full canonical and Preview PostgreSQL definitions directly. Scope is a forward-only Prisma migration and regression coverage; no `CreditExpiryService` code change, remote migration, F1 retry/activation, Cron change, ledger/lot edit, Production change, or SMS send is authorized.
+
+```text
+npm run proposal:impact -- --file src/modules/credit-expiry/credit-expiry.service.ts expireDueCredit
+node .gitnexus/run.cjs impact expireDueCredit --direction upstream --repo shopcity_LP --file src/modules/credit-expiry/credit-expiry.service.ts --include-tests
+node .gitnexus/run.cjs impact validate_ledger_entry_commit_state --direction upstream --repo shopcity_LP --include-tests
+```
+
+The final command returned `Target not found` because GitNexus does not index PostgreSQL function definitions; that is not a zero-impact finding. The GitNexus MCP `detect_changes` tool is not exposed in this session. The CLI fallback `node .gitnexus/run.cjs detect-changes --scope staged --repo shopcity_LP` reported 13 staged files, six documentation symbols, zero affected processes, and LOW risk. It did not index the migration SQL or the new integration-test symbols; this is limited fallback evidence, not an MCP `detect_changes` pass. Manual diff review and the existing MEDIUM impact analysis remain the compensating checks.
+
 ### 2026-11-14 — Increase public login throttle limit
 
 Before proposing `increase-login-throttle-limit`, GitNexus upstream impact for `AuthController.login` resolved exactly to `Method:src/modules/auth/auth.controller.ts:AuthController.login#9` and reported LOW risk: 1 direct dependent (`src/modules/auth/auth.service.spec.ts`), 0 affected processes, and 0 affected modules. The index was stale at `b69befc` versus HEAD `97aca7f`; refresh failed because the FTS `file_fts` index was inconsistent (missing document offset 2021 during delete). Treat graph counts as limited stale-index evidence; source/test review is required. Scope is to raise only `/api/v1/auth/login` from 5 to 10 attempts per 15 minutes, preserving IP/account/pair buckets. Cashier WebAuthn completion and password-recovery limits remain unchanged.
@@ -19,6 +51,32 @@ Before proposing `increase-login-throttle-limit`, GitNexus upstream impact for `
 npm run proposal:impact -- --file src/modules/auth/auth.controller.ts AuthController.login
 node .gitnexus/run.cjs impact login -r shopcity_LP --file src/modules/auth/auth.controller.ts --kind Method --include-tests
 node .gitnexus/run.cjs analyze
+```
+
+### 2026-11-24 — Report lifecycle transition tie-break
+
+Before extending the active `atomic-redeem-settlement` report semantics, `redemptionStatusAt` impact is LOW/exact with 6 impacted symbols (3 direct: `report-snapshot.spec.ts`, `buildDailyFinancialSummaries`, and `buildRedemptionSummaries`), 0 affected execution processes, and the Reports module only. No HIGH/CRITICAL risk. Source and local F7 evidence show a confirmed redemption can set `requestedAt === confirmedAt`; stable sorting then incorrectly selects the earlier pending transition and reports the settlement as pending. The bounded fix makes the later lifecycle transition win equal timestamps and adds a regression test. Preserve the current workerless, tenant/branch-scoped report materialization behavior.
+
+```text
+npm run proposal:impact -- --file src/modules/reports/report-snapshot.ts redemptionStatusAt
+node .gitnexus/run.cjs impact redemptionStatusAt --direction upstream --file src/modules/reports/report-snapshot.ts --repo shopcity_LP --include-tests
+```
+
+### 2026-11-15 — Supabase Cron workerless processing proposal
+
+Pre-proposal GitNexus impacts (index at `e84f393a`, stale relative to the current dirty tree) were LOW for `OutboxProcessingService` (exact), MEDIUM for `OutboxWorkerRuntime` (exact), MEDIUM for `ReportMaterializerService`, and LOW for `ReportMaterializationWorkerRuntime`. The previously recorded fraud/outbox slice found `FraudService` LOW/exact and the new `OutboxProcessingService` absent from the index; report sweep impact was LOW with 6 symbols/2 direct callers. These are lower-bound context, not proof of no risk. This change also touches `ApprovalExpiryWorkerRuntime`, `CreditExpiryWorkerRuntime`, `ExpiryReminderService`, `runReportMaterializationSweep`, `runPilotOperationsHistorySweep`, scheduler controllers/modules, and Prisma schema; no reliable graph results are available for all of these targets in the current stale index. Source review required before editing each handler. No HIGH/CRITICAL impact was reported in the available indexed findings. Blast radius includes approvals/credit expiration and financial audit transactions, SMS reminder intents and provider delivery state, fraud/report outbox processing, all tenant report snapshots, and pilot-history retention. Preserve existing fraud/outbox modifications and all unrelated worktree artifacts. Refresh the index before further changes to newly added symbols; run detect_changes before completion. Supabase/Vercel access is currently insufficient to inspect Preview/Production schedules, and this proposal authorizes neither remote changes nor Production cutover.
+
+```text
+npm run proposal:impact -- --file src/modules/outbox-processing/outbox-processing.service.ts OutboxProcessingService
+npm run proposal:impact -- --file src/jobs/outbox-worker.runtime.ts OutboxWorkerRuntime
+npm run proposal:impact -- --file src/modules/reports/report-materializer.service.ts ReportMaterializerService
+npm run proposal:impact -- --file src/jobs/report-materialization.worker.ts ReportMaterializationWorkerRuntime
+npm run proposal:impact -- --file src/jobs/report-materialization.worker.ts runReportMaterializationSweep
+npm run proposal:impact -- --file src/jobs/approval-expiry.worker.ts ApprovalExpiryWorkerRuntime
+npm run proposal:impact -- --file src/jobs/credit-expiry.worker.ts CreditExpiryWorkerRuntime
+npm run proposal:impact -- --file src/modules/credit-expiry/expiry-reminder.service.ts ExpiryReminderService
+npm run proposal:impact -- --file src/jobs/pilot-operations-history.worker.ts runPilotOperationsHistorySweep
+
 ```
 
 ### 2026-11-13 — Admin mobile table and filter parity
@@ -2449,4 +2507,39 @@ Before updating the Cashier preview/Operations presentation specs, `npm run prop
 ```text
 npm run proposal:impact -- --file apps/web/components/workflows/supervisor-virtual-card-preview.tsx SupervisorVirtualCardPreview
 npm run proposal:impact -- --file apps/web/components/workflows/pilot-health-panel.tsx getReleaseMetadata
+```
+
+### 2026-11-19 — PostgreSQL outbox processor and consolidated fraud evaluation
+
+Before drafting `simplify-fraud-and-background-processing`, GitNexus impact was run for `FraudService`, `OutboxWorkerRuntime`, `FraudBehaviorRuntime`, and `ReportMaterializationCronController`. The index was stale at `4559f59` versus current `e84f393a`, so initial counts were lower-bound. Initial risks were LOW for `FraudService` (4 impacted, 2 direct, no indexed processes) and the report cron controller (4, 2 direct), and MEDIUM for `OutboxWorkerRuntime` (9, 7 direct; `src/worker.ts` bootstrap, Jobs module) and `FraudBehaviorRuntime` (22, 5 direct; worker bootstrap and outbox `handleJob`, Jobs module). No HIGH/CRITICAL result was reported. A post-change recheck returned `FraudService` LOW/exact (3 impacted, 1 direct, no indexed processes) and `OutboxWorkerRuntime` MEDIUM/exact (6 direct, including worker bootstrap and existing tests). The new `OutboxProcessingService` is absent from the stale index, so its graph impact is UNKNOWN; validate it by source/test review and refresh the index before future changes. Plan and implementation preserve API-side synchronous duplicate/balance/approval behavior and append-only financial/audit history; add only an authenticated, bounded API outbox-processing entry point using PostgreSQL claim/recovery; centralize supported fraud evaluation; retain BullMQ/Redis, worker bootstrap, report cron, and deployment config during this first additive slice. There is no authorization to deploy, alter production schedules, send real SMS, reconcile/modify production records, or retire the legacy worker.
+
+```text
+npm run proposal:impact -- --file src/modules/fraud/fraud.service.ts FraudService
+npm run proposal:impact -- --file src/jobs/outbox-worker.runtime.ts OutboxWorkerRuntime
+npm run proposal:impact -- --file src/jobs/fraud-behavior.runtime.ts FraudBehaviorRuntime
+npm run proposal:impact -- --file src/modules/reports/report-materialization-cron.controller.ts ReportMaterializationCronController
+```
+
+### 2026-11-15 — Supabase Cron scheduled adapters (post-change review)
+
+The new `ScheduledJobsService` and `ScheduledJobsController` were not present in the indexed graph. Post-change `npm run gitnexus:analyze` failed because the existing `file_fts` index is inconsistent (missing node offset 2159 during delete); no refreshed symbol-level impact or `detect_changes` result is available. Source/test review verified the bounded call chain: `ScheduledJobsController` → `ScheduledJobsService` → existing approval/credit/reminder services, `OutboxProcessingService` → `OutboxWorkerRuntime` safety handlers, report materializer, and pilot snapshot service. The outbox event selector is a closed union and SQL-bound parameter; scheduled SMS and report-refresh batches are capped at one per request, DLR polling at five, fraud at 25, and retention at configured batch size. No schedule configuration was changed. Preview/Production impact remains unverified, and no HIGH/CRITICAL result can be asserted from the corrupted index.
+
+```text
+npm run gitnexus:analyze  # failed: inconsistent file_fts index
+node .gitnexus/run.cjs detect-changes  # not run; index could not be refreshed
+```
+
+### 2026-11-22 — Refreshed workerless-processing review
+
+A refreshed analysis succeeded: 19,359 nodes, 30,977 edges, 585 clusters, and 300 execution flows. Exact upstream impacts were MEDIUM for `FraudService` (28 impacted symbols, 9 direct; worker bootstrap and outbox handler), `FraudRulesService` (22, 7 direct), `OutboxProcessingService` (13, 6 direct), and `ScheduledJobsService` (7, 5 direct). `scheduleDeliveryReportPoll` and `createSmsProvider` were LOW/exact (5/1 direct and 6/3 direct, respectively). The newly introduced `DisabledSmsProvider` was not indexed (UNKNOWN); manual source review and its no-provider-call test cover it. No individual impact query returned HIGH/CRITICAL.
+
+The required final `detect-changes --repo shopcity_LP --scope all` returned **HIGH**: 17 files, 55 symbols, and 11 execution flows. Expected affected paths include fraud findings and purchase/redemption thresholds, outbox deduplication/retries, policy lookup, and delivery-report polling. The aggregate also included generated guidance (`AGENTS.md`, `CLAUDE.md`) and documentation changes. Manual review found and fixed three safety gaps before commit: failed invocation keys now preserve their failure record, F10 validates the SMS cutoff before starting any batch, and failed F7 runs record the tenant ID/safe error class without advancing the cursor or retaining exception text. Their focused and full-suite tests pass. The final staged-scope check returned **CRITICAL** (41 staged files, 227 symbols, 25 flows). It includes the intended ADR/OpenSpec/documentation surface as well as the cross-module source/test changes; generated guidance, `.next-*` artifacts, and test-result artifacts were not staged. The affected processes were manually reviewed as expected for this explicitly broad fraud/outbox/scheduled-processing increment; individual targeted impacts remain MEDIUM/LOW. This is a high-risk local implementation only: no Preview validation or Production release is certified. No remote migration, deployment, schedule, secret, or SMS action was performed.
+
+```text
+npm run gitnexus:analyze  # succeeded: refreshed 19,359-node index
+npm run proposal:impact -- --file src/modules/fraud/fraud.service.ts FraudService
+npm run proposal:impact -- --file src/modules/fraud/fraud-rules.service.ts FraudRulesService
+npm run proposal:impact -- --file src/modules/outbox-processing/outbox-processing.service.ts OutboxProcessingService
+npm run proposal:impact -- --file src/modules/scheduled-jobs/scheduled-jobs.service.ts ScheduledJobsService
+node .gitnexus/run.cjs detect-changes --repo shopcity_LP --scope all  # HIGH, reviewed
 ```

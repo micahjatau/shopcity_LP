@@ -283,6 +283,18 @@ export const envValidationSchema = Joi.object({
     .min(1)
     .max(1000)
     .default(25),
+  CRON_OUTBOX_BATCH_SIZE: Joi.number().integer().min(1).max(25).default(10),
+  SCHEDULER_SECRET: Joi.string().min(32).optional(),
+  SCHEDULER_ENVIRONMENT: Joi.string()
+    .valid('local', 'test', 'preview', 'staging', 'production')
+    .optional(),
+  SCHEDULED_JOB_BATCH_SIZE: Joi.number().integer().min(1).max(25).default(10),
+  SCHEDULED_F7_EXECUTION_BUDGET_MS: Joi.number()
+    .integer()
+    .min(1000)
+    .max(240000)
+    .default(240000),
+  SCHEDULED_SMS_NOT_BEFORE: Joi.date().iso().optional(),
   OUTBOX_PUBLISH_INTERVAL_MS: Joi.number().integer().min(100).default(5000),
   OUTBOX_RETRY_DELAY_MS: Joi.number().integer().min(1000).default(30000),
   OUTBOX_RECOVERY_THRESHOLD_MS: Joi.number().integer().min(1000).default(60000),
@@ -315,7 +327,7 @@ export const envValidationSchema = Joi.object({
     .valid('ebulksms', 'arkesel', 'africastalking', 'twilio', 'termii')
     .default('ebulksms'),
   SMS_PROVIDER_MODE: Joi.string()
-    .valid('deterministic', 'sandbox', 'real')
+    .valid('disabled', 'deterministic', 'sandbox', 'real')
     .default('deterministic'),
   SMS_PROVIDER_URL: Joi.string()
     .uri()

@@ -3,6 +3,7 @@ import {
   AfricaTalkingSmsProvider,
   ArkeselSmsProvider,
   DeterministicSmsProvider,
+  DisabledSmsProvider,
   EbulkSmsProvider,
   SandboxSmsProvider,
   TermiiSmsProvider,
@@ -51,6 +52,8 @@ export function createSmsProvider(env = process.env): SmsProvider {
   }
 
   switch (mode) {
+    case 'disabled':
+      return new DisabledSmsProvider();
     case 'real': {
       const timeoutMs =
         typeof values.SMS_PROVIDER_TIMEOUT_MS === 'number'

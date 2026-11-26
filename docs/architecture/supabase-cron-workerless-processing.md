@@ -1,0 +1,55 @@
+# Supabase Cron workerless processing
+
+## Status
+
+Design/implementation in progress. This document does not authorize deployment or Production cutover. Supabase Cron is the intended sole scheduler for F0–F10 after individually validated cutover; the API remains the business-logic executor. Redis remains for authentication throttling and is not a worker dependency.
+
+## Flow inventory
+
+| Flow | Responsibility                                   | Current implementation status                                                                                                                                                                                                                                                                                               |
+| ---- | ------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| F0   | Approval expiry                                  | Scheduled handler delegates to existing `expireOverdueApprovals`; bounded by configured cap.                                                                                                                                                                                                                                |
+| F1   | Credit expiry                                    | Scheduled handler delegates to `CreditExpiryService`; financial transaction/retry controls retained.                                                                                                                                                                                                                        |
+| F2   | Credit-expiry reminder enqueue                   | Scheduled handler delegates to `ExpiryReminderService`; only creates the unique SMS outbox intent.                                                                                                                                                                                                                          |
+| F3   | SMS outbox delivery                              | Delegates to the existing worker handler with payload, suppression, reservation, provider outcome, retry, and dead-letter safeguards; requires `SCHEDULED_SMS_NOT_BEFORE` and ignores older intents. Preview requires `SMS_PROVIDER_MODE=disabled`; this mode is unit-tested locally but not configured or tested remotely. |
+| F4   | Fraud evaluation                                 | Uses the PostgreSQL outbox processor and consolidated fraud service; no Preview test has been run.                                                                                                                                                                                                                          |
+| F5   | Report-refresh outbox events                     | Delegates to the existing worker handler and `ReportMaterializerService`; no Preview test has been run.                                                                                                                                                                                                                     |
+| F6   | Provider delivery-report polling                 | Delegates to the existing poll-only handler; it does not send SMS, but provider-read behavior has not been tested.                                                                                                                                                                                                          |
+| F7   | Report materialization                           | One-tenant-per-invocation handler with persistent cursor and expiring lease; source materializer remains authoritative.                                                                                                                                                                                                     |
+| F8   | Pilot operations history capture                 | Cursor-backed tenant batch; capture failures are counted and not logged with identifying data.                                                                                                                                                                                                                              |
+| F9   | Pilot history retention                          | Deletes only snapshot rows older than the existing 30-day retention boundary.                                                                                                                                                                                                                                               |
+| F10  | Outbox stale-claim recovery/dead-letter handling | Processes bounded eligible batches across supported event classes using existing retry/dead-letter handling; it validates the SMS cutoff before starting any batch. Preview concurrency and recovery evidence remains required.                                                                                             |
+
+The F0–F10 mapping is an implementation inventory based on repository workers and the supplied brief. Exact schedule frequencies and any other operational flow labels must be reconciled against the authoritative operations brief and Preview project before schedules are created.
+
+## Request and completion contract
+
+`POST /api/v1/internal/scheduled-jobs` accepts only `{ flow, invocationKey }`, requires `Authorization: Bearer <SCHEDULER_SECRET>` and an exact `x-shopcity-scheduler-environment` match, and fails closed when scheduler configuration is absent. The secret is distinct from existing cron credentials and must be unique per environment. Invocation records are keyed by environment, flow, and idempotency key. A failed invocation is terminal for that key; a later schedule window uses a new key so retries do not overwrite failure evidence. `ScheduledJobRun` and `ScheduledJobCursor` have RLS enabled and no public policies. HTTP/`pg_net` dispatch acknowledgement is not completion evidence; `ScheduledJobRun` is the completion source.
+
+All flow IDs have application adapters, but wiring is not equivalent to rollout validation. No schedule installer should be run against any remote project until isolated and Testcontainers tests cover every handler, SMS is proven non-sending in Preview, cadence and owner are approved, and Preview evidence is complete.
+
+## Report fairness
+
+F7 leases the durable `report-materialization` cursor, selects at most one tenant, rebuilds through `ReportMaterializerService`, advances the cursor only after success, wraps to the first tenant at end-of-list, then releases the lease. A failed rebuild leaves the cursor unchanged and stores the failed tenant ID plus a safe error class in the backend-only run result; exception messages are not retained. The one-tenant limit is deliberate because `rebuildTenant` currently performs a potentially large transaction with a 30-second Prisma timeout. Profiling in Preview must establish the request/runtime budget before increasing this limit or changing materializer transaction behavior.
+
+F8 separately holds `pilot-operations-history` cursor and captures at most 10 tenant snapshots per invocation. F9 owns only retention pruning. Existing in-process workers remain in the tree as rollback code; operators must disable each legacy owner before enabling its Cron schedule. Never run both owners concurrently for the same flow.
+
+## Rollback
+
+1. Disable the corresponding Supabase Cron schedule and confirm the last invocation has completed or expired.
+2. Keep the additive tables/columns in place; do not drop or rewrite them during rollback.
+3. Only after the scheduled endpoint is drained, restore the existing worker owner for that flow and confirm exactly one owner is active.
+4. Preserve run records, failure evidence, outbox state, SMS state, and financial/audit history for investigation.
+5. Do not replay historical SMS as a rollback action. SMS provider ambiguity requires reconciliation, not blind retry.
+
+## Deployment and monitoring
+
+- Configure Preview `SCHEDULER_SECRET` (at least 32 characters, generated/rotated out of band) and `SCHEDULER_ENVIRONMENT=preview` only in Preview settings. Set Preview `SMS_PROVIDER_MODE=disabled` before any invocation that could process SMS. Configure `SCHEDULED_SMS_NOT_BEFORE` only for controlled synthetic Preview tests; absence fails closed and events created before the cutoff are never claimed for scheduled sending. Never print either value.
+- Store the Preview secret in Supabase Vault; grant the Cron role only what it needs to dispatch. Verify `pg_cron`, `pg_net`, Vault view permissions, request/response retention, and network routing in the actual project.
+- Add one Preview schedule per validated flow with documented cadence, timezone, flow ID, endpoint, secret reference, and rollback owner. Schedule SQL is a separate, reviewed Preview-only action; it is not part of an application migration.
+- Alert on failed/stale scheduled runs, dead-letter growth, oldest eligible outbox age, SMS poll age, report cursor stagnation, and stale report materialization. Logs must exclude secrets, phone numbers, message body, and arbitrary request payload.
+- Verify completion through `ScheduledJobRun` and domain state, not only Supabase Cron status or `net._http_response`.
+
+## Current blockers
+
+Supabase discovery is blocked by invalid CLI access credentials. Local link metadata points to Preview ref `nmuedccamqacgszvosvm`, but remote project identity, schema/history, and Cron inventory were not verified. The linked Vercel team plan is confirmed as active Hobby; no deployment occurred. Vercel Terms restrict Hobby to personal/non-commercial use, so verify eligibility or upgrade before deploying this business-oriented backend. Current Function duration limits are 60 seconds without Fluid Compute and 300 seconds with it; the project’s Fluid Compute setting is unverified, while report materialization has a 30-second transaction timeout. Vercel Hobby Cron cadence is limited to once per day, although the proposed F0–F10 schedules are Supabase Cron, not Vercel Cron; the existing Vercel Cron remains daily and untouched. See https://vercel.com/legal/terms, https://vercel.com/docs/functions/configuring-functions/duration, and https://vercel.com/docs/limits. Preview scheduler secret/environment and SMS cutoff are absent; provider mode/credentials are sensitive and unread. Do not claim schedule inventory or Preview execution until access is restored. Provider-side SMS idempotency/reconciliation is unresolved and blocks F3 cutover. No remote migration, Cron schedule, secret, Vercel setting, Production configuration, or live SMS action has been performed by this implementation.

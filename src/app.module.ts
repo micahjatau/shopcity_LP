@@ -32,6 +32,8 @@ import { OfflineSyncModule } from './modules/offline-sync/offline-sync.module';
 import { ReportsModule } from './modules/reports/reports.module';
 import { FraudModule } from './modules/fraud/fraud.module';
 import { CreditExpiryModule } from './modules/credit-expiry/credit-expiry.module';
+import { OutboxProcessingModule } from './modules/outbox-processing/outbox-processing.module';
+import { ScheduledJobsModule } from './modules/scheduled-jobs/scheduled-jobs.module';
 
 @Module({
   imports: [
@@ -103,6 +105,8 @@ import { CreditExpiryModule } from './modules/credit-expiry/credit-expiry.module
     OfflineSyncModule,
     FraudModule,
     CreditExpiryModule,
+    OutboxProcessingModule,
+    ScheduledJobsModule,
     ReportsModule,
     ApprovalsModule,
     AuditModule,

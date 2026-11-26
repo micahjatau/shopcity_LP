@@ -1003,6 +1003,32 @@ model PilotOperationsSnapshot {
   @@index([capturedAt])
 }
 
+model ScheduledJobRun {
+  id               String   @id @default(uuid())
+  environment      String
+  flow             String
+  idempotencyKey   String
+  status           String
+  startedAt        DateTime @default(now())
+  finishedAt       DateTime?
+  result           Json?
+  failureCategory  String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@unique([environment, flow, idempotencyKey])
+  @@index([environment, flow, startedAt])
+  @@index([status, startedAt])
+}
+
+model ScheduledJobCursor {
+  jobKey          String   @id
+  cursor          String?
+  leaseToken      String?
+  leaseExpiresAt  DateTime?
+  updatedAt       DateTime @updatedAt
+}
+
 model ReportMaterializationState {
   id             String    @id @default(uuid())
   tenantId       String
