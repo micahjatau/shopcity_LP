@@ -11,6 +11,26 @@ Use this tracker when preparing a spec proposal. Run `npm run proposal:impact --
 
 ## Findings
 
+### 2026-11-26 — Targeted F1 transaction diagnostics
+
+Before proposing diagnostic-only instrumentation for `CreditExpiryService.expireDueCredit`, GitNexus CLI impact resolved the target exactly to `Method:src/modules/credit-expiry/credit-expiry.service.ts:CreditExpiryService.expireDueCredit#1`: **MEDIUM** risk, 14 impacted symbols (6 direct; 3 at depth 2; 5 at depth 3), 2 affected processes (`ScheduledJobsService.execute` and `src/worker.ts` bootstrap), and 2 modules (Jobs and Scheduled-jobs). Direct dependants include the credit-expiry unit/integration/invariant tests, financial-schema reconciliation integration test, `CreditExpiryWorkerRuntime.runSweep`, and `ScheduledJobsService.execute`. No HIGH/CRITICAL risk. The local index was refreshed after `analyze` found an inconsistent FTS index; `analyze --repair-fts` followed by a full rebuild restored an up-to-date index. GitNexus MCP impact/detect_changes tools are not registered; this is CLI evidence, not an MCP pass. Planned scope is failure-only, sanitized transaction-stage diagnostics plus local full-Preview-schema reproduction; no financial logic changes, live F1 invocation, Cron change, or Production operation.
+
+```text
+npm run proposal:impact -- --file src/modules/credit-expiry/credit-expiry.service.ts expireDueCredit
+node .gitnexus/run.cjs impact expireDueCredit --repo shopcity_LP --file src/modules/credit-expiry/credit-expiry.service.ts --include-tests
+```
+
+### 2026-11-26 — Restore missing credit-lot expiry helper after F1 diagnosis
+
+After Preview catalog evidence established that the applied lifecycle triggers call the absent `derive_credit_lot_expires_at(timestamp without time zone)` function, GitNexus impact for the SQL function returned `Target not found` / **UNKNOWN** (not zero); PostgreSQL function bodies are not indexed. Manual catalog/source review is required for this SQL dependency. Test helpers `simulatePreviewDrift`, `applyReconciliationSql`, and `readFixtureState` each report LOW/exact with 1 direct caller and 0 processes/modules. The existing `CreditExpiryService.expireDueCredit` analysis remains MEDIUM/exact with 14 impacted symbols, 6 direct callers, and 2 affected processes (`ScheduledJobsService.execute`, worker bootstrap). Planned correction is a new idempotent forward-only Prisma migration copied exactly from the canonical helper definition, plus a disposable PostgreSQL 17.6 regression that proves SQLSTATE 42883 at the lot-decrement trigger, transaction rollback, and success after restoration. No existing migration is edited/reapplied, no Preview migration is applied, and no live F1/Cron/Production action is included.
+
+```text
+npm run proposal:impact -- --file prisma/migrations/20260725_sprint_2_financial_integrity_lifecycle_closure/migration.sql derive_credit_lot_expires_at
+npm run proposal:impact -- --file test/financial-schema-reconciliation.int-spec.ts simulatePreviewDrift
+npm run proposal:impact -- --file test/financial-schema-reconciliation.int-spec.ts applyReconciliationSql
+npm run proposal:impact -- --file test/financial-schema-reconciliation.int-spec.ts readFixtureState
+```
+
 ### 2026-11-26 — Preview credit-expiry financial-schema reconciliation
 
 Before proposing the Preview-only schema reconciliation, GitNexus upstream impact for `CreditExpiryService.expireDueCredit` resolved exactly to `Method:src/modules/credit-expiry/credit-expiry.service.ts:CreditExpiryService.expireDueCredit#1`: **MEDIUM** risk, 13 impacted symbols (5 direct), 2 affected processes (`ScheduledJobsService.execute` and `src/worker.ts` bootstrap), and the Jobs/Scheduled-jobs modules. Direct dependants include both credit-expiry integration specs, the service spec, `CreditExpiryWorkerRuntime.runSweep`, and `ScheduledJobsService.execute`. No HIGH/CRITICAL result. Database trigger functions are not indexed as symbols, so GitNexus cannot assess their SQL dependency graph; compare the full canonical and Preview PostgreSQL definitions directly. Scope is a forward-only Prisma migration and regression coverage; no `CreditExpiryService` code change, remote migration, F1 retry/activation, Cron change, ledger/lot edit, Production change, or SMS send is authorized.

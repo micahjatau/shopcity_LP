@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+import { Logger } from '@nestjs/common';
 import { readFileSync } from 'node:fs';
 import { execSync } from 'node:child_process';
 import { resolve } from 'node:path';
@@ -22,6 +23,8 @@ import {
 const repositoryRoot = resolve(__dirname, '..');
 const reconciliationMigration =
   '20261126120000_preview_financial_schema_reconciliation';
+const expiryHelperMigration =
+  '20261126130000_restore_credit_lot_expiry_derivation_helper';
 const dueAt = new Date('2027-08-01T10:00:00.000Z');
 const amountKobo = 10_000n;
 
@@ -172,6 +175,63 @@ describe('financial schema reconciliation (PostgreSQL 17.6 integration)', () => 
       new SystemActorService(),
     );
 
+    const helperBeforeRepair = await prisma.$queryRaw<
+      { helper: string | null }[]
+    >`SELECT to_regprocedure('public.derive_credit_lot_expires_at(timestamp without time zone)')::text AS helper`;
+    expect(helperBeforeRepair[0]?.helper).toBeNull();
+    const beforeMissingHelperFailure = await readFixtureState(prisma, fixture);
+    const loggerError = jest
+      .spyOn(Logger.prototype, 'error')
+      .mockImplementation(() => undefined);
+    let helperDiagnostic: Record<string, unknown> | undefined;
+    try {
+      let helperError: unknown;
+      try {
+        await service.expireDueCredit({ now: dueAt, batchSize: 10 });
+      } catch (error) {
+        helperError = error;
+      }
+      if (!(helperError instanceof Error)) {
+        throw new Error('Expected the missing-helper transaction to fail');
+      }
+      expect(helperError.constructor.name).toBe(
+        'PrismaClientUnknownRequestError',
+      );
+      helperDiagnostic = parseDiagnostic(loggerError.mock.calls[0]?.[0]);
+    } finally {
+      loggerError.mockRestore();
+    }
+    expect(helperDiagnostic).toMatchObject({
+      stage: 'lot_balance_decrement',
+      phase: 'callback',
+      errorClass: 'PrismaClientUnknownRequestError',
+      sqlState: '42883',
+      routine: 'derive_credit_lot_expires_at',
+      reason: 'undefined_function',
+    });
+    expect(await readFixtureState(prisma, fixture)).toEqual(
+      beforeMissingHelperFailure,
+    );
+
+    await applyExpiryHelperRestoreSql(container);
+    await applyExpiryHelperRestoreSql(container);
+    const helperAfterRepair = await prisma.$queryRaw<
+      { helper: string; volatility: string }[]
+    >`SELECT p.oid::regprocedure::text AS helper, p.provolatile AS volatility FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace WHERE n.nspname='public' AND p.proname='derive_credit_lot_expires_at'`;
+    expect(helperAfterRepair).toEqual([
+      {
+        helper: 'derive_credit_lot_expires_at(timestamp without time zone)',
+        volatility: 'i',
+      },
+    ]);
+    const derivedDates = await prisma.$queryRaw<
+      { leapYear: string; monthEnd: string }[]
+    >`SELECT to_char(public.derive_credit_lot_expires_at('2024-02-29 08:09:10.789'::timestamp(3)), 'YYYY-MM-DD HH24:MI:SS.MS') AS "leapYear", to_char(public.derive_credit_lot_expires_at('2024-03-31 08:09:10.789'::timestamp(3)), 'YYYY-MM-DD HH24:MI:SS.MS') AS "monthEnd"`;
+    expect(derivedDates[0]).toEqual({
+      leapYear: '2025-02-28 08:09:10.789',
+      monthEnd: '2025-03-31 08:09:10.789',
+    });
+
     const inventory = await readGuardInventory(prisma);
     expect(inventory.triggerCount).toBe(25);
     expect(inventory.checkCount).toBe(20);
@@ -232,6 +292,14 @@ describe('financial schema reconciliation (PostgreSQL 17.6 integration)', () => 
   }, 180_000);
 });
 
+function parseDiagnostic(entry: unknown): Record<string, unknown> {
+  const parsed: unknown = JSON.parse(String(entry));
+  if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
+    throw new TypeError('Diagnostic log entry must be a JSON object');
+  }
+  return parsed as Record<string, unknown>;
+}
+
 async function applyReconciliationSql(
   container: Awaited<ReturnType<PostgreSqlContainer['start']>>,
 ): Promise<void> {
@@ -270,6 +338,44 @@ async function applyReconciliationSql(
   }
 }
 
+async function applyExpiryHelperRestoreSql(
+  container: Awaited<ReturnType<PostgreSqlContainer['start']>>,
+): Promise<void> {
+  const migrationPath = resolve(
+    repositoryRoot,
+    'prisma/migrations',
+    expiryHelperMigration,
+    'migration.sql',
+  );
+  await container.copyContentToContainer([
+    {
+      content: readFileSync(migrationPath, 'utf8'),
+      target: '/tmp/expiry-helper-restoration.sql',
+    },
+  ]);
+  const result = await container.exec(
+    [
+      'psql',
+      '-v',
+      'ON_ERROR_STOP=1',
+      '-h',
+      '127.0.0.1',
+      '-U',
+      container.getUsername(),
+      '-d',
+      container.getDatabase(),
+      '-f',
+      '/tmp/expiry-helper-restoration.sql',
+    ],
+    { env: { PGPASSWORD: container.getPassword() } },
+  );
+  if (result.exitCode !== 0) {
+    throw new Error(
+      `Expiry helper restoration SQL failed in disposable PostgreSQL: ${result.output}`,
+    );
+  }
+}
+
 async function simulatePreviewDrift(prisma: PrismaClient): Promise<void> {
   for (const [table, trigger] of missingTriggers) {
     await prisma.$executeRawUnsafe(
@@ -289,6 +395,9 @@ async function simulatePreviewDrift(prisma: PrismaClient): Promise<void> {
       `DROP FUNCTION IF EXISTS public.${name}(${types})`,
     );
   }
+  await prisma.$executeRawUnsafe(
+    'DROP FUNCTION IF EXISTS public.derive_credit_lot_expires_at(timestamp without time zone)',
+  );
 
   await prisma.$executeRawUnsafe(`
     CREATE OR REPLACE FUNCTION public.validate_credit_lot_balance_evidence_for_lot(
