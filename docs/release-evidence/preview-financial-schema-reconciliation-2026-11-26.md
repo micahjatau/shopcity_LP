@@ -1,12 +1,12 @@
 # Preview financial schema reconciliation evidence and gated plan
 
-**Status: NO-GO for Preview apply and F1.** This evidence records read-only Preview findings and disposable local PostgreSQL verification only. The proposed migration has not been applied to Preview, F1 has not been retried or activated, and Production was not accessed or changed.
+**Historical status at the pre-apply checkpoint: NO-GO.** The findings and disposable verification below record that earlier checkpoint. The forward-only financial-schema reconciliation migration was subsequently applied to Preview on 2026-11-26 (checksum `c53f24375b520afeabaf93b321118ccd7af9ffec4ad489fb5ffe425782d99d1e`), followed by the helper migration. The later original-branch deployment, single F1 completion, financial/regression checks, and Cron restoration are recorded in `docs/release-evidence/preview-f1-helper-repair-closeout-2026-11-26.md`. Production remains untouched.
 
-## Scope and safeguards
+## Scope and safeguards (historical pre-apply checkpoint)
 
 - Target under review: ShopCity Preview PostgreSQL and its workerless Supabase Cron deployment. No Production database, deployment, schedule, or legacy worker was changed.
 - F1 remains inactive. F6 remains absent; F10 continues to own composite outbox work; F3/F4/F5 were not scheduled independently. The existing 28 pending SMS events remain unsent; SMS was disabled for local checks.
-- No Cron jobs, migration-history rows, Preview financial records, or ledger/credit-lot balances were modified.
+- At this original pre-apply checkpoint, no Cron jobs, migration-history rows, Preview financial records, or ledger/credit-lot balances had been modified.
 - The source worktree `/root/github-repos/micahjatau/shopcity_LP` was preserved. The review branch is `release/preview-workerless-recertify-2026-11-25`, based on `944976546e67c71366091929859541c03950550b`, in `/tmp/shopcity-preview-workerless-recertify`.
 - Read-only Vercel API inventory found five projects attached to `micahjatau/shopcity_LP` (`shopcity-api`, `shopcity-lp`, `shopcity-staging-fix`, `web`, and `shopcity-bb1951f`); all had Git deployments enabled, no ignored-build command, and `master` as the production branch. Before any push, exact-branch `git.deploymentEnabled=false` guards were added only to root `vercel.json` and `apps/web/vercel.json`, covering root-based projects and the `apps/web` project. Vercel's [Git Configuration documentation](https://vercel.com/docs/project-configuration/git-configuration) defines this branch-to-boolean setting and defaults unspecified branches to enabled. No remote Vercel project settings, hosting plans, or other branches were changed. The release contains no runtime/API changes, so the existing Preview deployment remains the scheduler target; the branch push should run GitHub CI but not deploy to the five Vercel projects.
 
@@ -29,7 +29,7 @@
 - All 28 pending SMS outbox events still map to queued messages with zero provider IDs, sent timestamps, or delivery timestamps. The Preview Vercel environment inventory showed an `SMS_PROVIDER_MODE` key but did not expose its value; the disabled setting is therefore not independently reverified. No SMS provider-mode value was read or changed.
 - Recovery is not established: Supabase reported no physical backups and PITR disabled, and no private logical backup/restore rehearsal has yet been created. Accountable Operations evidence that no Preview worker/container or third-party scheduler can invoke jobs also remains outstanding. These gaps keep Preview apply and F1 at **NO-GO**.
 
-## Proposed migration
+## Reconciliation migration proposed at the pre-apply checkpoint (subsequently applied)
 
 `prisma/migrations/20261126120000_preview_financial_schema_reconciliation/migration.sql` is a **prepared, forward-only Prisma migration**. It restores 15 missing/stale function definitions, verifies or installs 25 canonical triggers and 20 CHECK constraints, and performs a fail-closed preflight of existing financial invariants. It does not rewrite financial rows or alter columns, enums, foreign keys, indexes, RLS, policies, schedules, application workers, or SMS behavior. Incompatible existing data causes the migration transaction to fail rather than repair financial history.
 
@@ -46,7 +46,7 @@ GitNexus impact analysis for `CreditExpiryService.expireDueCredit` returned **ME
 - `npm run verify:fast`, `npm run prisma:validate`, `npm run openspec:validate`, and the full repository `npm run lint` passed. Targeted Semgrep `p/security-audit` scanned the regression spec and migration (22 rules; zero findings). For evidence commit `409468a9`, PR run `45718022703` passed all six CI jobs and security run `45718022786` passed Gitleaks, CodeQL, and Trivy. Push run `45718009005` initially failed only Frontend Checks when a Next.js runtime invariant prevented a visual test page from rendering; the PR run and failed-job rerun both passed. ZAP and Supabase Preview deployment jobs were skipped. An independent reviewer returned **OK with notes**; its RLS scope note was resolved by the fresh ten-table query, and follow-up review confirmed the evidence and conditional authorization wording. The GitNexus MCP `detect_changes` tool is not exposed; CLI/manual diff and impact review are used, and no MCP pass is claimed.
 - Migration-topology checks on disposable PostgreSQL confirmed the Supabase-only chain stops because its runtime/reporting migration expects Prisma's `LedgerEntryType`; applying the Supabase base migration after Prisma fails on duplicate `TenantStatus`. Do not use `supabase db push` for this correction; it is Prisma-chain-only.
 
-## Preview remediation gates (apply remains NO-GO until all open items close)
+## Historical pre-apply remediation gates (superseded by the final closeout)
 
 1. The independent migration review returned **OK with notes**, and its follow-up confirmed the fresh ten-table RLS evidence resolves the review note. The prior owner attestation that Supabase Cron is the sole scheduler is not independent operational verification. Operations must provide accountable-owner evidence that no Preview worker, container, or third-party scheduler can invoke these jobs.
 2. Fresh guarded preflight is complete and recorded above. Immediately before any apply, create a protected logical backup and complete an isolated restore rehearsal. Physical backup/PITR remains unavailable. Also obtain safe runtime evidence that Preview SMS remains disabled; the current Vercel environment listing did not disclose the value. Reconfirm identity, history/checksums, financial invariants, deployment, Cron inventory, and pending SMS state immediately before the write.

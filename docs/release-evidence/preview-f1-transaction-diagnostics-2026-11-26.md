@@ -2,7 +2,7 @@
 
 ## Status
 
-**Root cause identified; repair prepared, not applied. Preview processing remains NO-GO.** No second Preview F1 request, Preview migration, deployment, Cron change, SMS send/replay, PR merge, or Production operation occurred during this diagnosis.
+**Historical diagnosis checkpoint:** root cause identified; repair was prepared but not yet applied at that time. The later Preview migration, connectivity, and current deployment blocker are recorded in `docs/release-evidence/preview-f1-helper-repair-preflight-continuation-2026-11-26.md`. No second F1 request, migration, deployment, Cron change, SMS send/replay, PR merge, or Production operation occurred during the diagnosis itself.
 
 ## Root cause
 
@@ -52,7 +52,7 @@ The first post-repair harness reached its assertions but encountered a `BigInt` 
 - Added failure-only per-attempt transaction-stage, callback/commit phase, monotonic duration, and allowlisted Prisma/PostgreSQL error metadata diagnostics. The original exception is rethrown unchanged; success and retry semantics are preserved.
 - Focused unit tests cover every callback stage, commit failure, SQLSTATE/routine extraction, sensitive-value exclusion, logger failure, no success logs, and unchanged retry behavior.
 - GitNexus reports `CreditExpiryService.expireDueCredit` as MEDIUM risk (14 impacted symbols, six direct callers, two affected processes). It cannot index SQL functions: the helper impact result is **UNKNOWN/Target not found**, not zero. The SQL dependencies were manually traced in Preview catalogs and migration source.
-- The forward-only migration is prepared for review/CI only. It is **not applied to Preview or Production**. Do not retry F1 or activate Cron job 2 until the migration is separately authorized, applied, and verified; Preview remains NO-GO.
+- At this diagnosis checkpoint, the forward-only migration was prepared for review/CI and had **not yet been applied**. It was subsequently applied and verified on Preview. The selected original-branch release retained its existing POS HMAC key without retrieval or rotation. Deployment, the single authorized post-repair F1 invocation, financial reconciliation, regression verification, and Cron restoration are recorded in `preview-f1-helper-repair-closeout-2026-11-26.md`. The helper migration remains unapplied to Production.
 
 ## Local verification (2026-11-26)
 
